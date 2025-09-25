@@ -1,6 +1,6 @@
 import os
 import json
-
+import matplotlib.pyplot as plt
 
 def find_input_file_in_subfolders(
     dirname=os.path.dirname(__file__), file_name="exampleInput.json"
@@ -111,3 +111,15 @@ def save_results(json_tmp_file):
         json.dump(data, f, indent=4)
 
     print(f"Data written to {file_name}")
+
+def plot_results(json_output):
+
+    result_container = {}
+    if json_output is not None:
+        with open(json_output, "r") as json_file:
+            result_container = json.load(json_file)
+
+    plt.figure()
+    for i in range(4):
+        plt.plot(result_container["results"][0]["responses"][i]["receiverResultsUncorrected"])
+    plt.show()
