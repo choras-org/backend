@@ -6,7 +6,7 @@ import scipy.io
 import gmsh
 import shutil
 
-from Diffusion_Module.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
+from acousticDE.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
 
 import json
 
@@ -15,6 +15,8 @@ from math import log, sqrt
 
 import importlib
 import edg_acoustics
+
+import matplotlib.pyplot as plt
 
 print(edg_acoustics.__file__)
 
@@ -134,6 +136,10 @@ def dg_method(json_file_path=None):
     # --------------------
     rho0 = 1.213  # density of air at 20 degrees Celsius in kg/m^3
 
+    # Approximation degrees
+    Nx = 4  # in space
+    Nt = 4  # in time
+
     if result_container:
         simulation_settings = result_container["simulationSettings"]
         freq_upper_limit = simulation_settings["freq_upper_limit"]
@@ -145,11 +151,17 @@ def dg_method(json_file_path=None):
 
         uploads_folder = os.path.dirname(mesh_filename)  ## directory of file
 
-        PPW = 2
+        PPW = 6
         minWavelength = c0 / freq_upper_limit
 
-        print("lc = " + str(minWavelength / PPW))
-        generate_mesh(geo_filename, mesh_filename, minWavelength / PPW)
+        # https://nikolasborrel.github.io/about/src/borrel_jensen_masters_thesis2012_revised.pdf
+        lc = c0 / (freq_upper_limit * PPW) * Nx
+
+        print("lc = " + str(lc))
+        generate_mesh(geo_filename, mesh_filename, lc)
+
+        if not gmsh.is_initialized():
+            gmsh.initialize()
 
         test = gmsh.open(mesh_filename)
 
@@ -186,10 +198,6 @@ def dg_method(json_file_path=None):
         # {"label": 11, "RI": 0.9}
     ]  # extra labels for real-valued impedance boundary condition, if needed. The label should be the similar to the label in BC_labels. Since it's frequency-independent, only "RI", the real-valued reflection coefficient, is required. If not needed, just clear the elements of this list and keep the empty list.
 
-    # Approximation degrees
-    Nx = 4  # in space
-    Nt = 4  # in time
-
     if result_container:
         # Obtain parameters from front end
         CFL = 1
@@ -213,8 +221,6 @@ def dg_method(json_file_path=None):
             recy[0][i] = result_container["results"][0]["responses"][i]["y"]
             recz[0][i] = result_container["results"][0]["responses"][i]["z"]
         rec = numpy.vstack((recx, recy, recz))  # dim:[3,n_rec]
-
-
 
     else:
         CFL = 0.5  # CFL number, default is 0.5.
@@ -294,6 +300,26 @@ def dg_method(json_file_path=None):
     )  # brute_force or scipy(default) approach to locate the receiver points in the mesh
 
     tsi_time_integrator = edg_acoustics.TSI_TI(sim.RHS_operator, sim.dtscale, CFL, Nt=3)
+
+    # Obtain initial condition
+    # pressure = sim.P.flatten()
+    # x = sim.xyz[0].flatten() # + np.random.uniform(0, 0.1, len(sim.xyz[0].flatten()))
+    # y = sim.xyz[1].flatten() # + np.random.uniform(0, 0.1, len(sim.xyz[0].flatten()))
+    # z = sim.xyz[2].flatten() # + np.random.uniform(0, 0.1, len(sim.xyz[0].flatten()))
+
+    # Plot initial condition
+    # fig = plt.figure()
+    # ax = fig.add_subplot(projection='3d')
+
+    # Pplot = pressure.copy()
+    # Pplot[Pplot < 0.001] = 0
+    # mappable = ax.scatter(
+    #             x, 
+    #             y, 
+    #             z)
+    # plt.colorbar(mappable)
+    # plt.show()
+
     sim.init_TimeIntegrator(tsi_time_integrator)
     sim.time_integration(
         total_time=impulse_length,
@@ -356,3 +382,4 @@ if __name__ == "__main__":
 
     # Plot the results
     plot_results(json_tmp_file)
+

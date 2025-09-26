@@ -7,14 +7,13 @@
         "wall3": "0.6, 0.69, 0.71, 0.7, 0.63",
         "wall4": "0.6, 0.69, 0.71, 0.7, 0.63"
     },
-    "msh_path": "MeasurementRoom.msh",
     "geo_path": "MeasurementRoom.geo",
     "results": [
         {
             "percentage": 100,
-            "sourceX": 2,
-            "sourceY": 2,
-            "sourceZ": 1.5,
+            "sourceX": 3,
+            "sourceY": 3,
+            "sourceZ": 2,
             "resultType": "DG",
             "frequencies": [
                 125,
@@ -23,6 +22,13 @@
                 1000,
                 2000
             ],
+            "sourceDistribution":
+            {
+                "x": [],
+                "y": [],
+                "z": [],
+                "pressure": []
+            },
             "responses": [
                 {
                     "x": 1,
@@ -58,7 +64,7 @@
     "simulationSettings": {
         "freq_upper_limit": 200,
         "dg_c0": 343,
-        "dg_ir_length": 0.1,
+        "dg_ir_length": 0.01,
         "dg_absorption_override": "no",
         "dg_R": 0.99
     },
