@@ -1,19 +1,12 @@
 # region Import Libraries
 import os
-import glob
+from pathlib import Path
 import numpy
-import scipy.io
 import gmsh
-import shutil
-
 from Diffusion_Module.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
-
 import json
-
 import numpy as np
 from math import log, sqrt
-
-import importlib
 import edg_acoustics
 
 print(edg_acoustics.__file__)
@@ -122,121 +115,86 @@ def surface_materials(result_container, c0):
     )
 
 
-def dg_method(json_file_path=None):
-
-    result_container = {}
-    if json_file_path is not None:
-        with open(json_file_path, "r") as json_file:
-            result_container = json.load(json_file)
+def dg_method(json_file_path: str | Path):
+    with open(json_file_path, "r") as json_file:
+        result_container = json.load(json_file)
 
     # --------------------
     # Block 1: User input
     # --------------------
-    rho0 = 1.213  # density of air at 20 degrees Celsius in kg/m^3
+    simulation_settings = result_container["simulationSettings"]
+    base_path = simulation_settings["base_path"]
+    output_results = simulation_settings["output_filename"]
+    file_format = simulation_settings["file_format"]
+    
+    # clean up 
+    Path(os.path.join(base_path, "output", f"{output_results}.{file_format}")).unlink(missing_ok=True)
+    Path(os.path.join(base_path, "output", "results.json")).unlink(missing_ok=True)
+    
+    freq_upper_limit = simulation_settings["freq_upper_limit"]
 
-    if result_container:
-        simulation_settings = result_container["simulationSettings"]
-        freq_upper_limit = simulation_settings["freq_upper_limit"]
+    mesh_filename = result_container["msh_path"]
+    geo_filename = result_container["geo_path"]
 
-        mesh_filename = result_container["msh_path"]
-        geo_filename = result_container["geo_path"]
+    c0 = simulation_settings["dg_c0"]  # speed of sound in air
+    rho0 = simulation_settings["rho0"] # density of air in kg/m^3
 
-        c0 = simulation_settings["dg_c0"]  # speed of sound in air
+      # total simulation time in seconds
+    impulse_length = simulation_settings["dg_ir_length"]    
 
-        uploads_folder = os.path.dirname(mesh_filename)  ## directory of file
+    CFL = simulation_settings.get("cfl", 1)
+    Nx = simulation_settings.get("poly_order", 4)
+    PPW = simulation_settings.get("ppw", 2)
+    minWavelength = c0 / freq_upper_limit
 
-        PPW = 2
-        minWavelength = c0 / freq_upper_limit
+    print("lc = " + str(minWavelength / PPW))
+    generate_mesh(geo_filename, mesh_filename, minWavelength / PPW * Nx)
 
-        print("lc = " + str(minWavelength / PPW))
-        generate_mesh(geo_filename, mesh_filename, minWavelength / PPW)
+    # test = gmsh.open(mesh_filename)
 
-        test = gmsh.open(mesh_filename)
+    # FUNCTION CALLED HERE
+    (
+        materialNames,
+        absorption_coefficient,
+        surface_absorption,
+        triangle_face_absorption,
+    ) = surface_materials(result_container, c0)
+    BC_labels = {}
+    RIvals = {}
+    i = 0
+    for ac in absorption_coefficient:
+        BC_labels[materialNames[i]] = ac
 
-        # FUNCTION CALLED HERE
-        (
-            materialNames,
-            absorption_coefficient,
-            surface_absorption,
-            triangle_face_absorption,
-        ) = surface_materials(result_container, c0)
-        BC_labels = {}
-        RIvals = {}
-        i = 0
-        for ac in absorption_coefficient:
-            BC_labels[materialNames[i]] = ac
+        # r = sqrt(1-a)
+        RIvals[materialNames[i]] = sqrt(
+            1 - sum(absorption_coefficient[ac]) / len(absorption_coefficient[ac])
+        )
 
-            # r = sqrt(1-a)
-            RIvals[materialNames[i]] = sqrt(
-                1 - sum(absorption_coefficient[ac]) / len(absorption_coefficient[ac])
-            )
-
-            i += 1
-
-    else:
-        mesh_filename = "/Users/SilvinW/repositories/backend/edg-acoustics/examples/scenario1/scenario1_coarser.msh"
-
-        BC_labels = {
-            "hard wall": 11,
-            "carpet": 13,
-            "panel": 14,
-        }
+        i += 1
 
     real_valued_impedance_boundary = [
         # {"label": 11, "RI": 0.9}
     ]  # extra labels for real-valued impedance boundary condition, if needed. The label should be the similar to the label in BC_labels. Since it's frequency-independent, only "RI", the real-valued reflection coefficient, is required. If not needed, just clear the elements of this list and keep the empty list.
 
-    # Approximation degrees
-    Nx = 4  # in space
-    Nt = 4  # in time
-
-    if result_container:
-        # Obtain parameters from front end
-        CFL = 1
-        impulse_length = simulation_settings[
-            "dg_ir_length"
-        ]  # total simulation time in seconds
-
-        monopole_xyz = numpy.array(
-            [
-                result_container["results"][0]["sourceX"],
-                result_container["results"][0]["sourceY"],
-                result_container["results"][0]["sourceZ"],
-            ]
-        )
-        numrec = len(result_container["results"][0]["responses"])
-        recx = numpy.zeros((1, numrec))
-        recy = numpy.zeros((1, numrec))
-        recz = numpy.zeros((1, numrec))
-        for i in range(numrec):
-            recx[0][i] = result_container["results"][0]["responses"][i]["x"]
-            recy[0][i] = result_container["results"][0]["responses"][i]["y"]
-            recz[0][i] = result_container["results"][0]["responses"][i]["z"]
-        rec = numpy.vstack((recx, recy, recz))  # dim:[3,n_rec]
-
-
-
-    else:
-        CFL = 0.5  # CFL number, default is 0.5.
-        c0 = 343  # speed of sound in air at 20 degrees Celsius in m/s
-
-        freq_upper_limit = 200  # upper limit of the frequency content of the source signal in Hz. The source signal is a Gaussian pulse with a frequency content up to this limit.
-
-        impulse_length = 0.1  # total simulation time in seconds
-
-        monopole_xyz = numpy.array(
-            [3.04, 2.59, 1.62]
-        )  # x,y,z coordinate of the source in the room
-
-        recx = numpy.array([4.26])
-        recy = numpy.array([1.76])
-        recz = numpy.array([1.62])
-        rec = numpy.vstack((recx, recy, recz))  # dim:[3,n_rec]
+    monopole_xyz = numpy.array(
+        [
+            result_container["results"][0]["sourceX"],
+            result_container["results"][0]["sourceY"],
+            result_container["results"][0]["sourceZ"],
+        ]
+    )
+    numrec = len(result_container["results"][0]["responses"])
+    recx = numpy.zeros((1, numrec))
+    recy = numpy.zeros((1, numrec))
+    recz = numpy.zeros((1, numrec))
+    for i in range(numrec):
+        recx[0][i] = result_container["results"][0]["responses"][i]["x"]
+        recy[0][i] = result_container["results"][0]["responses"][i]["y"]
+        recz[0][i] = result_container["results"][0]["responses"][i]["z"]
+    rec = numpy.vstack((recx, recy, recz))  # dim:[3,n_rec]
 
     save_every_Nstep = 10  # save thce results every N steps
     temporary_save_Nstep = 500  # save the results every N steps temporarily during the simulation. The temporary results will be saved in the root directory of this repo.
-
-    result_filename = "result"  # name of the result file. The result file will be saved in the same folder as this script. The result file will be saved in .mat format.
 
     # --------------------------------------------------------------------------------
     # Block 2: Initialize the simulation，run the simulation and save the results
@@ -293,6 +251,17 @@ def dg_method(json_file_path=None):
         rec, "brute_force"
     )  # brute_force or scipy(default) approach to locate the receiver points in the mesh
 
+    # write initial conditition
+    if file_format == "npz":
+        ic_mesh = np.array([sim.xyz[0].flatten(), sim.xyz[0].flatten(), sim.xyz[0].flatten()])
+        numpy.savez(
+            os.path.join(base_path, "output", output_results),
+            IC_pressure=sim.P.flatten(),
+            IC_mesh=ic_mesh,
+            )
+    else:
+        raise NotImplementedError("file_format")
+
     tsi_time_integrator = edg_acoustics.TSI_TI(sim.RHS_operator, sim.dtscale, CFL, Nt=3)
     sim.init_TimeIntegrator(tsi_time_integrator)
     sim.time_integration(
@@ -307,24 +276,23 @@ def dg_method(json_file_path=None):
 
     results.apply_correction()
 
-    if result_container:
-        try:
-            with open(json_file_path, "r", encoding="utf-8") as file:
-                data = json.load(file)
-            data["results"][0]["responses"][0]["receiverResults"] = results.IRnew.tolist()
-            for i in range(rec.shape[1]):
-                data["results"][0]["responses"][i]["receiverResultsUncorrected"] = results.IRold[i].tolist()
-            with open(json_file_path, "w", encoding="utf-8") as file:
-                json.dump(data, file, indent=4)
+    try:
+        with open(json_file_path, "r", encoding="utf-8") as file:
+            data = json.load(file)
+        data["results"][0]["responses"][0]["receiverResults"] = results.IRnew.tolist()
+        for i in range(rec.shape[1]):
+            data["results"][0]["responses"][i]["receiverResultsUncorrected"] = results.IRold[i].tolist()
+        with open(json_file_path, "w", encoding="utf-8") as file:
+            json.dump(data, file, indent=4)
 
-        except Exception:
-            print("Error saving the simulation solver settings")
-            raise Exception("Error saving the simulation solver settings")
+    except Exception:
+        print("Error saving the simulation solver settings")
+        raise Exception("Error saving the simulation solver settings")
     # if result_container:
     #     result_container['results'][0]['responses'][0]['IR']['IR_Uncorrected'] = results.IRold
 
-    # result_filename = os.path.join(uploads_folder, result_filename)
-    # results.write_results(result_filename, "mat")
+
+    results.write_results(os.path.join(base_path, "output", output_results), file_format, append=True)
 
     # load newresult.npy
     # data = numpy.load("./examples/newresult.npz", allow_pickle=True)
@@ -355,4 +323,4 @@ if __name__ == "__main__":
     save_results(json_tmp_file)
 
     # Plot the results
-    plot_results(json_tmp_file)
+    # plot_results(json_tmp_file)

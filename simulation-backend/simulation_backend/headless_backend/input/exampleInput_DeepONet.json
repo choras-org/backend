@@ -57,14 +57,18 @@
     ],
     "simulationSettings": {
         "file_format": "npz",
-        "base_path": "simulation-backend/simulation_backend/headless_backend/output",
-        "output_results": "dg_sim_results",
+        "base_path": "simulation-backend/simulation_backend/headless_backend",
+        "output_filename": "dg_sim_results",
+
         "freq_upper_limit": 200,
         "dg_c0": 343,
         "rho0": 1.213,
-        "dg_ir_length": 0.1,        
+        "dg_ir_length": 0.05,
         "dg_absorption_override": "no",
-        "dg_R": 0.5
+        "dg_R": 0.5,
+        "poly_order": 4,
+        "ppw": 2,
+        "deeponet_json_path": "deeponet_setup.json"
     },
     "settingsPreset": "Advanced"
 }
