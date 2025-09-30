@@ -77,9 +77,9 @@ def surface_materials(result_container, c0):
         abscoeff = abscoeff.split(",")
 
         if result_container:
-            simulation_settings = result_container["simulationSettings"]
-            if simulation_settings["dg_absorption_override"] == "yes":
-                abscoeff_list = [1 - simulation_settings["dg_R"] ** 2] * len(abscoeff)
+            simulation_settings = result_container["dg_setup"]
+            if simulation_settings["absorption_override"] == "yes":
+                abscoeff_list = [1 - simulation_settings["R"] ** 2] * len(abscoeff)
             else:
                 # abscoeff = [float(i) for i in abscoeff][-1] #for one frequency
                 abscoeff_list = [float(i) for i in abscoeff]  # for multiple frequencies
@@ -122,25 +122,26 @@ def dg_method(json_file_path: str | Path):
     # --------------------
     # Block 1: User input
     # --------------------
-    simulation_settings = result_container["simulationSettings"]
-    base_path = simulation_settings["base_path"]
+    simulation_settings = result_container["dg_setup"]
+    output_path = simulation_settings["output_path"]
     output_results = simulation_settings["output_filename"]
     file_format = simulation_settings["file_format"]
     
-    # clean up 
-    Path(os.path.join(base_path, "output", f"{output_results}.{file_format}")).unlink(missing_ok=True)
-    Path(os.path.join(base_path, "output", "results.json")).unlink(missing_ok=True)
+    # clean up
+    os.makedirs(output_path, exist_ok=True)
+    Path(os.path.join(output_path, f"{output_results}.{file_format}")).unlink(missing_ok=True)
+    Path(os.path.join(output_path, "results.json")).unlink(missing_ok=True)
     
     freq_upper_limit = simulation_settings["freq_upper_limit"]
 
     mesh_filename = result_container["msh_path"]
     geo_filename = result_container["geo_path"]
 
-    c0 = simulation_settings["dg_c0"]  # speed of sound in air
+    c0 = simulation_settings["c0"]  # speed of sound in air
     rho0 = simulation_settings["rho0"] # density of air in kg/m^3
 
       # total simulation time in seconds
-    impulse_length = simulation_settings["dg_ir_length"]    
+    impulse_length = simulation_settings["ir_length"]    
 
     CFL = simulation_settings.get("cfl", 1)
     Nx = simulation_settings.get("poly_order", 4)
@@ -149,8 +150,6 @@ def dg_method(json_file_path: str | Path):
 
     print("lc = " + str(minWavelength / PPW))
     generate_mesh(geo_filename, mesh_filename, minWavelength / PPW * Nx)
-
-    # test = gmsh.open(mesh_filename)
 
     # FUNCTION CALLED HERE
     (
@@ -238,7 +237,6 @@ def dg_method(json_file_path: str | Path):
     mesh = edg_acoustics.Mesh(mesh_filename, BC_labels)
 
     IC = edg_acoustics.Monopole_IC(monopole_xyz, freq_upper_limit)
-
     sim = edg_acoustics.AcousticsSimulation(rho0, c0, Nx, mesh, BC_labels)
 
     flux = edg_acoustics.UpwindFlux(rho0, c0, sim.n_xyz)
@@ -255,7 +253,7 @@ def dg_method(json_file_path: str | Path):
     if file_format == "npz":
         ic_mesh = np.array([sim.xyz[0].flatten(), sim.xyz[0].flatten(), sim.xyz[0].flatten()])
         numpy.savez(
-            os.path.join(base_path, "output", output_results),
+            os.path.join(output_path, output_results),
             IC_pressure=sim.P.flatten(),
             IC_mesh=ic_mesh,
             )
@@ -292,11 +290,7 @@ def dg_method(json_file_path: str | Path):
     #     result_container['results'][0]['responses'][0]['IR']['IR_Uncorrected'] = results.IRold
 
 
-    results.write_results(os.path.join(base_path, "output", output_results), file_format, append=True)
-
-    # load newresult.npy
-    # data = numpy.load("./examples/newresult.npz", allow_pickle=True)
-    # tempdata = numpy.load("./results_on_the_run.npz", allow_pickle=True)
+    results.write_results(os.path.join(output_path, output_results), file_format, append=True)
     print("Finished!")
 
 

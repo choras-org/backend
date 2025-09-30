@@ -7,24 +7,27 @@ import h5py
 import shutil
 
 from deeponet_acoustics.train3D import train
+from deeponet_acoustics.eval3D import evaluate
 from simulation_backend.DGinterface import dg_method
 from simulation_backend.headless_backend.HelperFunctions import plot_results
 
-def deeponet_method(json_file_path: str | Path):
-    # generate data for deeponet training
-    gmsh.initialize()
-    dg_method(json_tmp_file)
-    gmsh.finalize()
-
+def deeponet_method(json_file_path: str | Path):        
     with open(json_file_path, "r") as json_file:
         settings = json.load(json_file)
 
-    simulation_settings = settings["simulationSettings"]
-    base_path = simulation_settings["base_path"]
-    output_filename = simulation_settings["output_filename"]
-    file_format = simulation_settings["file_format"]
+    # generate data for deeponet training
+    gmsh.initialize()
+    dg_method(json_file_path)
+    gmsh.finalize()
 
-    results_dg = np.load(os.path.join(base_path, "output", f"{output_filename}.{file_format}"))
+    dg_settings = settings["dg_setup"]
+    output_path = dg_settings["output_path"]
+    output_filename = dg_settings["output_filename"]
+    file_format = dg_settings["file_format"]
+
+    os.makedirs(dg_settings["output_path"], exist_ok=True)
+
+    results_dg = np.load(os.path.join(output_path, f"{output_filename}.{file_format}"))
 
     mesh = np.array(results_dg["rec"]).T.astype(np.float64)
     pressures = np.array(results_dg["IR_Uncorrected"]).T.astype(np.float16)
@@ -32,7 +35,7 @@ def deeponet_method(json_file_path: str | Path):
 
     source_positions = np.array([results_dg["source_xyz"]]).astype(np.float64)
 
-    # TODO: for now we only have 1 source
+    # TODO: DG only supports 1 source
     for i, source_position in enumerate(source_positions):
         umesh = np.array(results_dg["IC_mesh"]).T.astype(np.float64)
         upressures = np.array(results_dg["IC_pressure"]).astype(np.float16)
@@ -46,10 +49,10 @@ def deeponet_method(json_file_path: str | Path):
         upressures = upressures[unique_indices]
         print(f"# coordinates after removing duplicates: {umesh.shape[0]}")
 
-        ### TODO IMPORTANT: data needs to be nornalized to perform well
+        ###!!! TODO IMPORTANT: data needs to be normalized to perform well !!!###
 
         # Save to HDF5
-        file_path_train_h5 = os.path.join(base_path, "input_deeponet", "train_data", f"src{i}", f"{output_filename}.h5")
+        file_path_train_h5 = os.path.join(output_path, "train_data", f"src{i}", f"{output_filename}.h5")
         os.makedirs(os.path.dirname(file_path_train_h5), exist_ok=True)
         Path(file_path_train_h5).unlink(missing_ok=True)    
 
@@ -66,18 +69,18 @@ def deeponet_method(json_file_path: str | Path):
             ds_p.attrs["umesh_shape"] = ushape  # attach as attribute
             f.create_dataset("upressures", data=upressures)
 
-        simulation_params_path_train_json = os.path.join(base_path, "input_deeponet", "train_data", f"src{i}", "simulation_parameters.json")
+        simulation_params_path_train_json = os.path.join(output_path, "train_data", f"src{i}", "simulation_parameters.json")
         with open(simulation_params_path_train_json, "w") as json_file:
             json_file.write(
                 json.dumps(
                     {
                         "SimulationParameters": {
                             "SourcePosition": source_position.tolist(),
-                            "c": simulation_settings["dg_c0"],
+                            "c": dg_settings["c0"],
                             "dt": results_dg["dt_old"].tolist(),
-                            "fmax": simulation_settings["freq_upper_limit"],
-                            "rho": simulation_settings["rho0"],
-                            "sigma": simulation_settings["dg_R"],
+                            "fmax": dg_settings["freq_upper_limit"],
+                            "rho": dg_settings["rho0"],
+                            "sigma": dg_settings["R"],
                         }
                     },
                     indent=4,
@@ -85,23 +88,23 @@ def deeponet_method(json_file_path: str | Path):
             )
 
         # for now, use the same data for training and validation
-        file_path_val_h5 = os.path.join(base_path, "input_deeponet", "val_data", f"src{i}", f"{output_filename}.h5")
+        file_path_val_h5 = os.path.join(output_path, "val_data", f"src{i}", f"{output_filename}.h5")
         os.makedirs(os.path.dirname(file_path_val_h5), exist_ok=True)
         Path(file_path_val_h5).unlink(missing_ok=True)
         shutil.copy(file_path_train_h5, file_path_val_h5)
 
         # we need the simulation_parameters.json at the train data root
-        simulation_params_path_root_json = os.path.join(base_path, "input_deeponet", "train_data", "simulation_parameters.json")
+        simulation_params_path_root_json = os.path.join(output_path, "train_data", "simulation_parameters.json")
         Path(simulation_params_path_root_json).unlink(missing_ok=True)
         shutil.copy(simulation_params_path_train_json, simulation_params_path_root_json)
 
         # ... and for the validation data
-        simulation_params_path_val_json = os.path.join(base_path, "input_deeponet", "val_data", f"src{i}", "simulation_parameters.json")
+        simulation_params_path_val_json = os.path.join(output_path, "val_data", f"src{i}", "simulation_parameters.json")
         Path(simulation_params_path_val_json).unlink(missing_ok=True)
         shutil.copy(simulation_params_path_train_json, simulation_params_path_val_json)
-
-    deeponet_json_path = os.path.join(os.getcwd(), base_path, "input_deeponet", simulation_settings["deeponet_json_path"])
-    train(deeponet_json_path)
+    
+    train(settings["deeponet_train_setup"])
+    evaluate(settings["deeponet_train_setup"], settings["deeponet_inference_setup"])
         
 
 if __name__ == "__main__":
