@@ -7,7 +7,7 @@ name = "simulation_backend"
 version = "0.1.0"
 description = "Simulation backend"
 
-requires-python = "3.10,3.11"
+requires-python = ">=3.10,<=3.11"
 
 dependencies = [
     'alabaster==0.7.16',
