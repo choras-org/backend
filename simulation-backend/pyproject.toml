@@ -10,8 +10,7 @@ description = "Simulation backend"
 requires-python = ">=3.10,<3.12"
 
 dependencies = [
-    'alabaster==0.7.16',
-    'alembic==1.10.2',
+    'alembic==1.10.2', # For Flask-Migrate
     'amqp==5.2.0',
     'apispec==6.3.0',
     'asgiref==3.7.2',
@@ -20,9 +19,8 @@ dependencies = [
     'Babel==2.15.0',
     'backcall==0.2.0',
     'billiard==4.2.0',
-    'black==25.1.0',
     'blinker==1.5',
-    'celery==5.4.0',
+    'celery==5.4.0', # scheduling tasks
     'certifi==2023.5.7',
     'cfgv==3.4.0',
     'charset-normalizer==3.3.2',
@@ -33,20 +31,18 @@ dependencies = [
     'colorama==0.4.6',
     'comm==0.1.2',
     'contourpy==1.2.1',
-    'coverage==7.2.7',
     'cycler==0.12.1',
     'debugpy==1.6.4',
     'decorator==5.1.1',
     'distlib==0.3.6',
-    'Django==4.2.6',
+    'Django==4.2.6', # database
     'dnspython==2.6.1',
     'docutils==0.21.2',
     'entrypoints==0.4',
     'eventlet==0.36.1',
     'executing==1.2.0',
     'filelock==3.12.2',
-    'flake8==6.1.0',
-    'Flask==2.2.5',
+    'Flask==2.2.5', # web framework
     'Flask-Cors==3.0.10',
     'Flask-JWT-Extended==4.4.4',
     'Flask-Migrate==4.0.4',
@@ -54,7 +50,7 @@ dependencies = [
     'flask-smorest==0.40.0',
     'Flask-SQLAlchemy==3.0.3',
     'fonttools==4.53.1',
-    'gmsh==4.13.1',
+    'gmsh==4.13.1', # meshing
     'greenlet==2.0.2',
     'gunicorn==20.1.0',
     'identify==2.6.0',
@@ -63,10 +59,9 @@ dependencies = [
     'importlib-metadata==6.7.0',
     'ipykernel==6.19.2',
     'ipython==8.10.0',
-    'isort==5.12.0',
     'itsdangerous==2.1.2',
     'jedi==0.18.2',
-    'Jinja2==3.1.2',
+    'Jinja2==3.1.2', # templating
     'jsonschema==4.22.0',
     'jsonschema-specifications==2023.12.1',
     'jupyter_client==7.4.8',
@@ -79,13 +74,13 @@ dependencies = [
     'marshmallow==3.19.0',
     'mccabe==0.7.0',
     'mdurl==0.1.2',
-    'meshio==5.3.5',
+    'meshio==5.3.5', # mesh reader/writer
     'mypy-extensions==1.0.0',
     'nest-asyncio==1.5.6',
     'networkx==3.3',
     'nodeenv==1.9.1',
     'numpy==1.26.4',
-    'numpy-stl==3.1.1',
+    'numpy-stl==3.1.1', # STL file reader/writer
     'openpyxl==3.1.5',
     'packaging==22.0',
     'pandas==2.2.3',
@@ -103,34 +98,25 @@ dependencies = [
     'psycopg2-binary==2.9.6',
     'ptyprocess==0.7.0',
     'pure-eval==0.2.2',
-    'pycodestyle==2.11.1',
-    'pyflakes==3.1.0',
     'pyglet==1.5.29',
     'Pygments==2.18.0',
     'PyJWT==2.6.0',
     'pyparsing==3.1.2',
     'python-dateutil==2.8.2',
-    'python-dotenv==1.0.0',
+    'python-dotenv==1.0.0', # manage env vars in .env files
     'python-utils==3.8.2',
     'pytz==2023.3',
     'PyYAML==6.0.2',
     'pyzmq==24.0.1',
     'referencing==0.35.1',
     'requests==2.32.3',
-    'rhino3dm==8.6.1',
+    'rhino3dm==8.6.1', # geometry
     'rich==13.7.1',
     'rpds-py==0.18.1',
     'scipy==1.14.0',
     'six==1.16.0',
     'snowballstemmer==2.2.0',
     'soundfile==0.13.1',
-    'Sphinx==7.3.7', # Docs
-    'sphinxcontrib-applehelp==1.0.8', # docs, potentially secondary requirement
-    'sphinxcontrib-devhelp==1.0.6', # docs, potentially secondary requirement
-    'sphinxcontrib-htmlhelp==2.0.5', # docs, potentially secondary requirement
-    'sphinxcontrib-jsmath==1.0.1', # docs, potentially secondary requirement
-    'sphinxcontrib-qthelp==1.0.7', # docs, potentially secondary requirement
-    'sphinxcontrib-serializinghtml==1.1.10', # docs, potentially secondary requirement
     'SQLAlchemy==2.0.7',
     'sqlparse==0.4.4',
     'stack-data==0.6.2',
@@ -147,17 +133,39 @@ dependencies = [
     'watchdog==4.0.1',
     'wcwidth==0.2.5',
     'webargs==8.2.0',
-    'Werkzeug==2.2.3',
+    'Werkzeug==2.2.3', # Flask dependency
     'wincertstore==0.2',
     'zipp==3.15.0',
-    'pytest',
     'locust',
     'ezdxf',
     'modepy',
-    'pydata-sphinx-theme', # Docs theme
-    'myst_parser', # Docs, required for markdown support
-    'sphinx-design', # Docs, required for tabs and other design elements
-    'sphinx-copybutton', # Docs, required for copy buttons in code blocks
-    'sphinx-gallery', # Docs, required for example gallery
-    'matplotlib<3.7.0', # Docs, required for plot directive
+]
+
+[project.optional-dependencies]
+
+docs = [
+    'Sphinx==7.3.7',
+    'sphinxcontrib-applehelp==1.0.8',
+    'sphinxcontrib-devhelp==1.0.6',
+    'sphinxcontrib-htmlhelp==2.0.5',
+    'sphinxcontrib-jsmath==1.0.1',
+    'sphinxcontrib-qthelp==1.0.7',
+    'sphinxcontrib-serializinghtml==1.1.10',
+    'pydata-sphinx-theme',
+    'myst_parser',
+    'sphinx-design',
+    'sphinx-copybutton',
+    'sphinx-gallery',
+    'matplotlib',
+    'alabaster==0.7.16',
+]
+
+tests = [
+    'pytest',
+    'coverage==7.2.7',
+    'black==25.1.0',
+    'isort==5.12.0',
+    'flake8==6.1.0',
+    'pycodestyle==2.11.1',
+    'pyflakes==3.1.0',
 ]
