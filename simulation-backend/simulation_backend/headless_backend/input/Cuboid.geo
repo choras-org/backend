@@ -1,11 +1,16 @@
-Point(1) = { 0.000000, 5.100000, 0.000000, 1.0 };
-Point(2) = { 6.210000, 4.000000, 0.000000, 1.0 };
-Point(3) = { 5.520000, 0.000000, 0.000000, 1.0 };
-Point(4) = { 0.000000, 0.000000, 0.000000, 1.0 };
-Point(5) = { 0.000000, 5.100000, 3.300000, 1.0 };
-Point(6) = { 6.210000, 4.000000, 3.300000, 1.0 };
-Point(7) = { 0.000000, 0.000000, 3.300000, 1.0 };
-Point(8) = { 5.520000, 0.000000, 3.300000, 1.0 };
+cl__1 = 1.0;
+xdim = 2;
+ydim = 2;
+zdim = 2;
+
+Point(1) = { 0.000000, ydim, 0.000000, cl__1 };
+Point(2) = { xdim, ydim, 0.000000, cl__1 };
+Point(3) = { xdim, 0.000000, 0.000000, cl__1 };
+Point(4) = { 0.000000, 0.000000, 0.000000, cl__1 };
+Point(5) = { 0.000000, ydim, zdim, cl__1 };
+Point(6) = { xdim, ydim, zdim, cl__1 };
+Point(7) = { 0.000000, 0.000000, zdim, cl__1 };
+Point(8) = { xdim, 0.000000, zdim, cl__1 };
 
 Line(1) = { 1, 2 };
 Line(2) = { 1, 4 };
@@ -47,5 +52,5 @@ Physical Line ("default") = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 Mesh.Algorithm = 6;
 Mesh.Algorithm3D = 1; // Delaunay3D, works for boundary layer insertion.
 Mesh.Optimize = 1; // Gmsh smoother, works with boundary layers (netgen version does not).
-Mesh.CharacteristicLengthFromPoints = 1;
+// Mesh.CharacteristicLengthFromPoints = 1;
 // Recombine Surface "*";
