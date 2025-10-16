@@ -6,8 +6,8 @@ import numpy as np
 import h5py
 import shutil
 
-from deeponet_acoustics.train3D import train
-from deeponet_acoustics.eval3D import evaluate
+from deeponet_room_acoustics.main3D_train import train
+from deeponet_room_acoustics.main3D_inference import evaluate
 from simulation_backend.DGinterface import dg_method
 from simulation_backend.headless_backend.HelperFunctions import plot_results
 
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     # Load the input file
     file_name = find_input_file_in_subfolders(  
-        os.path.dirname(__file__), "exampleInput_deeponet.json"
+        os.path.dirname(__file__), "exampleInput_DeepONet.json"
     )
     json_tmp_file = create_tmp_from_input(file_name)
 
