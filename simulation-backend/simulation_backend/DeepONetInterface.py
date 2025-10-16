@@ -12,6 +12,20 @@ from simulation_backend.DGinterface import dg_method
 from simulation_backend.headless_backend.HelperFunctions import plot_results
 
 def deeponet_method(json_file_path: str | Path):        
+
+    dirname = os.path.dirname(__file__)
+    with open(json_file_path, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    # Convert relative paths and directory names to absolute paths and save them in the temporary json
+    with open(json_file_path, "w") as json_file:
+        data["dg_setup"]["output_path"] = os.path.join(dirname, data["dg_setup"]["relative_output_path"])
+        data["deeponet_train_setup"]["input_dir"] = os.path.join(dirname, data["deeponet_train_setup"]["relative_input_dir"])
+        data["deeponet_train_setup"]["output_dir"] = os.path.join(dirname, data["deeponet_train_setup"]["relative_output_dir"])
+        data["deeponet_inference_setup"]["validation_data_dir"] = os.path.join(data["deeponet_train_setup"]["input_dir"], data["deeponet_train_setup"]["testing_data_dir"])
+        data["deeponet_inference_setup"]["model_dir"] = os.path.join(data["deeponet_train_setup"]["output_dir"], data["deeponet_train_setup"]["id"])
+        json.dump(data, json_file, indent=4)
+
     with open(json_file_path, "r") as json_file:
         settings = json.load(json_file)
 
@@ -25,7 +39,7 @@ def deeponet_method(json_file_path: str | Path):
     output_filename = dg_settings["output_filename"]
     file_format = dg_settings["file_format"]
 
-    os.makedirs(dg_settings["output_path"], exist_ok=True)
+    os.makedirs(output_path, exist_ok=True)
 
     results_dg = np.load(os.path.join(output_path, f"{output_filename}.{file_format}"))
 
@@ -52,7 +66,7 @@ def deeponet_method(json_file_path: str | Path):
         ###!!! TODO IMPORTANT: data needs to be normalized to perform well !!!###
 
         # Save to HDF5
-        file_path_train_h5 = os.path.join(output_path, "train_data", f"src{i}", f"{output_filename}.h5")
+        file_path_train_h5 = os.path.join(output_path, settings["deeponet_train_setup"]["training_data_dir"], f"src{i}", f"{output_filename}.h5")
         os.makedirs(os.path.dirname(file_path_train_h5), exist_ok=True)
         Path(file_path_train_h5).unlink(missing_ok=True)    
 
@@ -88,7 +102,7 @@ def deeponet_method(json_file_path: str | Path):
             )
 
         # for now, use the same data for training and validation
-        file_path_val_h5 = os.path.join(output_path, "val_data", f"src{i}", f"{output_filename}.h5")
+        file_path_val_h5 = os.path.join(output_path, settings["deeponet_train_setup"]["testing_data_dir"], f"src{i}", f"{output_filename}.h5")
         os.makedirs(os.path.dirname(file_path_val_h5), exist_ok=True)
         Path(file_path_val_h5).unlink(missing_ok=True)
         shutil.copy(file_path_train_h5, file_path_val_h5)
@@ -116,7 +130,7 @@ if __name__ == "__main__":
 
     # Load the input file
     file_name = find_input_file_in_subfolders(  
-        os.path.dirname(__file__), "exampleInput_DeepONet.json"
+        os.path.dirname(__file__), "exampleInput_deeponet.json"
     )
     json_tmp_file = create_tmp_from_input(file_name)
 

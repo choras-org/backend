@@ -15,7 +15,7 @@
             "sourceX": 0.4,
             "sourceY": 1.0,
             "sourceZ": 1.2,
-            "resultType": "DG",            
+            "resultType": "DON",            
             "responses": [
                 {
                     "x": 1.0,
@@ -49,25 +49,24 @@
         }
     ],
     "dg_setup": {        
-        "output_path": "/Users/nikolasborrel/data/deeponet/choras/input_data/",
+        "relative_output_path": "tmp/deeponet/",
         "output_filename": "dg_sim_results",
         "file_format": "npz",
 
-        "freq_upper_limit": 200,
+        "freq_upper_limit": 500,
         "c0": 343,
         "rho0": 1.213,
         "ir_length": 0.05,
         "absorption_override": "no",
         "R": 0.5,
         "poly_order": 4,
-        "ppw": 2,
-        "deeponet_json_path": "deeponet_setup.json"
+        "ppw": 2
     },
     "deeponet_train_setup": {
         "id": "cube_dummy_1src_fixed_recvs",
     
-        "input_dir": "/Users/nikolasborrel/data/deeponet/choras/input_data/",
-        "output_dir": "/Users/nikolasborrel/data/deeponet/choras/output_data/",
+        "relative_input_dir": "tmp/deeponet/",
+        "relative_output_dir": "tmp/deeponet/results/",
     
         "training_data_dir": "train_data",
         "testing_data_dir": "val_data",
@@ -102,10 +101,7 @@
         },
         "num_output_neurons": 100
     },
-    "deeponet_inference_setup": {
-        "model_dir": "/Users/nikolasborrel/data/deeponet/choras/output_data/cube_6ppw",    
-        "validation_data_dir": "/Users/nikolasborrel/data/deeponet/choras/input_data/val_data/",
-        
+    "deeponet_inference_setup": {        
         "tmax": 1000,
 
         "write_full_wave_field": false,    

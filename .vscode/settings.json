@@ -3,6 +3,7 @@
     "./simulation-backend", 
     "./Diffusion", 
     "./edg-acoustics", 
+    "./deeponet-acoustic-wave-prop", 
     "./MyNewMethod"],
     "editor.defaultFormatter": "ms-python.black-formatter",
     "[markdown]": {

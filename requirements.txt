@@ -72,7 +72,7 @@ mypy-extensions==1.0.0
 nest-asyncio==1.5.6
 networkx==3.3
 nodeenv==1.9.1
-numpy==1.26.4
+numpy
 numpy-stl==3.1.1
 openpyxl==3.1.5
 packaging==22.0
@@ -127,7 +127,7 @@ tomli==2.0.1
 tornado==6.3.2
 traitlets==5.7.1
 trimesh==4.4.1
-typing_extensions==4.5.0
+typing_extensions
 tzdata==2023.3
 urllib3==2.2.2
 vine==5.1.0
@@ -148,9 +148,10 @@ myst_parser # Docs, required for markdown support
 sphinx-design # Docs, required for tabs and other design elements
 sphinx-copybutton # Docs, required for copy buttons in code blocks
 sphinx-gallery # Docs, required for example gallery
-matplotlib<3.7.0 # Docs, required for plot directive
+matplotlib # Docs, required for plot directive
 
 -e ./simulation-backend
 -e ./Diffusion
+-e ./deeponet-acoustic-wave-prop
 -e ./edg-acoustics
 -e ./MyNewMethod
