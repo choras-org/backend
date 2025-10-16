@@ -6,8 +6,8 @@ import numpy as np
 import h5py
 import shutil
 
-from deeponet_acoustics.train3D import train
-from deeponet_acoustics.eval3D import evaluate
+from deeponet_room_acoustics.end2end.train3D import train
+from deeponet_room_acoustics.end2end.eval3D import evaluate
 from simulation_backend.DGinterface import dg_method
 from simulation_backend.headless_backend.HelperFunctions import plot_results
 
