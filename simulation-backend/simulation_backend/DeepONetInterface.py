@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
     # Load the input file
     file_name = find_input_file_in_subfolders(  
-        os.path.dirname(__file__), "exampleInput_deeponet.json"
+        os.path.dirname(__file__), "exampleInput_deeponet_acoustics.json"
     )
     json_tmp_file = create_tmp_from_input(file_name)
 
