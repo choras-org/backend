@@ -60,8 +60,7 @@
         "absorption_override": "no",
         "R": 0.5,
         "poly_order": 4,
-        "ppw": 2,
-        "deeponet_json_path": "deeponet_setup.json"
+        "ppw": 2
     },
     "deeponet_train_setup": {
         "id": "cube_dummy_1src_fixed_recvs",
