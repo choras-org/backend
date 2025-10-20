@@ -6,8 +6,8 @@ import numpy as np
 import h5py
 import shutil
 
-from deeponet_room_acoustics.main3D_train import train
-from deeponet_room_acoustics.main3D_inference import evaluate
+from deeponet_acoustics.end2end.train import train
+from deeponet_acoustics.end2end.inference import inference
 from simulation_backend.DGinterface import dg_method
 from simulation_backend.headless_backend.HelperFunctions import plot_results
 
@@ -118,7 +118,7 @@ def deeponet_method(json_file_path: str | Path):
         shutil.copy(simulation_params_path_train_json, simulation_params_path_val_json)
     
     train(settings["deeponet_train_setup"])
-    evaluate(settings["deeponet_train_setup"], settings["deeponet_inference_setup"])
+    inference(settings["deeponet_train_setup"], settings["deeponet_inference_setup"])
         
 
 if __name__ == "__main__":
