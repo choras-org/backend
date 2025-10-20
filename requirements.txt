@@ -152,6 +152,6 @@ matplotlib # Docs, required for plot directive
 
 -e ./simulation-backend
 -e ./Diffusion
--e ./deeponet-acoustic-wave-prop
+# -e ./deeponet-acoustic-wave-prop
 -e ./edg-acoustics
 -e ./MyNewMethod

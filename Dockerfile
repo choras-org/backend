@@ -1,4 +1,4 @@
-FROM python:3.10.9-slim
+FROM python:3.11.13-slim
 
 WORKDIR /app
 
@@ -27,12 +27,14 @@ COPY requirements.txt /app
 COPY simulation-backend/ /app/simulation-backend
 COPY Diffusion/ /app/Diffusion
 COPY edg-acoustics/ /app/edg-acoustics
+# COPY deeponet-acoustic-wave-prop/ /app/deeponet-acoustic-wave-prop
 COPY MyNewMethod/ /app/MyNewMethod
 
 RUN pip install --upgrade pip
 RUN pip install simulation-backend/.
 RUN pip install Diffusion/.
 RUN pip install edg-acoustics/.
+# RUN pip install deeponet-acoustic-wave-prop/.
 RUN pip install MyNewMethod/.
 RUN pip install --no-cache-dir -r requirements.txt
 
