@@ -1,0 +1,47 @@
+# Use an official Windows-based Python image
+FROM mcr.microsoft.com/windows/python:3.11
+
+# Switch to PowerShell for better scripting support
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
+
+# Set working directory
+WORKDIR C:\app
+
+# Environment variables (Windows style)
+ENV PYTHONDONTWRITEBYTECODE=1 `
+    PYTHONUNBUFFERED=1 `
+    PYTHONIOENCODING=utf-8
+
+# --- Install dependencies ---
+
+# 1. Install PostgreSQL client (psql) via Chocolatey
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; `
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
+    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')); `
+    choco install -y postgresql --version=15.3; `
+    choco install -y git; `
+    refreshenv
+
+# Note: Linux-only libs like libglu, libxft, mesa, etc. don't exist on Windows.
+# If you need similar OpenGL/X11 functionality, you'll need Windows equivalents or optional installs.
+
+# --- Copy application files ---
+COPY requirements.txt C:\app\
+COPY simulation-backend\ C:\app\simulation-backend\
+COPY Diffusion\ C:\app\Diffusion\
+COPY edg-acoustics\ C:\app\edg-acoustics\
+COPY MyNewMethod\ C:\app\MyNewMethod\
+COPY entrypoint.sh C:\app\entrypoint.sh
+
+# --- Install Python dependencies ---
+RUN pip install --upgrade pip; `
+    pip install simulation-backend/.; `
+    pip install --no-cache-dir -r requirements.txt
+
+# --- Expose port ---
+EXPOSE 5001
+
+# --- Entry point ---
+# PowerShell doesn’t use chmod; instead, call it explicitly.
+# If entrypoint.sh relies on bash, use Git Bash or rewrite it as a PowerShell script.
+ENTRYPOINT ["powershell.exe", "C:\\app\\entrypoint.sh"]

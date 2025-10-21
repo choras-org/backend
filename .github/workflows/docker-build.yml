@@ -28,7 +28,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile
+          file: Dockerfile.linux
           platforms: linux/amd64
           push: true
           tags: ${{ env.IMAGE_NAME }}:linux_${{ env.TAG }}
@@ -48,7 +48,7 @@ jobs:
 
       - name: Build and push Windows image
         run: |
-          docker build -f Dockerfile -t $env:IMAGE_NAME:windows_$env:TAG .
+          docker build -f Dockerfile.windows -t $env:IMAGE_NAME:windows_$env:TAG .
           docker push $env:IMAGE_NAME:windows_$env:TAG
 
   merge-manifest:
