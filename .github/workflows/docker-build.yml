@@ -30,7 +30,7 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ env.IMAGE_NAME }}:linux-${{ env.TAG }}
+          tags: ${{ env.IMAGE_NAME }}:linux_${{ env.TAG }}
 
   build-windows:
     runs-on: windows-2022
@@ -45,8 +45,8 @@ jobs:
 
       - name: Build and push Windows image
         run: |
-          docker build -f Dockerfile -t $env:IMAGE_NAME:windows-$env:TAG .
-          docker push $env:IMAGE_NAME:windows-$env:TAG
+          docker build -f Dockerfile -t $env:IMAGE_NAME:windows_$env:TAG .
+          docker push $env:IMAGE_NAME:windows_$env:TAG
 
   merge-manifest:
     runs-on: ubuntu-latest
@@ -61,6 +61,6 @@ jobs:
       - name: Create and push manifest
         run: |
           docker manifest create $IMAGE_NAME:$TAG \
-            --amend $IMAGE_NAME:linux-$TAG \
-            --amend $IMAGE_NAME:windows-$TAG
+            --amend $IMAGE_NAME:linux_$TAG \
+            --amend $IMAGE_NAME:windows_$TAG
           docker manifest push $IMAGE_NAME:$TAG
