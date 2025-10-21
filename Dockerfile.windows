@@ -19,8 +19,7 @@ RUN Write-Host 'Installing Chocolatey and dependencies...'; \
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')); \
     choco install -y postgresql --version=15.3; \
-    choco install -y git; \
-    refreshenv
+    choco install -y git
 
 # Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
