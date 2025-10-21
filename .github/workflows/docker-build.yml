@@ -51,7 +51,6 @@ jobs:
         with:
           context: .
           file: Dockerfile.windows
-          platforms: windows/amd64
           push: true
           tags: ${{ env.IMAGE_NAME }}:windows_${{ env.TAG }}
 
