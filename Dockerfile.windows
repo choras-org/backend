@@ -1,28 +1,33 @@
-# Use an official Windows-based Python image
-FROM mcr.microsoft.com/windows/python:3.11
+# Use Windows Server Core as base
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
-# Use PowerShell as the shell
+# Use PowerShell for scripting
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
 # Set working directory
 WORKDIR C:\app
 
-# Environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONIOENCODING=utf-8
+# --- Install Python 3.11 ---
+RUN Write-Host 'Installing Python 3.11...'; \
+    Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.11.8/python-3.11.8-amd64.exe" -OutFile "python-installer.exe"; \
+    Start-Process -Wait -FilePath .\python-installer.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1'; \
+    Remove-Item .\python-installer.exe
 
-# --- Install dependencies ---
-
-# Install Chocolatey and dependencies (PostgreSQL client + Git)
-RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
+# --- Install dependencies (Git, PostgreSQL client) ---
+RUN Write-Host 'Installing Chocolatey and dependencies...'; \
+    Set-ExecutionPolicy Bypass -Scope Process -Force; \
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')); \
     choco install -y postgresql --version=15.3; \
     choco install -y git; \
     refreshenv
 
-# --- Copy application files ---
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=utf-8
+
+# Copy application code
 COPY requirements.txt C:\app\
 COPY simulation-backend\ C:\app\simulation-backend\
 COPY Diffusion\ C:\app\Diffusion\
@@ -30,14 +35,16 @@ COPY edg-acoustics\ C:\app\edg-acoustics\
 COPY MyNewMethod\ C:\app\MyNewMethod\
 COPY entrypoint.sh C:\app\entrypoint.sh
 
-# --- Install Python dependencies ---
-RUN pip install --upgrade pip; \
-    pip install simulation-backend/.; \
-    pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies
+RUN python -m pip install --upgrade pip; \
+    python -m pip install simulation-backend/.; \
+    python -m pip install Diffusion/.; \
+    python -m pip install edg-acoustics/.; \
+    python -m pip install MyNewMethod/.; \
+    python -m pip install --no-cache-dir -r requirements.txt
 
-# --- Expose port ---
+# Expose port
 EXPOSE 5001
 
-# --- Entry point ---
-# If your entrypoint is a bash script, Git Bash from choco git install provides bash.exe.
+# Entry point (bash via Git for Windows)
 ENTRYPOINT ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\app\\entrypoint.sh"]
