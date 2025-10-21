@@ -5,7 +5,7 @@ FROM mcr.microsoft.com/windows/servercore:ltsc2022
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
 # Set working directory
-WORKDIR C:\app
+WORKDIR C:/app
 
 # --- Install Python 3.11 ---
 RUN Write-Host 'Installing Python 3.11...'; \
@@ -28,12 +28,12 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONIOENCODING=utf-8
 
 # Copy application code
-COPY requirements.txt C:\app\
-COPY simulation-backend\ C:\app\simulation-backend\
-COPY Diffusion\ C:\app\Diffusion\
-COPY edg-acoustics\ C:\app\edg-acoustics\
-COPY MyNewMethod\ C:\app\MyNewMethod\
-COPY entrypoint.sh C:\app\entrypoint.sh
+COPY requirements.txt C:/app/
+COPY simulation-backend/ C:/app/simulation-backend/
+COPY Diffusion/ C:/app/Diffusion/
+COPY edg-acoustics/ C:/app/edg-acoustics/
+COPY MyNewMethod/ C:/app/MyNewMethod/
+COPY entrypoint.sh C:/app/entrypoint.sh
 
 # Install Python dependencies
 RUN python -m pip install --upgrade pip; \
