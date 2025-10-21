@@ -47,4 +47,4 @@ ENV PATH="C:\\Users\\ContainerAdministrator\\AppData\\Roaming\\Python\\Python311
 EXPOSE 5001
 
 # Entry point (bash via Git for Windows)
-ENTRYPOINT ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\app\\entrypoint.sh"]
+ENTRYPOINT ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\app\\entrypoint.sh"] 
