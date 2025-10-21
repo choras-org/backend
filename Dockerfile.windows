@@ -1,50 +1,32 @@
 # Use Windows Server Core as base
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
-# Use PowerShell for scripting
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
-
 # Set working directory
 WORKDIR C:/app
 
-# --- Install Python 3.11 ---
-RUN Write-Host 'Installing Python 3.11...'; \
-    Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.11.8/python-3.11.8-amd64.exe" -OutFile "python-installer.exe"; \
-    Start-Process -Wait -FilePath .\python-installer.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1'; \
-    Remove-Item .\python-installer.exe
+# Install Python if not already in base image (optional)
+# You can replace this with your preferred Python installer
+# For simplicity, assuming Python 3.11 is installed
 
-# --- Install dependencies (Git, PostgreSQL client) ---
-RUN Write-Host 'Installing Chocolatey and dependencies...'; \
-    Set-ExecutionPolicy Bypass -Scope Process -Force; \
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
-    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')); \
-    choco install -y postgresql --version=15.3; \
-    choco install -y git
-
-# Environment variables
+# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONIOENCODING=utf-8
 
-# Copy application code
-COPY requirements.txt C:/app/
-COPY simulation-backend/ C:/app/simulation-backend/
-COPY Diffusion/ C:/app/Diffusion/
-COPY edg-acoustics/ C:/app/edg-acoustics/
-COPY MyNewMethod/ C:/app/MyNewMethod/
-COPY entrypoint.sh C:/app/entrypoint.sh
+# Copy project folders
+COPY requirements.txt C:/app
+COPY simulation-backend/ C:/app/simulation-backend
+COPY Diffusion/ C:/app/Diffusion
+COPY edg-acoustics/ C:/app/edg-acoustics
+COPY MyNewMethod/ C:/app/MyNewMethod
+COPY . C:/app
 
-# --- Install Python dependencies safely ---
-# Don't upgrade pip system-wide (causes file lock issues)
-RUN python -m ensurepip --upgrade; \
-    python -m pip install --no-cache-dir --user -r requirements.txt; \
-    python -m pip install --no-cache-dir --user ./simulation-backend ./Diffusion ./edg-acoustics ./MyNewMethod
-
-# Add user-site packages to PATH
-ENV PATH="C:\\Users\\ContainerAdministrator\\AppData\\Roaming\\Python\\Python311\\Scripts;${PATH}"
+# Install Python packages
+RUN python -m pip install --upgrade pip
+RUN python -m pip install simulation-backend/. Diffusion/. edg-acoustics/. MyNewMethod/. --no-cache-dir -r requirements.txt
 
 # Expose port
 EXPOSE 5001
 
-# Entry point (bash via Git for Windows)
-ENTRYPOINT ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\app\\entrypoint.sh"] 
+# Entry point: Windows PowerShell script (you can adapt entrypoint.sh to entrypoint.ps1)
+CMD ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:/app/entrypoint.ps1"]
