@@ -35,6 +35,9 @@ jobs:
 
   build-windows:
     runs-on: windows-2022
+    env:
+      IMAGE_NAME: silvinwillemsen/choras-backend
+      TAG: latest
     steps:
       - uses: actions/checkout@v4
         with:
