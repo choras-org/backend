@@ -34,13 +34,14 @@ COPY edg-acoustics/ C:/app/edg-acoustics/
 COPY MyNewMethod/ C:/app/MyNewMethod/
 COPY entrypoint.sh C:/app/entrypoint.sh
 
-# Install Python dependencies
-RUN python -m pip install --upgrade pip; \
-    python -m pip install simulation-backend/.; \
-    python -m pip install Diffusion/.; \
-    python -m pip install edg-acoustics/.; \
-    python -m pip install MyNewMethod/.; \
-    python -m pip install --no-cache-dir -r requirements.txt
+# --- Install Python dependencies safely ---
+# Don't upgrade pip system-wide (causes file lock issues)
+RUN python -m ensurepip --upgrade; \
+    python -m pip install --no-cache-dir --user -r requirements.txt; \
+    python -m pip install --no-cache-dir --user ./simulation-backend ./Diffusion ./edg-acoustics ./MyNewMethod
+
+# Add user-site packages to PATH
+ENV PATH="C:\\Users\\ContainerAdministrator\\AppData\\Roaming\\Python\\Python311\\Scripts;${PATH}"
 
 # Expose port
 EXPOSE 5001
