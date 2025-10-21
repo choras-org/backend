@@ -49,14 +49,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Linux image (on windows machine)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.linux
-          platforms: linux/amd64
-          push: true
-          tags: ${{ env.IMAGE_NAME }}:windows_${{ env.TAG }}
+      - name: Build and push Windows image
+        run: |
+          docker buildx build -f Dockerfile.linux -t $env:IMAGE_NAME:windows_$env:TAG .
+          docker push $env:IMAGE_NAME:windows_$env:TAG
 
   merge-manifest:
     runs-on: ubuntu-latest
