@@ -1,5 +1,5 @@
 # Use Windows Server Core as base
-FROM mcr.microsoft.com/windows/servercore:10.0.20348.167
+FROM mcr.microsoft.com/windows/servercore:10.0.20348.4294
 
 # Set working directory
 WORKDIR C:/app
