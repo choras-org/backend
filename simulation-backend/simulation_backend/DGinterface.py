@@ -3,7 +3,10 @@ import os
 from pathlib import Path
 import numpy
 import gmsh
-from Diffusion_Module.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
+import shutil
+
+from acousticDE.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
+
 import json
 import numpy as np
 from math import log, sqrt

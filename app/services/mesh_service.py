@@ -4,7 +4,7 @@ import re
 
 import gmsh
 import rhino3dm
-from Diffusion_Module.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
+from acousticDE.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
 from flask_smorest import abort
 
 import config

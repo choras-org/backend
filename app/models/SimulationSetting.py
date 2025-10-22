@@ -12,6 +12,8 @@ class SimulationSetting(db.Model):
     name = db.Column(db.String(), nullable=False)
     label = db.Column(db.String(), nullable=False)
     description = db.Column(db.String)
+    repositoryURL = db.Column(db.String)
+    documentationURL = db.Column(db.String)
 
     createdAt = db.Column(db.String(), default=datetime.now())
     updatedAt = db.Column(db.String(), default=datetime.now())

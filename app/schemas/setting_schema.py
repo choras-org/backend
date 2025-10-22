@@ -7,5 +7,7 @@ class SettingSchema(Schema):
     name = fields.String(load_only=True)
     label = fields.String()
     description = fields.String()
+    repositoryURL = fields.String()
+    documentationURL = fields.String()
     createdAt = fields.String()
     updatedAt = fields.String()

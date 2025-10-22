@@ -3,18 +3,24 @@
         "description": "The Diffusion Equation method (DE) is a mathematical method for modeling the diffusion process, describing how substances spread in a medium over time, often applied in heat transfer, fluid dynamics, and material science.",
         "label": "Diffusion Equation method (DE)",
         "name": "de_setting.json",
-        "simulationType": "DE"
+        "simulationType": "DE",
+        "repositoryURL": "https://github.com/Building-acoustics-TU-Eindhoven/acousticDE/",
+        "documentationURL": "https://building-acoustics-tu-eindhoven.github.io/acousticDE/index.html"
     },
     {
         "description": "The Discontinuous Galerkin method (DG) is a finite element method for solving differential equations, characterized by using discontinuous polynomial spaces for the solution and test functions, allowing for high flexibility and local conservation properties.",
         "label": "Discontinuous Galerkin method (DG)",
         "name": "dg_setting.json",
-        "simulationType": "DG"
+        "simulationType": "DG",
+        "repositoryURL": "https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics/",
+        "documentationURL": "https://dg-roomacoustics.readthedocs.io/en/latest/"
     },
     {
         "description": "MyNewMethod description",
         "label": "MyNewMethod",
         "name": "MyNewMethod.json",
-        "simulationType": "MyNewMethod"
+        "simulationType": "MyNewMethod",
+        "repositoryURL": "",
+        "documentationURL": ""
     }
 ]

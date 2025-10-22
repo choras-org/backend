@@ -24,11 +24,11 @@ from math import log
 
 import gmsh
 
-from Diffusion_Module.FiniteVolumeMethod.FunctionRT import t60_decay
-from Diffusion_Module.FiniteVolumeMethod.FunctionClarity import *
-from Diffusion_Module.FiniteVolumeMethod.FunctionDefinition import *
-from Diffusion_Module.FiniteVolumeMethod.FunctionCentreTime import *
-from Diffusion_Module.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
+from acousticDE.FiniteVolumeMethod.FunctionRT import t60_decay
+from acousticDE.FiniteVolumeMethod.FunctionClarity import *
+from acousticDE.FiniteVolumeMethod.FunctionDefinition import *
+from acousticDE.FiniteVolumeMethod.FunctionCentreTime import *
+from acousticDE.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
 
 # Silvin: debugging
 import logging
