@@ -14,8 +14,7 @@
         "edt": 35,
         "de_ir_length": 0.5,
         "de_c0": 343,
-        "de_absorption_override": "no",
-        "de_R": 0.99
+        "de_lc": 1.5
     },
     "results": [
         {

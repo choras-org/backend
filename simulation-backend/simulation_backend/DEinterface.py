@@ -172,7 +172,7 @@ def de_method(json_file_path=None):
         geo_file_path = result_container["geo_path"]
         msh_file_path = result_container["msh_path"]
         generate_mesh(
-            geo_file_path, msh_file_path, 1
+            geo_file_path, msh_file_path, simulation_settings["de_lc"]
         )  # TODO: make this dependent on the room dimensions. We don't need an lc of 1 meter at all times..
     else:
         c0 = 343  # adiabatic speed of sound [m.s^-1]
@@ -249,14 +249,14 @@ def de_method(json_file_path=None):
                         float(i) for i in abscoeff
                     ]  # for multiple frequencies
                 else:
-                    if simulation_settings["de_absorption_override"] == "yes":
-                        abscoeff_list = [1 - simulation_settings["de_R"] ** 2] * len(
-                            abscoeff
-                        )
-                    else:
-                        abscoeff_list = [
-                            float(i) for i in abscoeff
-                        ]  # for multiple frequencies
+                    # if simulation_settings["de_absorption_override"] == "yes":
+                    #     abscoeff_list = [1 - simulation_settings["de_R"] ** 2] * len(
+                    #         abscoeff
+                    #     )
+                    # else:
+                    abscoeff_list = [
+                        float(i) for i in abscoeff
+                    ]  # for multiple frequencies
 
             physical_tag = group[1]  # Get the physical group tag
             entities = gmsh.model.getEntitiesForPhysicalGroup(
