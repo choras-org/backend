@@ -24,7 +24,7 @@ jobs:
         run: pip install flake8==6.1.0 black==25.1.0 isort==5.12.0
 
       - name: Run Black (Code Formatting)
-        run: black --check --config=".black" --exclude="(Diffusion|simulation-backend|edg-acoustic)" .
+        run: black --check --config=".black" --exclude="(Diffusion|simulation-backend|edg-acoustics)" .
 
       # - name: Run isort (Import Sorting)
       #   run: isort --check-only --sp=".isort" --profile="black" .
