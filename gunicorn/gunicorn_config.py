@@ -4,9 +4,9 @@ import os
 host = os.getenv("API_HOST", "localhost")
 port = os.getenv("API_PORT", "5001")
 bind_env = os.getenv("BIND", None)
-
+print (f"Bind_env = {bind_env}")
 use_bind = bind_env if bind_env else f"{host}:{port}"
-
+print (f"Use_bind = {use_bind}")
 workers_per_core_str = os.getenv("WORKERS_PER_CORE", "1")
 max_workers_str = os.getenv("MAX_WORKERS")
 web_concurrency_str = os.getenv("WEB_CONCURRENCY", None)

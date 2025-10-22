@@ -35,12 +35,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.linux
+          file: Dockerfile
           platforms: linux/amd64  # Add linux/arm64 if you want multi-arch
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.TAG }}
-            ${{ env.IMAGE_NAME }}:linux_${{ env.TAG }}
 
       - name: Show pushed images
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ env.TAG }}
