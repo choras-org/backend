@@ -1,0 +1,18 @@
+{
+    "coord_source": [
+        2,
+        2,
+        1.5
+    ],
+    "coord_rec": [
+        1,
+        1,
+        1.5
+    ],
+    "fc_low": 125,
+    "fc_high": 2000,
+    "num_octave": 1,
+    "dt": 5e-05,
+    "m_atm": 0,
+    "th": 3
+}

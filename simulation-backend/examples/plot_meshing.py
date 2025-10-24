@@ -93,3 +93,40 @@ ax = plt.axes()
 ax.scatter(coords[faces-1, 0], coords[faces-1, 1], color="gray")
 ax.triplot(tri_plotting, color="gray")
 plt.show()
+
+# %%
+# Calculating surface areas
+# *************************
+# The surface area of each triangular element can be calculated using the
+# cross product of two sides of the triangle.
+
+x = coords[faces-1][:, 0]
+y = coords[faces-1][:, 1]
+z = coords[faces-1][:, 2]
+surface_areas = 0.5 * np.linalg.norm(
+    np.cross(y - x, z - x, axis=-1),
+    axis=-1)
+
+surface_area_group = np.sum(surface_areas)
+print(f"Surface area of {surface_group_names[0]}: {surface_area_group:.2f} m²")
+# %%
+# As an example, the first polygon of the surface group is highlighted
+# in red and its area is shown in the legend.
+ax = plt.axes()
+
+idx_polygon = 0
+
+ax.scatter(coords[faces-1, 0], coords[faces-1, 1], color="gray")
+ax.triplot(tri_plotting, color="gray")
+ax.scatter(
+    coords[faces[idx_polygon]-1][:, 0],
+    coords[faces[idx_polygon]-1][:, 1],
+    color="red")
+ax.fill(
+    coords[faces[idx_polygon]-1][:, 0],
+    coords[faces[idx_polygon]-1][:, 1],
+    color="red", alpha=0.3, label=f"Area: {surface_areas[idx_polygon]:.2f} m²")
+plt.legend()
+plt.show()
+
+# %%

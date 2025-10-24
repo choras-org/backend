@@ -51,6 +51,8 @@ def insert_initial_settings():
                         name=setting_file["name"],
                         label=setting_file["label"],
                         description=setting_file["description"],
+                        repositoryURL=setting_file["repositoryURL"],
+                        documentationURL=setting_file["documentationURL"]
                     )
                 )
 

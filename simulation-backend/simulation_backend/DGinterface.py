@@ -6,7 +6,7 @@ import scipy.io
 import gmsh
 import shutil
 
-from Diffusion_Module.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
+from acousticDE.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
 
 import json
 

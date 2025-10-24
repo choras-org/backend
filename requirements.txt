@@ -149,8 +149,9 @@ sphinx-design # Docs, required for tabs and other design elements
 sphinx-copybutton # Docs, required for copy buttons in code blocks
 sphinx-gallery # Docs, required for example gallery
 matplotlib<3.7.0 # Docs, required for plot directive
+pyroomacoustics
 
 -e ./simulation-backend
 -e ./Diffusion
--e ./edg-acoustics
+git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@bf97d0355366540940adee3043e0bcca447254e8#egg=edg-acoustics
 -e ./MyNewMethod
