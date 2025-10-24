@@ -490,8 +490,12 @@ def get_simulation_result_by_id(simulation_id):
         model.outputFileId, simulation_id, extension="json"
     )
 
-    with open(json_path, "r") as json_file:
-        result_container = json.load(json_file)
+    try:
+        with open(json_path, "r") as json_file:
+            result_container = json.load(json_file)
+    except Exception as ex:
+        logger.warning(msg=f"No result available")
+        abort(400, message=f"No result available")
 
     return result_container["results"]
 
