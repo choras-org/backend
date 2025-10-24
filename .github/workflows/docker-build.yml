@@ -2,7 +2,7 @@ name: Build and Push Docker Image (Linux only)
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ python311 ]
   workflow_dispatch:  # Allow manual trigger
 
 env:
@@ -43,3 +43,4 @@ jobs:
 
       - name: Show pushed images
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ env.TAG }}
+ 
