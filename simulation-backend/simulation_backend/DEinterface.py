@@ -249,11 +249,6 @@ def de_method(json_file_path=None):
                         float(i) for i in abscoeff
                     ]  # for multiple frequencies
                 else:
-                    # if simulation_settings["de_absorption_override"] == "yes":
-                    #     abscoeff_list = [1 - simulation_settings["de_R"] ** 2] * len(
-                    #         abscoeff
-                    #     )
-                    # else:
                     abscoeff_list = [
                         float(i) for i in abscoeff
                     ]  # for multiple frequencies

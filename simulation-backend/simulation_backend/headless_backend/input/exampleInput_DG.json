@@ -56,15 +56,13 @@
         }
     ],
     "simulationSettings": {
-        "file_format": "npz",
-        "base_path": "simulation-backend/simulation_backend/headless_backend/output",
-        "output_results": "dg_sim_results",
-        "freq_upper_limit": 200,
+        "dg_freq_upper_limit": 200,
         "dg_c0": 343,
-        "rho0": 1.213,
-        "dg_ir_length": 0.1,        
-        "dg_absorption_override": "no",
-        "dg_R": 0.5
+        "dg_rho0": 1.213,
+        "dg_ir_length": 0.1,
+        "dg_poly_order": 4,
+        "dg_ppw": 2,
+        "dg_cfl": 1
     },
     "settingsPreset": "Advanced"
 }
