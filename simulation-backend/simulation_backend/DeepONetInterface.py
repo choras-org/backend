@@ -9,7 +9,6 @@ import shutil
 from deeponet_acoustics.end2end.train import train
 from deeponet_acoustics.end2end.inference import inference
 from simulation_backend.DGinterface import dg_method
-from simulation_backend.headless_backend.HelperFunctions import plot_results
 
 def deeponet_method(json_file_path: str | Path):        
 
@@ -17,24 +16,69 @@ def deeponet_method(json_file_path: str | Path):
     with open(json_file_path, "r", encoding="utf-8") as file:
         data = json.load(file)
 
+
     # Convert relative paths and directory names to absolute paths and save them in the temporary json
+    data["dg_setup"]["output_path"] = os.path.join(dirname, data["dg_setup"]["relative_output_path"])
+    data["deeponet_train_setup"]["input_dir"] = os.path.join(dirname, data["deeponet_train_setup"]["relative_input_dir"])
+    data["deeponet_train_setup"]["output_dir"] = os.path.join(dirname, data["deeponet_train_setup"]["relative_output_dir"])
+    data["deeponet_inference_setup"]["validation_data_dir"] = os.path.join(data["deeponet_train_setup"]["input_dir"], data["deeponet_train_setup"]["testing_data_dir"])
+    data["deeponet_inference_setup"]["model_dir"] = os.path.join(data["deeponet_train_setup"]["output_dir"], data["deeponet_train_setup"]["id"])
+
     with open(json_file_path, "w") as json_file:
-        data["dg_setup"]["output_path"] = os.path.join(dirname, data["dg_setup"]["relative_output_path"])
-        data["deeponet_train_setup"]["input_dir"] = os.path.join(dirname, data["deeponet_train_setup"]["relative_input_dir"])
-        data["deeponet_train_setup"]["output_dir"] = os.path.join(dirname, data["deeponet_train_setup"]["relative_output_dir"])
-        data["deeponet_inference_setup"]["validation_data_dir"] = os.path.join(data["deeponet_train_setup"]["input_dir"], data["deeponet_train_setup"]["testing_data_dir"])
-        data["deeponet_inference_setup"]["model_dir"] = os.path.join(data["deeponet_train_setup"]["output_dir"], data["deeponet_train_setup"]["id"])
         json.dump(data, json_file, indent=4)
 
-    with open(json_file_path, "r") as json_file:
-        settings = json.load(json_file)
+    ### Discontinuous Galerkin ###
+
+    # create a new json file for DG
+    dg_json = os.path.join(os.path.join(dirname, "tmp"), "dg_tmp.json")
+
+    # copy the data of the DeepONet json into the DG json
+    with open(dg_json, "w") as dg_output:
+        dg_output.write(json.dumps(data, indent=4))
+
+    # obtain the data from the file
+    with open(dg_json, "r", encoding="utf-8") as file:
+        dg_data = json.load(file)
+
+    # Extract everything inside "dg_setup"
+    dg_setup_contents = data.get("dg_setup", {})
+
+    # Append the dg_data with the contents of dg_setup
+    dg_data.update(dg_setup_contents)
+
+    # Remove unneeded DeepONet settings
+    dg_data.pop("dg_setup")
+    dg_data.pop("deeponet_train_setup")
+    dg_data.pop("deeponet_inference_setup")
+
+    # Write this to the JSON
+    with open(dg_json, "w") as dg_file:
+        json.dump(dg_data, dg_file, indent=4)
 
     # generate data for deeponet training
     gmsh.initialize()
-    dg_method(json_file_path)
+    dg_method(dg_json)
     gmsh.finalize()
 
+    # obtain the results from DG
+    with open(dg_json, "r", encoding="utf-8") as file:
+        dg_results_data = json.load(file)
+    
+    # write them to the original json file
+    data.update(dg_results_data)
+    with open(json_file_path, "w") as json_file:
+        json.dump(data, json_file, indent=4)
+
+
+
+    ### DeepONet ###
+
+    # Obtain the setting from the original json file
+    with open(json_file_path, "r") as json_file:
+        settings = json.load(json_file)
+
     dg_settings = settings["dg_setup"]
+
     output_path = dg_settings["output_path"]
     output_filename = dg_settings["output_filename"]
     file_format = dg_settings["file_format"]
@@ -90,11 +134,10 @@ def deeponet_method(json_file_path: str | Path):
                     {
                         "SimulationParameters": {
                             "SourcePosition": source_position.tolist(),
-                            "c": dg_settings["c0"],
+                            "c": dg_settings["simulationSettings"]["dg_c0"],
                             "dt": results_dg["dt_old"].tolist(),
-                            "fmax": dg_settings["freq_upper_limit"],
-                            "rho": dg_settings["rho0"],
-                            "sigma": dg_settings["R"],
+                            "fmax": dg_settings["simulationSettings"]["dg_freq_upper_limit"],
+                            "rho": dg_settings["simulationSettings"]["dg_rho0"]
                         }
                     },
                     indent=4,
@@ -126,6 +169,7 @@ if __name__ == "__main__":
         find_input_file_in_subfolders,
         create_tmp_from_input,
         save_results,
+        plot_dg_results
     )
 
     # Load the input file
@@ -141,4 +185,4 @@ if __name__ == "__main__":
     save_results(json_tmp_file)
 
     # Plot the results
-    plot_results(json_tmp_file)
+    plot_dg_results(json_tmp_file)

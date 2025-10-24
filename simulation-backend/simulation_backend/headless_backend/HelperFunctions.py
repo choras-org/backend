@@ -112,7 +112,7 @@ def save_results(json_tmp_file):
 
     print(f"Data written to {file_name}")
 
-def plot_results(json_output):
+def plot_dg_results(json_output):
 
     result_container = {}
     if json_output is not None:
@@ -122,4 +122,16 @@ def plot_results(json_output):
     plt.figure()
     for i in range(4):
         plt.plot(result_container["results"][0]["responses"][i]["receiverResultsUncorrected"])
+    plt.show()
+
+
+def plot_results(json_output):
+
+    result_container = {}
+    if json_output is not None:
+        with open(json_output, "r") as json_file:
+            result_container = json.load(json_file)
+
+    plt.figure()
+    plt.plot(result_container["results"][0]["responses"][0]["receiverResults"])
     plt.show()

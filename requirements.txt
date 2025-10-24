@@ -149,9 +149,11 @@ sphinx-design # Docs, required for tabs and other design elements
 sphinx-copybutton # Docs, required for copy buttons in code blocks
 sphinx-gallery # Docs, required for example gallery
 matplotlib # Docs, required for plot directive
+pyroomacoustics
 
 -e ./simulation-backend
 -e ./Diffusion
 # -e ./deeponet-acoustic-wave-prop
-git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@bf97d0355366540940adee3043e0bcca447254e8#egg=edg-acoustics
+git+https://github.com/dtu-act/deeponet-acoustic-wave-prop.git@3d3fc5ee952756eedcd4fec3c3674ad829825c7e#egg=deeponet-acoustics
+git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@08cac98da98ed14ba1366741b1c0644001503b82#egg=edg-acoustics
 -e ./MyNewMethod

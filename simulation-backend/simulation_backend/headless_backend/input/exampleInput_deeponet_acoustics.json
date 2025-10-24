@@ -48,19 +48,19 @@
             ]
         }
     ],
-    "dg_setup": {        
+    "dg_setup": {  
+        "simulationSettings": {
+            "dg_freq_upper_limit": 200,
+            "dg_c0": 343,
+            "dg_rho0": 1.213,
+            "dg_ir_length": 0.05,
+            "dg_poly_order": 4,
+            "dg_ppw": 2,
+            "dg_cfl": 1
+        },
         "relative_output_path": "tmp/deeponet/",
         "output_filename": "dg_sim_results",
-        "file_format": "npz",
-
-        "freq_upper_limit": 500,
-        "c0": 343,
-        "rho0": 1.213,
-        "ir_length": 0.05,
-        "absorption_override": "no",
-        "R": 0.5,
-        "poly_order": 4,
-        "ppw": 2
+        "file_format": "npz"
     },
     "deeponet_train_setup": {
         "id": "cube_dummy_1src_fixed_recvs",

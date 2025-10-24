@@ -80,12 +80,10 @@ def surface_materials(result_container, c0):
         abscoeff = abscoeff.split(",")
 
         if result_container:
-            simulation_settings = result_container["dg_setup"]
-            if simulation_settings["absorption_override"] == "yes":
-                abscoeff_list = [1 - simulation_settings["R"] ** 2] * len(abscoeff)
-            else:
-                # abscoeff = [float(i) for i in abscoeff][-1] #for one frequency
-                abscoeff_list = [float(i) for i in abscoeff]  # for multiple frequencies
+            simulation_settings = result_container["simulationSettings"]
+
+            # abscoeff = [float(i) for i in abscoeff][-1] #for one frequency
+            abscoeff_list = [float(i) for i in abscoeff]  # for multiple frequencies
 
         physical_tag = group[1]  # Get the physical group tag
         entities = gmsh.model.getEntitiesForPhysicalGroup(
@@ -125,30 +123,37 @@ def dg_method(json_file_path: str | Path):
     # --------------------
     # Block 1: User input
     # --------------------
-    simulation_settings = result_container["dg_setup"]
-    output_path = simulation_settings["output_path"]
-    output_results = simulation_settings["output_filename"]
-    file_format = simulation_settings["file_format"]
-    
-    # clean up
-    os.makedirs(output_path, exist_ok=True)
-    Path(os.path.join(output_path, f"{output_results}.{file_format}")).unlink(missing_ok=True)
-    Path(os.path.join(output_path, "results.json")).unlink(missing_ok=True)
-    
-    freq_upper_limit = simulation_settings["freq_upper_limit"]
+    simulation_settings = result_container["simulationSettings"]
+
+    # TODO: should make a better solution for this that calls the dg_method function as if there was no deeponet
+    called_from_deeponet = False
+    if result_container["results"][0]["resultType"] == "DON":
+        called_from_deeponet = True
+
+    if called_from_deeponet:
+        output_path = result_container["output_path"]
+        output_results = result_container["output_filename"]
+        file_format = result_container["file_format"]
+
+        # clean up
+        os.makedirs(output_path, exist_ok=True)
+        Path(os.path.join(output_path, f"{output_results}.{file_format}")).unlink(missing_ok=True)
+        Path(os.path.join(output_path, "results.json")).unlink(missing_ok=True)
+        
+    freq_upper_limit = simulation_settings["dg_freq_upper_limit"]
 
     mesh_filename = result_container["msh_path"]
     geo_filename = result_container["geo_path"]
 
-    c0 = simulation_settings["c0"]  # speed of sound in air
-    rho0 = simulation_settings["rho0"] # density of air in kg/m^3
+    c0 = simulation_settings["dg_c0"]  # speed of sound in air
+    rho0 = simulation_settings["dg_rho0"] # density of air in kg/m^3
 
       # total simulation time in seconds
-    impulse_length = simulation_settings["ir_length"]    
+    impulse_length = simulation_settings["dg_ir_length"]    
 
-    CFL = simulation_settings.get("cfl", 1)
-    Nx = simulation_settings.get("poly_order", 4)
-    PPW = simulation_settings.get("ppw", 2)
+    CFL = simulation_settings.get("dg_cfl", 1)
+    Nx = simulation_settings.get("dg_poly_order", 4)
+    PPW = simulation_settings.get("dg_ppw", 2)
     minWavelength = c0 / freq_upper_limit
 
     print("lc = " + str(minWavelength / PPW))
@@ -252,16 +257,17 @@ def dg_method(json_file_path: str | Path):
         rec, "brute_force"
     )  # brute_force or scipy(default) approach to locate the receiver points in the mesh
 
-    # write initial conditition
-    if file_format == "npz":
-        ic_mesh = np.array([sim.xyz[0].flatten(), sim.xyz[0].flatten(), sim.xyz[0].flatten()])
-        numpy.savez(
-            os.path.join(output_path, output_results),
-            IC_pressure=sim.P.flatten(),
-            IC_mesh=ic_mesh,
-            )
-    else:
-        raise NotImplementedError("file_format")
+    if called_from_deeponet:
+        # write initial conditition
+        if file_format == "npz":
+            ic_mesh = np.array([sim.xyz[0].flatten(), sim.xyz[0].flatten(), sim.xyz[0].flatten()])
+            numpy.savez(
+                os.path.join(output_path, output_results),
+                IC_pressure=sim.P.flatten(),
+                IC_mesh=ic_mesh,
+                )
+        else:
+            raise NotImplementedError("file_format")
 
     tsi_time_integrator = edg_acoustics.TSI_TI(sim.RHS_operator, sim.dtscale, CFL, Nt=3)
     sim.init_TimeIntegrator(tsi_time_integrator)
@@ -293,7 +299,8 @@ def dg_method(json_file_path: str | Path):
     #     result_container['results'][0]['responses'][0]['IR']['IR_Uncorrected'] = results.IRold
 
 
-    results.write_results(os.path.join(output_path, output_results), file_format, append=True)
+    if called_from_deeponet:
+        results.write_results(os.path.join(output_path, output_results), file_format, append=True)
     print("Finished!")
 
 
@@ -302,7 +309,7 @@ if __name__ == "__main__":
         find_input_file_in_subfolders,
         create_tmp_from_input,
         save_results,
-        plot_results
+        plot_dg_results
     )
 
     # Load the input file
@@ -320,4 +327,4 @@ if __name__ == "__main__":
     save_results(json_tmp_file)
 
     # Plot the results
-    # plot_results(json_tmp_file)
+    plot_dg_results(json_tmp_file)
