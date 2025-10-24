@@ -2,7 +2,7 @@ name: Build and Push Docker Image (Linux only)
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ dev, test/docker ]
   workflow_dispatch:  # Allow manual trigger
 
 env:
