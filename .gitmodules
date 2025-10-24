@@ -4,6 +4,3 @@
 [submodule "MyNewMethod"]
 	path = MyNewMethod
 	url = https://github.com/SilvinWillemsen/MyNewMethod.git
-[submodule "deeponet-acoustic-wave-prop"]
-	path = deeponet-acoustic-wave-prop
-	url = https://github.com/dtu-act/deeponet-acoustic-wave-prop.git
