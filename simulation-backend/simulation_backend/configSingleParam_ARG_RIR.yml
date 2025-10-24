@@ -55,7 +55,7 @@ Reflections:
   # 1. When you define impedance, T60 will be calculated and used in the following calculations
   # 2. When you define absorption coefficient, impedance will be calculated, followed by T60
   # 3. When you define reverberation time, impedance will be calculated
-  maxReflectionOrder: 5
+  maxReflectionOrder: 10
 
 # Simulation parameters # 
 # 4. positions of sound source and receiver in 3-dimensional Cartesian coordinate
