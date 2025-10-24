@@ -22,7 +22,6 @@
             "max": 60,
             "default": 35,
             "step": 1,
-            "startAdornment": "start",
             "endAdornment": "dB"
         },
         {
