@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+import sqlite3
 
 import config
 import manage
@@ -19,19 +20,10 @@ load_dotenv()
 
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
-    """
-    Return a list of random ingredients as strings.
-
-    :param kind: Optional "kind" of ingredients.
-    :type kind: list[str] or None
-    :raise lumache.InvalidKindError: If the kind is invalid.
-    :return: The ingredients list.
-    :rtype: list[str]
-
-    """
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 db_host = os.getenv(
     "BBDD_HOST", "localhost"
