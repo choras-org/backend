@@ -204,17 +204,10 @@ def dg_method(json_file_path=None):
                 result_container["results"][0]["sourceZ"],
             ]
         )
-        numrec = len(result_container["results"][0]["responses"])
-        recx = numpy.zeros((1, numrec))
-        recy = numpy.zeros((1, numrec))
-        recz = numpy.zeros((1, numrec))
-        for i in range(numrec):
-            recx[0][i] = result_container["results"][0]["responses"][i]["x"]
-            recy[0][i] = result_container["results"][0]["responses"][i]["y"]
-            recz[0][i] = result_container["results"][0]["responses"][i]["z"]
+        recx = numpy.array([result_container["results"][0]["responses"][0]["x"]])
+        recy = numpy.array([result_container["results"][0]["responses"][0]["y"]])
+        recz = numpy.array([result_container["results"][0]["responses"][0]["z"]])
         rec = numpy.vstack((recx, recy, recz))  # dim:[3,n_rec]
-
-
 
     else:
         CFL = 0.5  # CFL number, default is 0.5.
@@ -312,8 +305,7 @@ def dg_method(json_file_path=None):
             with open(json_file_path, "r", encoding="utf-8") as file:
                 data = json.load(file)
             data["results"][0]["responses"][0]["receiverResults"] = results.IRnew.tolist()
-            for i in range(rec.shape[1]):
-                data["results"][0]["responses"][i]["receiverResultsUncorrected"] = results.IRold[i].tolist()
+            data["results"][0]["responses"][0]["receiverResultsUncorrected"] = results.IRold.tolist()[0]
             with open(json_file_path, "w", encoding="utf-8") as file:
                 json.dump(data, file, indent=4)
 
@@ -323,8 +315,8 @@ def dg_method(json_file_path=None):
     # if result_container:
     #     result_container['results'][0]['responses'][0]['IR']['IR_Uncorrected'] = results.IRold
 
-    # result_filename = os.path.join(uploads_folder, result_filename)
-    # results.write_results(result_filename, "mat")
+    result_filename = os.path.join(uploads_folder, result_filename)
+    results.write_results(result_filename, "mat")
 
     # load newresult.npy
     # data = numpy.load("./examples/newresult.npz", allow_pickle=True)
@@ -337,7 +329,6 @@ if __name__ == "__main__":
         find_input_file_in_subfolders,
         create_tmp_from_input,
         save_results,
-        plot_results
     )
 
     # Load the input file
@@ -353,6 +344,3 @@ if __name__ == "__main__":
 
     # Save the results to a separate file
     save_results(json_tmp_file)
-
-    # Plot the results
-    plot_results(json_tmp_file)
