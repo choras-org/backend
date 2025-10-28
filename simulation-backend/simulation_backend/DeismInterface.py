@@ -205,18 +205,18 @@ if __name__ == "__main__":
 
     from headless_backend.HelperFunctions import (
         find_input_file_in_subfolders,
-        create_tmp_from_input_deism,
-        save_results,
+        create_tmp_from_input,
+        save_results
     )
 
     # Load the input file
     file_name = find_input_file_in_subfolders(
         os.path.dirname(__file__), "exampleInput_Deism.json"
     )
-    json_tmp_file = create_tmp_from_input_deism(file_name)
+    json_tmp_file = create_tmp_from_input(file_name, "exampletmp_deism.json")
 
     # Run the method
     deism_method(json_tmp_file)
 
-    # Results are already saved in the temporary JSON file
-    print(f"Simulation completed. Results saved to: {json_tmp_file}")
+    # Save the results to a separate file
+    save_results(json_tmp_file)

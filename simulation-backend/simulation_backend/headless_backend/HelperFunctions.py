@@ -29,7 +29,7 @@ def find_input_file_in_subfolders(
     raise FileNotFoundError(f"{file_name} has NOT been found")
 
 
-def create_tmp_from_input(json_input_file):
+def create_tmp_from_input(json_input_file, tmp_file_name="MeasurementRoomTmp.json"):
     """
     Creates a temporary json file by copying an input json file. The returned file is intended to be provided as an argument to a simulation method (interface) function, and will be filled with results.
 
@@ -46,39 +46,6 @@ def create_tmp_from_input(json_input_file):
 
     dirname = os.path.dirname(__file__)
 
-    with open(json_input_file, "r") as json_input:
-        data = json.load(json_input)
-
-    # Make the relative geometry file paths absolute
-    data["msh_path"] = find_input_file_in_subfolders(dirname, data["msh_path"])
-    data["geo_path"] = find_input_file_in_subfolders(dirname, data["geo_path"])
-
-    # Prepare the output file by copying the input into it. We need a separate output file to not overwrite the input file
-    json_tmp_file = os.path.join(dirname, "MeasurementRoomTmp.json")
-    with open(json_tmp_file, "w") as json_output:
-        json_output.write(json.dumps(data, indent=4))
-
-    return json_tmp_file
-
-
-def create_tmp_from_input_deism(json_input_file):
-    """
-    Creates a temporary json file specifically for DEISM simulations in the outputs folder.
-    The returned file is intended to be provided as an argument to the DEISM simulation method.
-
-    Parameters
-    ----------
-    json_input_file : str
-        The json file to create a temporary copy of.
-
-    Returns
-    -------
-    str
-        The path to the temporary json file in the outputs folder.
-    """
-
-    dirname = os.path.dirname(__file__)
-
     # Create outputs folder if it doesn't exist
     outputs_dir = os.path.join(dirname, "output")
     os.makedirs(outputs_dir, exist_ok=True)
@@ -90,8 +57,8 @@ def create_tmp_from_input_deism(json_input_file):
     data["msh_path"] = find_input_file_in_subfolders(dirname, data["msh_path"])
     data["geo_path"] = find_input_file_in_subfolders(dirname, data["geo_path"])
 
-    # Create the temporary file in the outputs folder
-    json_tmp_file = os.path.join(outputs_dir, "exampletmp_deism.json")
+    # Prepare the output file by copying the input into it. We need a separate output file to not overwrite the input file
+    json_tmp_file = os.path.join(outputs_dir, tmp_file_name)
     with open(json_tmp_file, "w") as json_output:
         json_output.write(json.dumps(data, indent=4))
 
