@@ -116,8 +116,7 @@ def de_method(json_file_path=None):
             json.dump(result_container, file, indent=4)
 
     except Exception as e:
-        print("Error saving the simulation solver settings")
-        raise Exception(f"Error saving the simulation solver settings: {e}")
+        raise Exception("Error saving the simulation solver settings:") from e
 
 
 if __name__ == "__main__":
