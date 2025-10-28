@@ -83,12 +83,9 @@ def test_acoustic_de(create_temporary_input_file):
     with open(create_temporary_input_file, 'r') as f:
          data = json.load(f)
 
-    rir = np.array(data['results'][0]['responses'][0]['receiverResults'])
+    rir = np.array(data['results'][0]['responses'][0]['receiverResults'][0]["data"])
 
     assert rir is not None
     assert len(rir) > 0
     assert isinstance(rir, np.ndarray)
     assert np.any(np.abs(rir) >= 1e-6)
-
-if __name__ == "__main__":
-    test_acoustic_de(create_temporary_input_file)
