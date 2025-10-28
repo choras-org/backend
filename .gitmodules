@@ -4,6 +4,3 @@
 [submodule "MyNewMethod"]
 	path = MyNewMethod
 	url = https://github.com/SilvinWillemsen/MyNewMethod.git
-[submodule "edg-acoustics"]
-	path = edg-acoustics
-	url = https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git
