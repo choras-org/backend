@@ -25,12 +25,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY requirements.txt /app
 COPY simulation-backend/ /app/simulation-backend
-COPY Diffusion/ /app/Diffusion
 COPY MyNewMethod/ /app/MyNewMethod
 
 RUN pip install --upgrade pip
 RUN pip install simulation-backend/.
-RUN pip install Diffusion/.
 RUN pip install MyNewMethod/.
 RUN pip install --no-cache-dir -r requirements.txt
 
