@@ -2,7 +2,7 @@ import json
 import os
 import pandas as pd
 
-from acousticDE.FiniteVolumeMethod.FVM import run_fvm_sim
+from acousticDE.FiniteVolumeMethod.FVM import run_fvm_sim, check_should_cancel
 
 def de_method(json_file_path=None):
     result_container = {}
@@ -12,22 +12,19 @@ def de_method(json_file_path=None):
 
     dirname = os.path.dirname(__file__)
 
-    # Prepare the output file by copying the input into it. We need a separate output file to not overwrite the input file
-    json_tmp_file = os.path.join(dirname, "tmp_DEinputs.json")
-
-    data = {}
+    de_data = {}
 
     ## Prepare json input data for run_fvm_sim from the json input data
 
     # Source coordinates
-    data["coord_source"] = [
+    de_data["coord_source"] = [
         result_container["results"][0]["sourceX"],
         result_container["results"][0]["sourceY"],
         result_container["results"][0]["sourceZ"],
     ]
 
     # Receiver coordinates 
-    data["coord_rec"] = [
+    de_data["coord_rec"] = [
         result_container["results"][0]["responses"][0]["x"],
         result_container["results"][0]["responses"][0]["y"],
         result_container["results"][0]["responses"][0]["z"],
@@ -35,8 +32,8 @@ def de_method(json_file_path=None):
 
     # Frequency bands
     freqs = result_container["results"][0]["frequencies"]
-    data["fc_low"] = freqs[0]
-    data["fc_high"] = freqs[-1]
+    de_data["fc_low"] = freqs[0]
+    de_data["fc_high"] = freqs[-1]
 
     # Absorption coefficients (create csv necessary for run_fvm_sim)
     csv_path = os.path.join(os.path.dirname(json_file_path), "absorption_coefficients.csv")
@@ -59,30 +56,38 @@ def de_method(json_file_path=None):
     df.to_csv(csv_path, index=False)
 
     # Octave bands? (Ask Ilaria)
-    data["num_octave"] = 1
+    de_data["num_octave"] = 1
 
     # Time step
-    data["dt"] = 1 / 20000
+    de_data["dt"] = 1 / 20000
 
     # Air absorption coefficient
-    data["m_atm"] = 0
+    de_data["m_atm"] = 0
 
     # Absorption condition (options Sabine (th=1), Eyring (th=2) and modified by Xiang (th=3))
-    data["th"] = 3
+    de_data["th"] = 3
+
+    # Append the result container with the data necessary for DE
+    result_container.update(de_data)
 
     # Write the data to the json file
-    with open(json_tmp_file, "w") as json_output:
-        json_output.write(json.dumps(data, indent=4))
+    with open(json_file_path, "w") as json_output:
+        json_output.write(json.dumps(result_container, indent=4))
 
     # Run the simulation and obtain the results
     results = run_fvm_sim(
-        result_container["msh_path"], json_tmp_file, csv_path
+        result_container["msh_path"], json_file_path, csv_path
     )
-    print("Done!")
+
+    if check_should_cancel(json_file_path):
+        return
 
     ## Write the results to the correct locations in the result container
 
     # No T20? (Ask Ilaria)
+    result_container["results"][0]["responses"][0]["parameters"]["edt"] = results[
+        "edt_band"
+    ].tolist()
     result_container["results"][0]["responses"][0]["parameters"]["t20"] = results[
         "t30_band"
     ].tolist()
@@ -98,25 +103,46 @@ def de_method(json_file_path=None):
     result_container["results"][0]["responses"][0]["parameters"]["ts"] = results[
         "ts_band"
     ].tolist()
+    result_container["results"][0]["responses"][0]["parameters"]["spl_t0_freq"] = results[
+        "edt_band"
+    ].tolist()
+
     # No spl_r_t0_band (or spl_t0_freq)? (ask Ilaria)
 
-    for i in range(len(freqs)):
-        result_container["results"][0]["responses"][0]["receiverResults"].append(
+    df = pd.DataFrame()
+    for index, (edc_detail, pressure_detail) in enumerate(
+        zip(results["spl_r_off_band"], results["p_rec_off_deriv_band"])
+    ):
+        result_container["results"][0]["responses"][0][
+            "receiverResults"
+        ].append(
             {
-                "data": results["spl_r_off_band"][i].tolist(),
-                "t": results["t"].tolist(),
-                "frequency": result_container["results"][0]["frequencies"][i],
+                "data": edc_detail.tolist(),
+                # "data_pressure": pressure_detail.tolist(),
+                "t": (results["t_off"] - results["t_off"][0]).tolist(),
+                "frequency": result_container["results"][0]["frequencies"][
+                    index
+                ],
                 "type": "edc",
             }
         )
+        if "t" not in df.columns:
+            df["t"] = (results["t_off"] - results["t_off"][0]).tolist()
+        df[str(result_container["results"][0]["frequencies"][index]) + "Hz"] = (
+            pressure_detail.tolist()
+        )
 
-    # Write results to the json file
-    try:
-        with open(json_file_path, "w", encoding="utf-8") as file:
-            json.dump(result_container, file, indent=4)
+    result_container["results"][0]["percentage"] = 100
+    
+    # write results to the json
+    with open(json_file_path, "w") as new_result_json:
+        new_result_json.write(json.dumps(result_container, indent=4))
 
-    except Exception as e:
-        raise Exception("Error saving the simulation solver settings:") from e
+    # export to .csv
+    with open(
+        json_file_path.replace(".json", "_pressure.csv"), "w", newline=""
+    ) as pressure_result_csv:
+        df.to_csv(pressure_result_csv, index=False)
 
 
 if __name__ == "__main__":
