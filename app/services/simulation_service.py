@@ -216,6 +216,15 @@ def start_solver_task(simulation_id):
                     source, simulation.receivers, TaskType.DG.value
                 )
             )
+        if simulation.taskType.value == TaskType.DEISM.value:
+            task_statuses.append(create_source_task(TaskType.DEISM.value, source["id"]))
+            # TODO: Create custom DG JSON results_container
+            results_container.append(
+                create_result_source_object(
+                    source, simulation.receivers, TaskType.DEISM.value
+                )
+            )
+
         if simulation.taskType.value == TaskType.MyNewMethod.value:
             task_statuses.append(
                 create_source_task(TaskType.MyNewMethod.value, source["id"])
@@ -322,6 +331,7 @@ def start_solver_task(simulation_id):
 def run_solver(simulation_run_id: int, json_path: str):
     from simulation_backend.DGinterface import dg_method
     from simulation_backend.DEinterface import de_method
+    from simulation_backend.DeismInterface import deism_method
     from simulation_backend.MyNewMethodInterface import mynewmethod_method
 
     from app.db import db
@@ -437,6 +447,11 @@ def run_solver(simulation_run_id: int, json_path: str):
                     # DG METHOD
                     dg_method(json_file_path=json_path)
                     logger.info("DG method")
+
+                case TaskType.DEISM:
+                    # DEISM METHOD
+                    deism_method(json_file_path=json_path)
+                    logger.info("Deism method")
 
                 case TaskType.MyNewMethod:
                     # MyNewMethod METHOD

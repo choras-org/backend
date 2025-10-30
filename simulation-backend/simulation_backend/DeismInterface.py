@@ -135,6 +135,8 @@ def deism_method(json_file_path=None):
         # we want the absorption has size 6 * len(frequency bands)
         # The first dimension is for the walls, viz., x1, x2, y1, y2, z1, z2
         # Corresponding to wall 1, wall 3, wall 2, wall 4, floor, ceiling
+
+        # This should be obtained from result_container["absorption_coefficients"] as the names of the surfaces in CHORAS are UUIDs
         wall_order = ["wall1", "wall3", "wall2", "wall4", "floor", "ceiling"]
         # Create an empty array for the absorption coefficients
         absorption_coefficients = np.zeros((6, len(freq_bands)))

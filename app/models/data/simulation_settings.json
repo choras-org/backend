@@ -16,6 +16,14 @@
         "documentationURL": "https://dg-roomacoustics.readthedocs.io/en/latest/"
     },
     {
+        "description": "The Diffraction Enhanced Image Source Method.",
+        "label": "DEISM",
+        "name": "deism_setting.json",
+        "simulationType": "DEISM",
+        "repositoryURL": "https://github.com/audiolabs/DEISM/",
+        "documentationURL": "https://deism.readthedocs.io/en/latest/"
+    },
+    {
         "description": "MyNewMethod description",
         "label": "MyNewMethod",
         "name": "MyNewMethod.json",
