@@ -270,9 +270,9 @@ def run_auralization(auralizationId: int, taskType) -> None:
 
         logger.debug("match case Tasktype")
         match taskType:
-            case TaskType.DE:
+            case TaskType.DE.value:
                  _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
-            case TaskType.DG:
+            case TaskType.DG.value:
                  _, _ = auralization_calculation_DG(signal_file_name, pressure_file_name, wav_output_file_name)
 
 
