@@ -24,6 +24,17 @@
             "endAdornment": "m/s"
         },
         {
+            "name": "Air density",
+            "id": "dg_rho0",
+            "type": "float",
+            "display": "text",
+            "min": 0.001,
+            "max": 3,
+            "default": 1.213,
+            "step": 0.001,
+            "endAdornment": "kg/m^3"
+        },
+        {
             "name": "Impulse Response length",
             "id": "dg_ir_length",
             "type": "float",

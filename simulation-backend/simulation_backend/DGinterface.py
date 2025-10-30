@@ -11,6 +11,7 @@ import json
 import numpy as np
 from math import log, sqrt
 import edg_acoustics
+import pandas as pd
 
 print(edg_acoustics.__file__)
 
@@ -116,7 +117,15 @@ def surface_materials(result_container, c0):
     )
 
 
-def dg_method(json_file_path: str | Path):
+def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
+    """
+    Run DG simulation for acoustic wave propagation.
+
+    Args:
+        json_file_path: Path to the JSON configuration file
+        save_results_to_json: If True, saves impulse responses back to the JSON file.
+                              If False, only creates the json file. Default is True for standalone use.
+    """
     with open(json_file_path, "r") as json_file:
         result_container = json.load(json_file)
 
@@ -283,20 +292,29 @@ def dg_method(json_file_path: str | Path):
 
     results.apply_correction()
 
-    try:
-        with open(json_file_path, "r", encoding="utf-8") as file:
-            data = json.load(file)
-        data["results"][0]["responses"][0]["receiverResults"] = results.IRnew.tolist()
-        for i in range(rec.shape[1]):
-            data["results"][0]["responses"][i]["receiverResultsUncorrected"] = results.IRold[i].tolist()
-        with open(json_file_path, "w", encoding="utf-8") as file:
-            json.dump(data, file, indent=4)
+    # Only save results back to JSON if in standalone mode
+    if save_results_to_json:
+        try:
+            with open(json_file_path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+            data["results"][0]["responses"][0]["receiverResults"] = results.IRnew.tolist()
+            for i in range(rec.shape[1]):
+                data["results"][0]["responses"][i]["receiverResultsUncorrected"] = results.IRold[i].tolist()
+            with open(json_file_path, "w", encoding="utf-8") as file:
+                json.dump(data, file, indent=4)
 
-    except Exception:
-        print("Error saving the simulation solver settings")
-        raise Exception("Error saving the simulation solver settings")
-    # if result_container:
-    #     result_container['results'][0]['responses'][0]['IR']['IR_Uncorrected'] = results.IRold
+        except Exception:
+            print("Error saving the simulation solver settings")
+            raise Exception("Error saving the simulation solver settings")
+
+    df = pd.DataFrame()
+    df["t"] = impulse_length * np.arange(0, len(data["results"][0]["responses"][0]["receiverResults"]))/len(data["results"][0]["responses"][0]["receiverResults"])
+    df["pressure"] = data["results"][0]["responses"][0]["receiverResults"] 
+
+    with open(
+        json_file_path.replace(".json", "_pressure.csv"), "w", newline=""
+    ) as pressure_result_csv:
+        df.to_csv(pressure_result_csv, index=False)
 
 
     if called_from_deeponet:
