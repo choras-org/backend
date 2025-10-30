@@ -11,6 +11,7 @@ import json
 import numpy as np
 from math import log, sqrt
 import edg_acoustics
+import pandas as pd
 
 print(edg_acoustics.__file__)
 
@@ -305,6 +306,16 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
         except Exception:
             print("Error saving the simulation solver settings")
             raise Exception("Error saving the simulation solver settings")
+
+    df = pd.DataFrame()
+    df["t"] = impulse_length * np.arange(0, len(data["results"][0]["responses"][0]["receiverResults"]))/len(data["results"][0]["responses"][0]["receiverResults"])
+    df["pressure"] = data["results"][0]["responses"][0]["receiverResults"] 
+
+    with open(
+        json_file_path.replace(".json", "_pressure.csv"), "w", newline=""
+    ) as pressure_result_csv:
+        df.to_csv(pressure_result_csv, index=False)
+
 
     if called_from_deeponet:
         results.write_results(os.path.join(output_path, output_results), file_format, append=True)
