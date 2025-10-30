@@ -83,10 +83,8 @@ def de_method(json_file_path=None):
         return
 
     ## Write the results to the correct locations in the result container
-
-    # No T20? (Ask Ilaria)
     result_container["results"][0]["responses"][0]["parameters"]["edt"] = results[
-        "edt_band"
+        "t20_band"
     ].tolist()
     result_container["results"][0]["responses"][0]["parameters"]["t20"] = results[
         "t30_band"
@@ -104,10 +102,8 @@ def de_method(json_file_path=None):
         "ts_band"
     ].tolist()
     result_container["results"][0]["responses"][0]["parameters"]["spl_t0_freq"] = results[
-        "edt_band"
-    ].tolist()
-
-    # No spl_r_t0_band (or spl_t0_freq)? (ask Ilaria)
+        "spl_r_t0_band"
+    ]
 
     df = pd.DataFrame()
     for index, (edc_detail, pressure_detail) in enumerate(
