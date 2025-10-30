@@ -226,9 +226,9 @@ def create_new_auralization(simulation_id: int, audiofile_id: int) -> Optional[A
         logger.info(f"Start running auralization task for auralization id: {auralization.id}")
 
         if debug_celery:
-            run_auralization(auralization.id, simulation.taskType)
+            run_auralization(auralizationId=auralization.id, taskType=simulation.taskType.value)
         else:
-            run_auralization.delay(auralization.id, simulation.taskType)
+            run_auralization.delay(auralizationId=auralization.id, taskType=simulation.taskType.value)
 
         logger.info(f"Auralization task for auralization id: {auralization.id} is running")
 
@@ -241,7 +241,7 @@ def create_new_auralization(simulation_id: int, audiofile_id: int) -> Optional[A
 
 
 @shared_task
-def run_auralization(auralizationId: int, taskType: TaskType) -> None:
+def run_auralization(auralizationId: int, taskType) -> None:
     try:
         auralization: Auralization = get_auralization_by_id(auralizationId)
         auralization.status = Status.InProgress
@@ -268,6 +268,7 @@ def run_auralization(auralizationId: int, taskType: TaskType) -> None:
         logger.debug("pressure_file_name: %s", pressure_file_name)
         logger.debug("wav_output_file_name: %s", wav_output_file_name)
 
+        logger.debug("match case Tasktype")
         match taskType:
             case TaskType.DE:
                  _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
