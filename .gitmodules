@@ -1,6 +1,3 @@
-[submodule "Diffusion"]
-	path = Diffusion
-	url = https://github.com/Building-acoustics-TU-Eindhoven/Diffusion.git
 [submodule "MyNewMethod"]
 	path = MyNewMethod
 	url = https://github.com/SilvinWillemsen/MyNewMethod.git

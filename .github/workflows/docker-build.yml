@@ -43,3 +43,4 @@ jobs:
 
       - name: Show pushed images
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ env.TAG }}
+ 

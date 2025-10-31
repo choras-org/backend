@@ -753,7 +753,7 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
 
         ii = 1
         for grp in material_to_id:
-            g.write(f'Physical Surface("{grp}") = {{ {", ".join(str(ii))} }};\n')
+            g.write(f'Physical Surface("{grp}") = {{ { str(ii) } }};\n')
             ii = ii + 1
 
         g.write("Volume(1) = { 1 };\n")
