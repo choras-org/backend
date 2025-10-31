@@ -152,6 +152,6 @@ matplotlib<3.7.0 # Docs, required for plot directive
 pyroomacoustics
 
 -e ./simulation-backend
--e ./Diffusion
+git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@be14b250d3204763bd36fcb34205991639300b33#egg=acousticDE
 git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@bf97d0355366540940adee3043e0bcca447254e8#egg=edg-acoustics
 -e ./MyNewMethod
