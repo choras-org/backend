@@ -13,7 +13,7 @@ from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
 from app.models import Export, File, Simulation, SimulationRun, Task
 from app.services import file_service, material_service, mesh_service, model_service
-from app.services.auralization_service import auralization_calculation
+from app.services.auralization_service import auralization_calculation, auralization_calculation_DG
 from app.types import Status, TaskType
 from config import CustomExportParametersConfig
 
@@ -391,9 +391,25 @@ def run_solver(simulation_run_id: int, json_path: str):
                     logger.info("DE method")
                     de_method(json_file_path=json_path)
 
-                    if json_path is not None:
-                        with open(json_path, "r") as json_file_to_check:
-                            data = json.load(json_file_to_check)
+                case TaskType.DG:
+                    # DG METHOD
+                    dg_method(json_file_path=json_path)
+                    logger.info("DG method")
+
+                case TaskType.MyNewMethod:
+                    # MyNewMethod METHOD
+                    mynewmethod_method(json_file_path=json_path)
+                    logger.info("MyNewMethod")
+
+                case _:
+                    raise Exception("The selected tasktype is not valid!")
+
+            if json_path is not None:
+                with open(json_path, "r") as json_file_to_check:
+                    data = json.load(json_file_to_check)
+
+                match taskType:
+                    case TaskType.DE:
 
                         # Update the specified field value
                         if "should_cancel" in data:
@@ -432,20 +448,23 @@ def run_solver(simulation_run_id: int, json_path: str):
                                         "Error saving the impulse response to xlsx"
                                     )
                                     raise "Error saving the impulse response to xlsx"
+                                
+                    case TaskType.DG:
+                        # db - save the xlsx file path
+                        export = Export(
+                            name=Path(json_path).name.replace(".json", ".xlsx"),
+                            simulationId=simulation.id,
+                        )
+                        session.add(export)
 
-                case TaskType.DG:
-                    # DG METHOD
-                    dg_method(json_file_path=json_path)
-                    logger.info("DG method")
+                        # auralization: generate impulse response wav file
+                        imp_tot, fs = auralization_calculation_DG(
+                            None,
+                            json_path.replace(".json", "_pressure.csv"),
+                            json_path.replace(".json", ".wav"),
+                        )
 
-                case TaskType.MyNewMethod:
-                    # MyNewMethod METHOD
-                    mynewmethod_method(json_file_path=json_path)
-                    logger.info("MyNewMethod")
-
-                case _:
-                    raise Exception("The selected tasktype is not valid!")
-
+                        
             result_container = {}
             if json_path is not None:
                 with open(json_path, "r") as json_file:

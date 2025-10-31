@@ -122,7 +122,7 @@ def plot_dg_results(json_output):
             result_container = json.load(json_file)
     plt.figure()
 
-    if result_container["results"][0]["resultType"] == "DG":
+    if result_container["results"][0]["resultType"] == "DG" or result_container["results"][0]["resultType"] == "DON":
         for i in range(len(result_container["results"][0]["responses"])):
             plt.plot(result_container["results"][0]["responses"][i]["receiverResultsUncorrected"])
     elif result_container["results"][0]["resultType"] == "DE":

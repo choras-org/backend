@@ -23,7 +23,7 @@ from app.models.Auralization import Auralization
 from app.models.Export import Export
 from app.models.Model import Model
 from app.models.Simulation import Simulation
-from app.types import Status
+from app.types import Status, TaskType
 from config import AuralizationParametersConfig as AuralizationParameters
 from config import CustomExportParametersConfig, DefaultConfig, app_dir
 
@@ -32,6 +32,7 @@ from math import ceil
 # Create Logger for this module
 logger = logging.getLogger(__name__)
 
+debug_celery = False
 
 def get_auralization_by_id(auralization_id: int) -> Optional[Auralization]:
     auralization: Optional[Auralization] = Auralization.query.filter_by(id=auralization_id).first()
@@ -212,28 +213,35 @@ def __get_file_size__(file_storage: FileStorage) -> int:
 
 def create_new_auralization(simulation_id: int, audiofile_id: int) -> Optional[Auralization]:
     auralization: Optional[Auralization] = get_auralization_by_simulation_audiofile_ids(simulation_id, audiofile_id)
-    if auralization.status == Status.Uncreated or auralization.status == Status.Error:
-        try:
-            auralization = Auralization(simulationId=simulation_id, audioFileId=audiofile_id)
-            auralization.status = Status.Created
+    # if auralization.status == Status.Uncreated or auralization.status == Status.Error:
+    try:
+        auralization = Auralization(simulationId=simulation_id, audioFileId=audiofile_id)
+        auralization.status = Status.Created
 
-            db.session.add(auralization)
-            db.session.commit()
+        db.session.add(auralization)
+        db.session.commit()
 
-            logger.info(f"Start running auralization task for auralization id: {auralization.id}")
-            run_auralization.delay(auralization.id)
-            logger.info(f"Auralization task for auralization id: {auralization.id} is running")
+        simulation = Simulation.query.filter_by(id=simulation_id).first()
 
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error creating auralization: {e}")
-            abort(400, "Error creating auralization")
+        logger.info(f"Start running auralization task for auralization id: {auralization.id}")
+
+        if debug_celery:
+            run_auralization(auralizationId=auralization.id, taskType=simulation.taskType.value)
+        else:
+            run_auralization.delay(auralizationId=auralization.id, taskType=simulation.taskType.value)
+
+        logger.info(f"Auralization task for auralization id: {auralization.id} is running")
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating auralization: {e}")
+        abort(400, "Error creating auralization")
 
     return auralization
 
 
 @shared_task
-def run_auralization(auralizationId: int) -> None:
+def run_auralization(auralizationId: int, taskType) -> None:
     try:
         auralization: Auralization = get_auralization_by_id(auralizationId)
         auralization.status = Status.InProgress
@@ -253,14 +261,20 @@ def run_auralization(auralizationId: int) -> None:
             DefaultConfig.UPLOAD_FOLDER_NAME, export.name.replace(".xlsx", "_pressure.csv")
         )
 
-        auralization.wavFileName = export.name.replace(".xlsx", f"_{input_audio_file.name}.wav")
+        auralization.wavFileName = export.name.replace(".xlsx", f"_{input_audio_file.name}")
         wav_output_file_name = os.path.join(DefaultConfig.UPLOAD_FOLDER_NAME, auralization.wavFileName)
 
         logger.debug("signal_file_name: %s", signal_file_name)
         logger.debug("pressure_file_name: %s", pressure_file_name)
         logger.debug("wav_output_file_name: %s", wav_output_file_name)
 
-        _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
+        logger.debug("match case Tasktype")
+        match taskType:
+            case TaskType.DE.value:
+                 _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
+            case TaskType.DG.value:
+                 _, _ = auralization_calculation_DG(signal_file_name, pressure_file_name, wav_output_file_name)
+
 
         auralization.status = Status.Completed
 
@@ -272,6 +286,76 @@ def run_auralization(auralizationId: int) -> None:
         db.session.commit()
         logger.error(f"Error running this auralization {auralization.id}: {e}")
         abort(400, "Error running this auralization")
+
+
+# TODO: too long code, refactor this function
+def auralization_calculation_DG(
+    signal_file_name: Optional[str], impulse_response: str, wav_output_file_name: Optional[str] = None
+) -> Tuple[List[int], int]:
+    # Load the signal and pressure data
+    try:
+        if signal_file_name is not None:
+            # Extract data and sampling rate from file
+            data_signal, fs = sf.read(signal_file_name)  # this returns "data_signal", which is the
+            # audiodata (one_dimentional array) of the anechoic signal. It returns also the
+            # "fs" sample frequency of the signal
+        else:
+            data_signal, fs = None, AuralizationParameters.visualization_fs
+
+        imp_tot = np.loadtxt(
+            impulse_response, skiprows=1, usecols=1, delimiter=','
+        )  # this returns the pressure data
+
+    except Exception as e:
+        logger.error(f'Error loading files: {e}')
+        return None, None
+
+    try:
+        if data_signal is not None:
+            logger.info("Convolving processing ...")
+            # CONVOLUTION FOR AURALIZATION
+            # Create impulse*signal response
+            # convolution of the impulse response with the anechoic signal
+            # sh_conv = np.convolve(imp_tot, data_signal, mode='full')
+            # normalized to the maximum value of the convolved signal
+            # sh_conv = sh_conv / max(abs(sh_conv))
+            # normalize the floating-point data to the range of int16
+            # sh_conv_normalized = np.int16(sh_conv * 32767)
+            # Time vector of the convolved signal
+            # t_conv = np.arange(0, (len(sh_conv)) / fs, 1 / fs)
+
+            # The above code can only be used for 1D signal input,
+            # so I will use the following code for multi-channel signal input
+            # add a new axis to the impulse response for matching the dimensions of the signal
+            if data_signal.ndim > 1:
+                imp_tot = np.expand_dims(imp_tot, axis=1)
+
+            # scipy.signal.convolve is faster than numpy.convolve
+            sh_conv = convolve(imp_tot, data_signal, mode='full', method='auto')
+            sh_conv_normalized = normalize_to_int16(sh_conv)
+
+            # # Validation
+            # sh_conv_np = np.convolve(imp_tot, data_signal, mode='full')
+            # logger.info(f"test for equivalence: {np.allclose(sh_conv_np, sh_conv)}")
+            # logger.info(f"test for equivalence: {sh_conv[20:30] - sh_conv_np[20:30]}")
+            # logger.info(f"test for equivalence: {sh_conv.shape} {sh_conv_np.shape}")
+
+            if wav_output_file_name is not None:
+                # Create a file wav for auralization
+                wavfile.write(wav_output_file_name, fs, sh_conv_normalized)
+                return None, None  # in 16 bit format
+
+        else:
+            imp_tot_normalized = normalize_to_int16(imp_tot)
+
+            if wav_output_file_name is not None:
+                # Create a file wav for impulse response
+                wavfile.write(wav_output_file_name, fs, imp_tot_normalized)
+            return (imp_tot.tolist(), fs)  # fs = 44100 Hz if no signal file is provided
+
+    except Exception as e:
+        logger.error(f'Error during auralization calculation: {e}')
+        return None, None
 
 
 # TODO: too long code, refactor this function

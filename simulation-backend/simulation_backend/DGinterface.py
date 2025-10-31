@@ -118,6 +118,14 @@ def surface_materials(result_container, c0):
 
 
 def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
+    """
+    Run DG simulation for acoustic wave propagation.
+
+    Args:
+        json_file_path: Path to the JSON configuration file
+        save_results_to_json: If True, saves impulse responses back to the JSON file.
+                              If False, only creates the json file. Default is True for standalone use.
+    """
     with open(json_file_path, "r") as json_file:
         result_container = json.load(json_file)
 
@@ -299,14 +307,14 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
             print("Error saving the simulation solver settings")
             raise Exception("Error saving the simulation solver settings")
 
-    df = pd.DataFrame()
-    df["t"] = impulse_length * np.arange(0, len(data["results"][0]["responses"][0]["receiverResults"]))/len(data["results"][0]["responses"][0]["receiverResults"])
-    df["pressure"] = data["results"][0]["responses"][0]["receiverResults"] 
+        df = pd.DataFrame()
+        df["t"] = impulse_length * np.arange(0, len(data["results"][0]["responses"][0]["receiverResults"]))/len(data["results"][0]["responses"][0]["receiverResults"])
+        df["pressure"] = data["results"][0]["responses"][0]["receiverResults"] 
 
-    with open(
-        json_file_path.replace(".json", "_pressure.csv"), "w", newline=""
-    ) as pressure_result_csv:
-        df.to_csv(pressure_result_csv, index=False)
+        with open(
+            json_file_path.replace(".json", "_pressure.csv"), "w", newline=""
+        ) as pressure_result_csv:
+            df.to_csv(pressure_result_csv, index=False)
 
     if called_from_deeponet:
         results.write_results(os.path.join(output_path, output_results), file_format, append=True)
