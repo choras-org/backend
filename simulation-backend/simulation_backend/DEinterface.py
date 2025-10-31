@@ -3,6 +3,7 @@ import os
 import pandas as pd
 
 from acousticDE.FiniteVolumeMethod.FVM import run_fvm_sim, check_should_cancel
+from acousticDE.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
 
 def de_method(json_file_path=None):
     result_container = {}
@@ -73,6 +74,12 @@ def de_method(json_file_path=None):
     # Write the data to the json file
     with open(json_file_path, "w") as json_output:
         json_output.write(json.dumps(result_container, indent=4))
+
+    geo_file_path = result_container["geo_path"]
+    msh_file_path = result_container["msh_path"]
+    generate_mesh(
+        geo_file_path, msh_file_path, result_container["simulationSettings"]["de_lc"]
+    )  # TODO: make this dependent on the room dimensions. We don't need an lc of 1 meter at all times..
 
     # Run the simulation and obtain the results
     results = run_fvm_sim(

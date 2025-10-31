@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+import sqlite3
 
 import config
 import manage

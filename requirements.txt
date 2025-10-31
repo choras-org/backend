@@ -72,7 +72,7 @@ mypy-extensions==1.0.0
 nest-asyncio==1.5.6
 networkx==3.3
 nodeenv==1.9.1
-numpy==1.26.4
+numpy
 numpy-stl==3.1.1
 openpyxl==3.1.5
 packaging==22.0
@@ -127,7 +127,7 @@ tomli==2.0.1
 tornado==6.3.2
 traitlets==5.7.1
 trimesh==4.4.1
-typing_extensions==4.5.0
+typing_extensions
 tzdata==2023.3
 urllib3==2.2.2
 vine==5.1.0
@@ -148,10 +148,11 @@ myst_parser # Docs, required for markdown support
 sphinx-design # Docs, required for tabs and other design elements
 sphinx-copybutton # Docs, required for copy buttons in code blocks
 sphinx-gallery # Docs, required for example gallery
-matplotlib<3.7.0 # Docs, required for plot directive
+matplotlib # Docs, required for plot directive
 pyroomacoustics
 
 -e ./simulation-backend
 git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@be14b250d3204763bd36fcb34205991639300b33#egg=acousticDE
-git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@bf97d0355366540940adee3043e0bcca447254e8#egg=edg-acoustics
+# git+https://github.com/dtu-act/deeponet-acoustic-wave-prop.git@3d3fc5ee952756eedcd4fec3c3674ad829825c7e#egg=deeponet-acoustics
+git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@08cac98da98ed14ba1366741b1c0644001503b82#egg=edg-acoustics
 -e ./MyNewMethod
