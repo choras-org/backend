@@ -152,7 +152,7 @@ matplotlib # Docs, required for plot directive
 # pyroomacoustics
 
 -e ./simulation-backend
-git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@57e2082353986af24f7bc87bf61d146ee6bcc131#egg=acousticDE
+git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@d2342ee2095d674f1f39f8cf286103b4cf40515a#egg=acousticDE
 # git+https://github.com/dtu-act/deeponet-acoustic-wave-prop.git@3d3fc5ee952756eedcd4fec3c3674ad829825c7e#egg=deeponet-acoustics
 git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@08cac98da98ed14ba1366741b1c0644001503b82#egg=edg-acoustics
 -e ./MyNewMethod
