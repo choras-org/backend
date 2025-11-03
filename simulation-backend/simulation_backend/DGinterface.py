@@ -297,7 +297,7 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
         try:
             with open(json_file_path, "r", encoding="utf-8") as file:
                 data = json.load(file)
-            data["results"][0]["responses"][0]["receiverResults"] = results.IRnew.tolist()
+            data["results"][0]["responses"][0]["receiverResults"] = results.IRnew[0:round(len(results.IRold[0]) * results.dt_old / results.dt_new)].tolist()
             for i in range(rec.shape[1]):
                 data["results"][0]["responses"][i]["receiverResultsUncorrected"] = results.IRold[i].tolist()
             with open(json_file_path, "w", encoding="utf-8") as file:
