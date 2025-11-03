@@ -408,48 +408,20 @@ def run_solver(simulation_run_id: int, json_path: str):
                 with open(json_path, "r") as json_file_to_check:
                     data = json.load(json_file_to_check)
 
-                match taskType:
-                    case TaskType.DE:
+                # Update the specified field value
+                if "should_cancel" in data:
+                    if data["should_cancel"] == True:
+                        logger.info("Cancelled: do not save to xlsx")
+                    else:
+                        logger.info("Saving to xlsx...")
 
-                        # Update the specified field value
-                        if "should_cancel" in data:
-                            if data["should_cancel"] == True:
-                                logger.info("Cancelled: do not save to xlsx")
-                            else:
-                                logger.info("Saving to xlsx...")
+                        # save the simulation result json to xlsx
+                        if not ExportHelper.parse_json_file_to_xlsx_file(
+                            json_path, json_path.replace(".json", ".xlsx")
+                        ):
+                            logger.error("Error saving the result to xlsx")
+                            raise "Error saving the result to xlsx"
 
-                                # save the simulation result json to xlsx
-                                if not ExportHelper.parse_json_file_to_xlsx_file(
-                                    json_path, json_path.replace(".json", ".xlsx")
-                                ):
-                                    logger.error("Error saving the result to xlsx")
-                                    raise "Error saving the result to xlsx"
-
-                                # db - save the xlsx file path
-                                export = Export(
-                                    name=Path(json_path).name.replace(".json", ".xlsx"),
-                                    simulationId=simulation.id,
-                                )
-                                session.add(export)
-
-                                # auralization: generate impulse response wav file
-                                imp_tot, fs = auralization_calculation(
-                                    None,
-                                    json_path.replace(".json", "_pressure.csv"),
-                                    json_path.replace(".json", ".wav"),
-                                )
-                                # auralization: save the impulse response to xlsx
-                                if not ExportHelper.write_data_to_xlsx_file(
-                                    json_path.replace(".json", ".xlsx"),
-                                    CustomExportParametersConfig.impulse_response,
-                                    {f"{fs}Hz": imp_tot},
-                                ):
-                                    logger.error(
-                                        "Error saving the impulse response to xlsx"
-                                    )
-                                    raise "Error saving the impulse response to xlsx"
-                                
-                    case TaskType.DG:
                         # db - save the xlsx file path
                         export = Export(
                             name=Path(json_path).name.replace(".json", ".xlsx"),
@@ -458,11 +430,31 @@ def run_solver(simulation_run_id: int, json_path: str):
                         session.add(export)
 
                         # auralization: generate impulse response wav file
-                        imp_tot, fs = auralization_calculation_DG(
-                            None,
-                            json_path.replace(".json", "_pressure.csv"),
-                            json_path.replace(".json", ".wav"),
-                        )
+                        match taskType:
+                            case TaskType.DE:
+                                imp_tot, fs = auralization_calculation(
+                                    None,
+                                    json_path.replace(".json", "_pressure.csv"),
+                                    json_path.replace(".json", ".wav"),
+                                )
+                            case TaskType.DG:
+                                imp_tot, fs = auralization_calculation_DG(
+                                    None,
+                                    json_path.replace(".json", "_pressure.csv"),
+                                    json_path.replace(".json", ".wav"),
+                                )
+
+                        # auralization: save the impulse response to xlsx
+                        if not ExportHelper.write_data_to_xlsx_file(
+                            json_path.replace(".json", ".xlsx"),
+                            CustomExportParametersConfig.impulse_response,
+                            {f"{fs}Hz": imp_tot},
+                        ):
+                            logger.error(
+                                "Error saving the impulse response to xlsx"
+                            )
+                            raise "Error saving the impulse response to xlsx"
+                                
 
                         
             result_container = {}
