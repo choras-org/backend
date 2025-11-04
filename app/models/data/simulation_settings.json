@@ -14,13 +14,5 @@
         "simulationType": "DG",
         "repositoryURL": "https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics/",
         "documentationURL": "https://dg-roomacoustics.readthedocs.io/en/latest/"
-    },
-    {
-        "description": "MyNewMethod description",
-        "label": "MyNewMethod",
-        "name": "MyNewMethod.json",
-        "simulationType": "MyNewMethod",
-        "repositoryURL": "",
-        "documentationURL": ""
     }
 ]
