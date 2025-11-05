@@ -68,6 +68,10 @@ def de_method(json_file_path=None):
     # Absorption condition (options Sabine (th=1), Eyring (th=2) and modified by Xiang (th=3))
     de_data["th"] = 3
 
+    de_data["sim_len_type"] = result_container["simulationSettings"]["sim_len_type"]
+    de_data["de_ir_length"] = result_container["simulationSettings"]["de_ir_length"]
+    de_data["edt"] = result_container["simulationSettings"]["edt"]
+
     # Append the result container with the data necessary for DE
     result_container.update(de_data)
 
