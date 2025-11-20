@@ -502,6 +502,10 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
                 # If first token starts with 'Mesh', skip it
                 parts = [p for p in parts if not p.startswith("Mesh") and not p.startswith("Model")]
                 current_group = parts[0] if parts else "default"
+            elif line.startswith('usemtl'):  # Material-based grouping
+                parts = line.split()[1:]
+                # Materials also act as groups
+                current_group = parts[0] if parts else "default"
             elif line.startswith('f '):
                 parts = line.split()[1:]
                 # face vertex indices (OBJ format may include v/vt/vn)
