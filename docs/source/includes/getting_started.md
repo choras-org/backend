@@ -34,7 +34,7 @@ to include the correct commits of all the submodules.
 2. Create a new environment and install all the requirements by running the following (this will take a minute)
 
 ```shell
-conda create -n choras python=3.10
+conda create -n choras python=3.11
 conda activate choras
 pip install -r requirements.txt
 ```

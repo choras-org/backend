@@ -28,26 +28,41 @@
                     "x": 1,
                     "y": 1,
                     "z": 1.5,
-                    "parameters": {
-                        "edt": [],
-                        "t20": [],
-                        "t30": [],
-                        "c80": [],
-                        "d50": [],
-                        "ts": [],
-                        "spl_t0_freq": []
-                    },
-                    "receiverResults": []
+                    "receiverResults": [],
+                    "receiverResultsUncorrected": []
+                },
+                {
+                    "x": 0.5,
+                    "y": 1,
+                    "z": 1.5,
+                    "receiverResults": [],
+                    "receiverResultsUncorrected": []
+                },
+                {
+                    "x": 1,
+                    "y": 2,
+                    "z": 0.5,
+                    "receiverResults": [],
+                    "receiverResultsUncorrected": []
+                },
+                {
+                    "x": 0.5,
+                    "y": 0.5,
+                    "z": 0.5,
+                    "receiverResults": [],
+                    "receiverResultsUncorrected": []
                 }
             ]
         }
     ],
     "simulationSettings": {
-        "freq_upper_limit": 200,
+        "dg_freq_upper_limit": 200,
         "dg_c0": 343,
-        "dg_ir_length": 0.01,
-        "dg_absorption_override": "no",
-        "dg_R": 0.99
+        "dg_rho0": 1.213,
+        "dg_ir_length": 0.1,
+        "dg_poly_order": 4,
+        "dg_ppw": 2,
+        "dg_cfl": 1
     },
     "settingsPreset": "Advanced"
 }

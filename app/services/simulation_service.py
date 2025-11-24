@@ -13,7 +13,7 @@ from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
 from app.models import Export, File, Simulation, SimulationRun, Task
 from app.services import file_service, material_service, mesh_service, model_service
-from app.services.auralization_service import auralization_calculation
+from app.services.auralization_service import auralization_calculation, auralization_calculation_DG
 from app.types import Status, TaskType
 from config import CustomExportParametersConfig
 
@@ -391,48 +391,6 @@ def run_solver(simulation_run_id: int, json_path: str):
                     logger.info("DE method")
                     de_method(json_file_path=json_path)
 
-                    if json_path is not None:
-                        with open(json_path, "r") as json_file_to_check:
-                            data = json.load(json_file_to_check)
-
-                        # Update the specified field value
-                        if "should_cancel" in data:
-                            if data["should_cancel"] == True:
-                                logger.info("Cancelled: do not save to xlsx")
-                            else:
-                                logger.info("Saving to xlsx...")
-
-                                # save the simulation result json to xlsx
-                                if not ExportHelper.parse_json_file_to_xlsx_file(
-                                    json_path, json_path.replace(".json", ".xlsx")
-                                ):
-                                    logger.error("Error saving the result to xlsx")
-                                    raise "Error saving the result to xlsx"
-
-                                # db - save the xlsx file path
-                                export = Export(
-                                    name=Path(json_path).name.replace(".json", ".xlsx"),
-                                    simulationId=simulation.id,
-                                )
-                                session.add(export)
-
-                                # auralization: generate impulse response wav file
-                                imp_tot, fs = auralization_calculation(
-                                    None,
-                                    json_path.replace(".json", "_pressure.csv"),
-                                    json_path.replace(".json", ".wav"),
-                                )
-                                # auralization: save the impulse response to xlsx
-                                if not ExportHelper.write_data_to_xlsx_file(
-                                    json_path.replace(".json", ".xlsx"),
-                                    CustomExportParametersConfig.impulse_response,
-                                    {f"{fs}Hz": imp_tot},
-                                ):
-                                    logger.error(
-                                        "Error saving the impulse response to xlsx"
-                                    )
-                                    raise "Error saving the impulse response to xlsx"
-
                 case TaskType.DG:
                     # DG METHOD
                     dg_method(json_file_path=json_path)
@@ -446,6 +404,59 @@ def run_solver(simulation_run_id: int, json_path: str):
                 case _:
                     raise Exception("The selected tasktype is not valid!")
 
+            if json_path is not None:
+                with open(json_path, "r") as json_file_to_check:
+                    data = json.load(json_file_to_check)
+
+                # Update the specified field value
+                if "should_cancel" in data:
+                    if data["should_cancel"] == True:
+                        logger.info("Cancelled: do not save to xlsx")
+                    else:
+                        logger.info("Saving to xlsx...")
+
+                        # save the simulation result json to xlsx
+                        if not ExportHelper.parse_json_file_to_xlsx_file(
+                            json_path, json_path.replace(".json", ".xlsx")
+                        ):
+                            logger.error("Error saving the result to xlsx")
+                            raise "Error saving the result to xlsx"
+
+                        # db - save the xlsx file path
+                        export = Export(
+                            name=Path(json_path).name.replace(".json", ".xlsx"),
+                            simulationId=simulation.id,
+                        )
+                        session.add(export)
+
+                        # auralization: generate impulse response wav file
+                        match taskType:
+                            case TaskType.DE:
+                                imp_tot, fs = auralization_calculation(
+                                    None,
+                                    json_path.replace(".json", "_pressure.csv"),
+                                    json_path.replace(".json", ".wav"),
+                                )
+                            case TaskType.DG:
+                                imp_tot, fs = auralization_calculation_DG(
+                                    None,
+                                    json_path.replace(".json", "_pressure.csv"),
+                                    json_path.replace(".json", ".wav"),
+                                )
+
+                        # auralization: save the impulse response to xlsx
+                        if not ExportHelper.write_data_to_xlsx_file(
+                            json_path.replace(".json", ".xlsx"),
+                            CustomExportParametersConfig.impulse_response,
+                            {f"{fs}Hz": imp_tot},
+                        ):
+                            logger.error(
+                                "Error saving the impulse response to xlsx"
+                            )
+                            raise "Error saving the impulse response to xlsx"
+                                
+
+                        
             result_container = {}
             if json_path is not None:
                 with open(json_path, "r") as json_file:
@@ -490,8 +501,12 @@ def get_simulation_result_by_id(simulation_id):
         model.outputFileId, simulation_id, extension="json"
     )
 
-    with open(json_path, "r") as json_file:
-        result_container = json.load(json_file)
+    try:
+        with open(json_path, "r") as json_file:
+            result_container = json.load(json_file)
+    except Exception as ex:
+        logger.warning(msg=f"No result available")
+        abort(400, message=f"No result available")
 
     return result_container["results"]
 

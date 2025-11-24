@@ -1,0 +1,124 @@
+{
+    "absorption_coefficients": {
+        "floor": "0.6, 0.69, 0.71, 0.7, 0.63",
+        "wall1": "0.6, 0.69, 0.71, 0.7, 0.63",
+        "ceiling": "0.6, 0.69, 0.71, 0.7, 0.63",
+        "wall2": "0.6, 0.69, 0.71, 0.7, 0.63",
+        "wall3": "0.6, 0.69, 0.71, 0.7, 0.63",
+        "wall4": "0.6, 0.69, 0.71, 0.7, 0.63"
+    },
+    "msh_path": "MeasurementRoom.msh",
+    "geo_path": "MeasurementRoom.geo",
+    "results": [
+        {
+            "percentage": 100,
+            "sourceX": 0.4,
+            "sourceY": 1.0,
+            "sourceZ": 1.2,
+            "resultType": "DON",            
+            "responses": [
+                {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.1,
+                    "receiverResults": [],
+                    "receiverResultsUncorrected": []
+                },
+                {
+                    "x": 0.5,
+                    "y": 1.0,
+                    "z": 1.5,
+                    "receiverResults": [],
+                    "receiverResultsUncorrected": []
+                },
+                {
+                    "x": 1.0,
+                    "y": 0.9,
+                    "z": 0.5,
+                    "receiverResults": [],
+                    "receiverResultsUncorrected": []
+                },
+                {
+                    "x": 0.5,
+                    "y": 0.5,
+                    "z": 0.5,
+                    "receiverResults": [],
+                    "receiverResultsUncorrected": []
+                }
+            ]
+        }
+    ],
+    "dg_setup": {  
+        "simulationSettings": {
+            "dg_freq_upper_limit": 200,
+            "dg_c0": 343,
+            "dg_rho0": 1.213,
+            "dg_ir_length": 0.05,
+            "dg_poly_order": 4,
+            "dg_ppw": 2,
+            "dg_cfl": 1
+        },
+        "output_path": "tmp/deeponet/",
+        "output_filename": "dg_sim_results",
+        "file_format": "npz"
+    },
+    "deeponet_train_setup": {
+        "id": "cube_dummy_1src_fixed_recvs",
+
+        "input_dir": "tmp/deeponet/",
+        "output_dir": "tmp/deeponet/results/",
+    
+        "training_data_dir": "train_data",
+        "testing_data_dir": "val_data",
+
+        "tmax": 1000,
+        
+        "f0_feat": [1.458,0.729,0.486],
+        "normalize_data": true,
+    
+        "iterations": 1000,
+        "use_adaptive_weights": true,
+        "decay_steps": 2000,
+        "decay_rate": 0.90,
+        "learning_rate": 1e-3,
+        "optimizer": "adam",
+        
+        "__comment1__": "total batch_size is a multiple of branch and coordinate sizes",
+        "batch_size_branch": 64,
+        "batch_size_coord": 1000,
+    
+        "branch_net": {
+            "architecture": "mod-mlp",
+            "activation": "sin",
+            "num_hidden_layers": 3,
+            "num_hidden_neurons": 512
+        },
+        "trunk_net": {
+            "architecture": "mod-mlp",
+            "activation": "sin",
+            "num_hidden_layers": 3,
+            "num_hidden_neurons": 512
+        },
+        "num_output_neurons": 100
+    },
+    "deeponet_inference_setup": {        
+        "tmax": 1000,
+
+        "write_full_wave_field": false,    
+        "snap_to_grid": true,
+        "write_ir_plots": true,
+        "write_ir_animations": false,
+        "write_ir_wav": true,
+
+        "recv_positions": [[1.0, 1.0, 1.1], 
+                           [0.5, 1.0, 1.5], 
+                           [1.0, 0.9, 0.5], 
+                           [0.5, 0.5, 0.5]],
+
+    
+        "receiver_position_groups": [
+            "recv_positions"
+        ]
+    },
+    "settingsPreset": "Advanced"
+}

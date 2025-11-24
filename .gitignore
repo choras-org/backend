@@ -12,12 +12,17 @@ __pycache__/
 # C extensions
 *.so
 
+*.npz
+*.h5
+*.hdf5
+
 # Distribution / packaging
 .Python
 build/
 develop-eggs/
 dist/
 downloads/
+tmp/
 eggs/
 .eggs/
 lib/

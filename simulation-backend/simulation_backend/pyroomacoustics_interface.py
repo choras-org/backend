@@ -349,3 +349,6 @@ if __name__ == "__main__":
 
     # Save the results to a separate file
     simulation_backend.save_results(json_tmp_file)
+
+    # Plot results
+    simulation_backend.plot_results(json_tmp_file)
