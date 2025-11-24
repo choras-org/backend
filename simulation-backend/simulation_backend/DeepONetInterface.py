@@ -60,9 +60,9 @@ def _convert_relative_to_absolute_paths(
     )
 
     # Construct derived paths
-    data["deeponet_inference_setup"]["validation_data_dir"] = os.path.join(
+    data["deeponet_inference_setup"]["test_data_dir"] = os.path.join(
         data["deeponet_train_setup"]["input_dir"],
-        data["deeponet_train_setup"]["testing_data_dir"],
+        data["deeponet_train_setup"]["val_data_dir"],
     )
     data["deeponet_inference_setup"]["model_dir"] = os.path.join(
         data["deeponet_train_setup"]["output_dir"], data["deeponet_train_setup"]["id"]
@@ -278,7 +278,7 @@ def _prepare_validation_data(
     # Copy HDF5 validation data
     file_path_val_h5 = os.path.join(
         output_path,
-        settings["deeponet_train_setup"]["testing_data_dir"],
+        settings["deeponet_train_setup"]["val_data_dir"],
         f"src{source_index}",
         os.path.basename(train_h5_path),
     )
@@ -502,7 +502,7 @@ def deeponet_method(json_file_path: str | Path, output_json_path: str | Path = N
         # Save training data to HDF5
         file_path_train_h5 = os.path.join(
             output_path,
-            settings["deeponet_train_setup"]["training_data_dir"],
+            settings["deeponet_train_setup"]["train_data_dir"],
             f"src{i}",
             f"{output_filename}.h5",
         )

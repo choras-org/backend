@@ -68,12 +68,10 @@
         "input_dir": "tmp/deeponet/",
         "output_dir": "tmp/deeponet/results/",
     
-        "training_data_dir": "train_data",
-        "testing_data_dir": "val_data",
-
-        "tmax": 1000,
+        "train_data_dir": "train_data",
+        "val_data_dir": "val_data",
         
-        "f0_feat": [1.458,0.729,0.486],
+        "f0_feat": [500.0, 250.0, 167.0],
         "normalize_data": true,
     
         "iterations": 1000,
@@ -101,9 +99,7 @@
         },
         "num_output_neurons": 100
     },
-    "deeponet_inference_setup": {        
-        "tmax": 1000,
-
+    "deeponet_inference_setup": {
         "write_full_wave_field": false,    
         "snap_to_grid": true,
         "write_ir_plots": true,
