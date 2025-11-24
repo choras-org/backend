@@ -317,7 +317,7 @@ if __name__ == "__main__":
         find_input_file_in_subfolders,
         create_tmp_from_input,
         save_results,
-        plot_results
+        plot_dg_results
     )
 
     # Load the input file
@@ -335,4 +335,4 @@ if __name__ == "__main__":
     save_results(json_tmp_file)
 
     # Plot the results
-    plot_results(json_tmp_file)
+    plot_dg_results(json_tmp_file)
