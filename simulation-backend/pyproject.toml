@@ -37,6 +37,7 @@ dependencies = [
     'openpyxl==3.1.5',
     'numpy',
     'pandas',
+    'matplotlib',
     'parso==0.8.3',
     'passlib==1.7.4', # explicitly imported
     'pre-commit==3.8.0',
