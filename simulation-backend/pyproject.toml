@@ -98,3 +98,5 @@ tests = [
     'pycodestyle==2.11.1',
     'pyflakes==3.1.0',
 ]
+
+dev = ['simulation_backend[tests,docs,backends]']
