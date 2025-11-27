@@ -56,6 +56,18 @@ dependencies = [
 
 [project.optional-dependencies]
 
+de = [
+    'acousticDE @ git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@d32afb2498e27bd996fc7356d57dc4f1ed76aa44#egg=acousticDE',
+]
+
+dg = [
+    'edg-acoustics @ git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@08cac98da98ed14ba1366741b1c0644001503b82#egg=edg-acoustics',
+]
+
+pyroomacoustics = [
+    'pyroomacoustics==0.8.4',
+]
+
 docs = [
     'Sphinx==7.3.7',
     'sphinxcontrib-applehelp==1.0.8',
