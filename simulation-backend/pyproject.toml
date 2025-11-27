@@ -68,6 +68,10 @@ pyroomacoustics = [
     'pyroomacoustics==0.8.4',
 ]
 
+backends = [
+    'simulation_backend[de,dg,pyroomacoustics]',
+]
+
 docs = [
     'Sphinx==7.3.7',
     'sphinxcontrib-applehelp==1.0.8',
