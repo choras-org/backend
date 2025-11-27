@@ -68,8 +68,12 @@ pyroomacoustics = [
     'pyroomacoustics==0.8.4',
 ]
 
+example = [
+    'My_New_Method @ git+https://github.com/SilvinWillemsen/MyNewMethod.git@61879ead318f5fdc155a7b9a10b99ecbbdb1a696#egg=My_New_Method',
+]
+
 backends = [
-    'simulation_backend[de,dg,pyroomacoustics]',
+    'simulation_backend[de,dg,pyroomacoustics,example]',
 ]
 
 docs = [
