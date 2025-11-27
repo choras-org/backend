@@ -36,7 +36,7 @@ to include the correct commits of all the submodules.
 ```shell
 conda create -n choras python=3.11
 conda activate choras
-pip install -r requirements.txt
+pip install simulation-backend/.[backends,tests,docs]
 ```
 
 ## Running example code
