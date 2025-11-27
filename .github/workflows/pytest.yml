@@ -11,7 +11,7 @@ jobs:
         python-version: ["3.10", "3.11"]
 
     steps:
-      - name: Install xmllint
+      - name: Install system dependencies
         run: sudo apt install -y libglu1-mesa libsndfile1
       - uses: actions/checkout@v5
         with:
@@ -23,7 +23,7 @@ jobs:
 
       # You can test your matrix by printing the current Python version
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install simulation-backend/.[tests,backends]
 
       - name: Run tests
         run: python -m pytest -v
