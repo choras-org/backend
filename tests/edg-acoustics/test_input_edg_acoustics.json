@@ -46,7 +46,8 @@
         }
     ],
     "simulationSettings": {
-        "freq_upper_limit": 200,
+        "dg_freq_upper_limit": 200,
+        "dg_rho0": 1.21,
         "dg_c0": 343,
         "dg_ir_length": 0.01,
         "dg_absorption_override": "no",
