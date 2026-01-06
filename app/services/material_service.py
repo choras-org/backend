@@ -8,6 +8,7 @@ from sqlalchemy import asc
 from app.db import db
 from app.models import Material
 from config import app_dir
+from datetime import datetime
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -30,6 +31,25 @@ def create_new_material(material_data):
         abort(400, f"Can not create a new material: {ex}")
 
     return new_material
+
+def update_material(material_id, material_data):
+    material = Material.query.filter_by(id=material_id).first()
+    if not material:
+        logger.error("Material doesn't exist, cannot update!")
+        abort(400, message="Material doesn't exist, cannot update!")
+    try:
+        material.name = material_data["name"]
+        material.description = material_data["description"]
+        material.category = material_data["category"]
+        material.absorptionCoefficients = material_data["absorptionCoefficients"]
+        material.updatedAt = datetime.now()
+        db.session.commit()
+    except Exception as ex:
+        db.session.rollback()
+        logger.error(f"Can not update! Error: {ex}")
+        abort(400, message=f"Can not update! Error: {ex}")
+
+    return material
 
 
 def get_material_by_id(material_id):
@@ -56,6 +76,7 @@ def insert_initial_materials():
                         description=material["description"],
                         category=material["category"],
                         absorptionCoefficients=material["absorptionCoefficients"],
+                        origin="factory",
                     )
                 )
 
