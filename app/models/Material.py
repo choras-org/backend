@@ -13,5 +13,6 @@ class Material(db.Model):
     description = db.Column(db.String(), nullable=True)
     category = db.Column(db.String(80), nullable=False)
     absorptionCoefficients = db.Column(JSON, nullable=False)
+    origin = db.Column(db.String(10), default="user", nullable=False)
     createdAt = db.Column(db.String(), default=datetime.now())
     updatedAt = db.Column(db.String(), default=datetime.now())
