@@ -19,7 +19,6 @@ class AudioFile(db.Model):
     project = db.relationship(
         "Project",
         backref=db.backref("audioFiles", uselist=True),
-        cascade="all, delete",
     )
 
     createdAt = db.Column(db.String(), default=datetime.now())
