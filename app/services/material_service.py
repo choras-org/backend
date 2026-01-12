@@ -2,7 +2,7 @@ import json
 import logging
 import os
 
-from flask import abort
+from flask_smorest import abort
 from sqlalchemy import asc
 
 from app.db import db
@@ -35,8 +35,11 @@ def create_new_material(material_data):
 def update_material(material_id, material_data):
     material = Material.query.filter_by(id=material_id).first()
     if not material:
-        logger.error("Material doesn't exist, cannot update!")
-        abort(400, message="Material doesn't exist, cannot update!")
+        abort(404, message="Material doesn't exist, cannot update!")
+
+    if material.origin == "factory":
+        abort(400, message="Factory materials cannot be updated!")
+
     try:
         material.name = material_data["name"]
         material.description = material_data["description"]
