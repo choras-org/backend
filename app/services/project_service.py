@@ -1,4 +1,6 @@
 import logging
+import os
+import config
 
 from flask import jsonify
 from flask_smorest import abort
@@ -85,8 +87,25 @@ def update_project(project_id, project_data):
 
 
 def delete_project(project_id):
+    project = Project.query.filter_by(id=project_id).first()
+    if not project:
+        logger.error("Project doesn't exist, cannot delete!")
+        abort(404, message="Project doesn't exist, cannot delete!")
+    
+    # Clean up image assets from associated models
+    for model in project.models:
+        if model.imagePath:
+            image_path = model.imagePath
+            if not os.path.isabs(image_path):
+                image_path = os.path.join(config.basedir, image_path)
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+            except Exception as ex:
+                logger.warning(f"Failed to remove image asset '{image_path}': {ex}")
+    
     try:
-        Project.query.filter_by(id=project_id).delete()
+        db.session.delete(project)
         db.session.commit()
     except Exception as ex:
         db.session.rollback()
@@ -95,6 +114,21 @@ def delete_project(project_id):
 
 
 def delete_project_by_group(group):
+    projects = Project.query.filter_by(group=group).all()
+    
+    # Clean up image assets from all associated models
+    for project in projects:
+        for model in project.models:
+            if model.imagePath:
+                image_path = model.imagePath
+                if not os.path.isabs(image_path):
+                    image_path = os.path.join(config.basedir, image_path)
+                try:
+                    if os.path.exists(image_path):
+                        os.remove(image_path)
+                except Exception as ex:
+                    logger.warning(f"Failed to remove image asset '{image_path}': {ex}")
+    
     try:
         Project.query.filter_by(group=group).delete()
         db.session.commit()
