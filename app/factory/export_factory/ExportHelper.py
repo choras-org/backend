@@ -52,8 +52,13 @@ class ExportHelper:
                 # Convert selected sheets and columns to csv and save them to zip
                 for sheet, columns in sheets_columns.items():
                     df = pd.read_excel(xlsx, sheet_name=sheet)
+                    # Extract columns using their original names from XLSX
+                    df_subset = df[columns]
+                    # For Parameters sheet, uppercase the headers in CSV output only
+                    if str(sheet).lower() == 'parameters':
+                        df_subset = df_subset.rename(columns={col: str(col).upper() for col in df_subset.columns})
                     csv_buffer.seek(0)
-                    df[columns].to_csv(csv_buffer, header=True, index=False)
+                    df_subset.to_csv(csv_buffer, header=True, index=False)
                     zip_file.writestr(f'{sheet}_simulation_{id}.csv', csv_buffer.getvalue())
                     csv_buffer.truncate(0)
 
