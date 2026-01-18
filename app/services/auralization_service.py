@@ -46,6 +46,11 @@ def get_auralization_by_simulation_audiofile_ids(simulation_id: int, audiofile_i
     return auralization if auralization else Auralization(status=Status.Uncreated)
 
 
+def get_audio_file_by_id(audiofile_id: int) -> Optional[AudioFile]:
+    audiofile: Optional[AudioFile] = AudioFile.query.filter_by(id=audiofile_id).first()
+    return audiofile if audiofile else AudioFile(status=Status.Uncreated)
+
+
 def get_auralization_wav_path(auralization_id: int) -> Optional[Path]:
     auralization: Optional[Auralization] = get_auralization_by_id(auralization_id)
     if auralization is None:
@@ -61,6 +66,19 @@ def get_auralization_wav_path(auralization_id: int) -> Optional[Path]:
         except Exception as e:
             abort(400, message=f"Error while getting the wav file path: {e}")
             return None
+
+
+def get_audio_file_wav_path(audiofile_id: int) -> Optional[Path]:
+    audiofile: Optional[AudioFile] = get_audio_file_by_id(audiofile_id)
+    if audiofile is None:
+        abort(404, message="No audio file found with this id.")
+
+    try:
+        wav_file_path = os.path.join(audiofile.path, audiofile.filename)
+        return Path(wav_file_path)
+    except Exception as e:
+        abort(400, message=f"Error while getting the wav file path: {e}")
+        return None
 
 
 def get_impulse_response_wav_path(simulation_id: int) -> Optional[Path]:
