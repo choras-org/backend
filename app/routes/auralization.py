@@ -81,3 +81,10 @@ class AuralizationUploadAudioFile(MethodView):
     @blp.response(200, AudioFileSchema)
     def post(self):
         return auralization_service.upload_audio_file(request.form, request.files)
+
+@blp.route("/auralizations/audiofiles/<int:audio_file_id>/wav")
+class AuralizationWav(MethodView):
+    @blp.response(200)
+    def get(self, audio_file_id):
+        wav_path = auralization_service.get_audio_file_wav_path(audio_file_id)
+        return send_from_directory(wav_path.parent, wav_path.name, as_attachment=True, mimetype="audio/wav")
