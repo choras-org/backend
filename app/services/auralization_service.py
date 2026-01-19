@@ -532,6 +532,30 @@ def get_audio_files_by_simulation_id(simulation_id: int) -> Optional[List[AudioF
     )
 
 
+def delete_audio_file(audio_file_id: int) -> None:
+    audio_file = AudioFile.query.filter_by(id=audio_file_id).first()
+    if audio_file is None:
+        abort(404, message="No audio file found with this id")
+
+    if not audio_file.isUserFile:
+        abort(400, message="Cannot delete system audio file")
+
+    try:
+        # Remove physical file if present
+        file_path = Path(audio_file.path, audio_file.filename)
+        if file_path.exists():
+            file_path.unlink()
+
+        # Delete audio file record using ORM
+        db.session.delete(audio_file)
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting audio file: {e}")
+        abort(400, message=f"Error deleting audio file: {e}")
+
+
 def insert_initial_audios_examples():
     audio_files = get_all_audio_files()
     if len(audio_files):

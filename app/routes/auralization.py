@@ -26,6 +26,14 @@ class AudioFileBySimulationIdList(MethodView):
         return audio_files
 
 
+@blp.route("/auralizations/audiofiles/<int:audio_file_id>")
+class AudioFileByAudioFileIdDelete(MethodView):
+    @blp.response(200)
+    def delete(self, audio_file_id):
+        auralization_service.delete_audio_file(audio_file_id)
+        return {"message": "Audio file deleted successfully!"}
+
+
 @blp.route("/auralizations")
 class AuralizationTask(MethodView):
     @blp.arguments(AuralizationSchema)
