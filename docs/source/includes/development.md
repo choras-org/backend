@@ -16,7 +16,7 @@ git remote set-url origin git@github.com:choras-org/backend.git
 
 1. Add your repository as a submodule to the root of the `backend` repository. Make sure that the repository is public so that others will be able to clone/use it too.
 
-2. Add your method to the requirements.txt list using `-e` ("editable"), meaning changes to the code will immediately reflect without the need to reinstall.
+2. For your method, add an optional dependency section to `simulation-backend/pyproject.toml` and include all dependencies required by your method.
 
 3. Add a file to the `simulation-backend/simulation_backend` folder called `<your_method_acronym>interface.py`. _(Please refer to `MyNewMethodInterface.py` in the same folder for an example.)_
 
@@ -35,7 +35,7 @@ git remote set-url origin git@github.com:choras-org/backend.git
 
     ``` shell
     conda activate choras
-    pip install -r requirements.txt
+    pip install simulation-backend/.[backends,tests,docs]
     ```
 
     to install.

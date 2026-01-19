@@ -10,20 +10,16 @@ RUN apt-get update && \
     libxcursor-dev \
     libxft2 \
     libxinerama1 \
-    libfltk1.3-dev \ 
+    libfltk1.3-dev \
     libfreetype6-dev  \
     libgl1-mesa-dev \
     libocct-foundation-dev \
-    libocct-data-exchange-dev 
+    libocct-data-exchange-dev
 
-COPY requirements.txt /app
 COPY simulation-backend/ /app/simulation-backend
-COPY MyNewMethod/ /app/MyNewMethod
 
 RUN pip install --upgrade pip
-RUN pip install simulation-backend/.
-RUN pip install MyNewMethod/.
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir simulation-backend/.[backends]
 
 COPY . /app
 RUN chmod +x ./entrypoint.sh

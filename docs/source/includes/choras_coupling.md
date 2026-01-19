@@ -50,7 +50,7 @@ case TaskType.<your_new_tasktype>:
 Finally, in the `choras` environment, run
 
 ``` shell
-pip install -r requirements.txt
+pip install -r simulation-backend/.[tests,docs,backends]
 ```
 
 to install.

@@ -71,7 +71,7 @@ conda create -n NAME_OF_VENV python=3.10
 
 conda activate NAME_OF_VENV
 
-pip install -r requirements.txt
+pip install simulation-backend/.[backends]
 ```
 
 2. **Create PosgresSQL on Linux[Ubuntu] (optional)**
