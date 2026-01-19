@@ -64,12 +64,15 @@ class DefaultConfig:
     USER_AUDIO_FILE_FOLDER_NAME = os.path.join(UPLOAD_FOLDER_NAME, "audiofiles")
     USER_AUDIO_FILE_FOLDER = os.path.join(basedir, USER_AUDIO_FILE_FOLDER_NAME)
     SETTINGS_FILE_FOLDER = "example_settings"
+    USER_MODEL_IMAGE_FOLDER_NAME = os.path.join(UPLOAD_FOLDER_NAME, "model_images")
 
     # Ensure the upload folder exists
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
     if not os.path.exists(USER_AUDIO_FILE_FOLDER):
         os.makedirs(USER_AUDIO_FILE_FOLDER)
+    if not os.path.exists(USER_MODEL_IMAGE_FOLDER_NAME):
+        os.makedirs(USER_MODEL_IMAGE_FOLDER_NAME)
 
     SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(basedir, "develop.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False

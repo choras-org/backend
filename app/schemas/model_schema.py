@@ -11,6 +11,7 @@ class ModelSchema(Schema):
     hasGeo = fields.Boolean()
 
     projectId = fields.Integer()
+    imagePath = fields.String()
 
     createdAt = fields.Str()
     updatedAt = fields.Str()
@@ -40,7 +41,11 @@ class ModelCreateSchema(Schema):
     name = fields.Str(required=True)
     projectId = fields.Integer(required=True)
     sourceFileId = fields.Integer(required=True)
+    imagePath = fields.String(required=False)
 
 
 class ModelUpdateSchema(Schema):
     name = fields.Str(required=True)
+
+class ModelUploadImageResponseSchema(Schema):
+    imagePath = fields.Str(required=True)
