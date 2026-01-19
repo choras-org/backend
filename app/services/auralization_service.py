@@ -46,6 +46,11 @@ def get_auralization_by_simulation_audiofile_ids(simulation_id: int, audiofile_i
     return auralization if auralization else Auralization(status=Status.Uncreated)
 
 
+def get_audio_file_by_id(audiofile_id: int) -> Optional[AudioFile]:
+    audiofile: Optional[AudioFile] = AudioFile.query.filter_by(id=audiofile_id).first()
+    return audiofile if audiofile else AudioFile(status=Status.Uncreated)
+
+
 def get_auralization_wav_path(auralization_id: int) -> Optional[Path]:
     auralization: Optional[Auralization] = get_auralization_by_id(auralization_id)
     if auralization is None:
@@ -61,6 +66,19 @@ def get_auralization_wav_path(auralization_id: int) -> Optional[Path]:
         except Exception as e:
             abort(400, message=f"Error while getting the wav file path: {e}")
             return None
+
+
+def get_audio_file_wav_path(audiofile_id: int) -> Optional[Path]:
+    audiofile: Optional[AudioFile] = get_audio_file_by_id(audiofile_id)
+    if audiofile is None:
+        abort(404, message="No audio file found with this id.")
+
+    try:
+        wav_file_path = os.path.join(audiofile.path, audiofile.filename)
+        return Path(wav_file_path)
+    except Exception as e:
+        abort(400, message=f"Error while getting the wav file path: {e}")
+        return None
 
 
 def get_impulse_response_wav_path(simulation_id: int) -> Optional[Path]:
@@ -530,6 +548,30 @@ def get_audio_files_by_simulation_id(simulation_id: int) -> Optional[List[AudioF
         .order_by(desc(AudioFile.createdAt))
         .all()
     )
+
+
+def delete_audio_file(audio_file_id: int) -> None:
+    audio_file = AudioFile.query.filter_by(id=audio_file_id).first()
+    if audio_file is None:
+        abort(404, message="No audio file found with this id")
+
+    if not audio_file.isUserFile:
+        abort(400, message="Cannot delete system audio file")
+
+    try:
+        # Remove physical file if present
+        file_path = Path(audio_file.path, audio_file.filename)
+        if file_path.exists():
+            file_path.unlink()
+
+        # Delete audio file record using ORM
+        db.session.delete(audio_file)
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting audio file: {e}")
+        abort(400, message=f"Error deleting audio file: {e}")
 
 
 def insert_initial_audios_examples():

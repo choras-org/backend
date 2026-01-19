@@ -14,7 +14,7 @@ class Auralization(db.Model):
         "Simulation", backref=db.backref("auralizations", uselist=True), foreign_keys=[simulationId]
     )
 
-    audioFileId = db.Column(db.Integer, db.ForeignKey("audio_files.id", ondelete="NO ACTION"), nullable=True)
+    audioFileId = db.Column(db.Integer, db.ForeignKey("audio_files.id", ondelete="CASCADE"), nullable=True)
     audioFile = db.relationship("AudioFile", foreign_keys=[audioFileId])
 
     status = db.Column(db.Enum(Status), default=Status.Created)
