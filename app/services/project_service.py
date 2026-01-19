@@ -7,6 +7,7 @@ from sqlalchemy import asc
 from app.db import db
 from app.models import Project
 from app.services import simulation_service
+from datetime import datetime
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -71,7 +72,10 @@ def update_project(project_id, project_data):
         project.name = project_data["name"]
         project.description = project_data["description"]
         project.group = project_data["group"].strip()
+        project.updatedAt = datetime.now()
         db.session.commit()
+
+        print("im here")
     except Exception as ex:
         db.session.rollback()
         logger.error(f"Can not update! Error: {ex}")

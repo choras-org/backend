@@ -5,6 +5,7 @@ from flask_smorest import abort
 from app.db import db
 from app.models import Model
 from config import FeatureToggle
+from datetime import datetime
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ def update_model(model_id, model_data):
 
     try:
         model.name = model_data["name"]
+        model.updatedAt = datetime.now()
         db.session.commit()
     except Exception as ex:
         db.session.rollback()
