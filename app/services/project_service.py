@@ -77,7 +77,6 @@ def update_project(project_id, project_data):
         project.updatedAt = datetime.now()
         db.session.commit()
 
-        print("im here")
     except Exception as ex:
         db.session.rollback()
         logger.error(f"Can not update! Error: {ex}")
