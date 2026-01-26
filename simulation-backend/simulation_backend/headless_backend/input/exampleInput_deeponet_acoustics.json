@@ -12,15 +12,15 @@
     "results": [
         {
             "percentage": 100,
-            "sourceX": 0.4,
-            "sourceY": 1.0,
-            "sourceZ": 1.2,
+            "sourceX": 2,
+            "sourceY": 2,
+            "sourceZ": 1.5,
             "resultType": "DON",            
             "responses": [
                 {
                     "x": 1.0,
                     "y": 1.0,
-                    "z": 1.1,
+                    "z": 1.5,
                     "receiverResults": [],
                     "receiverResultsUncorrected": []
                 },
@@ -32,8 +32,8 @@
                     "receiverResultsUncorrected": []
                 },
                 {
-                    "x": 1.0,
-                    "y": 0.9,
+                    "x": 1,
+                    "y": 2,
                     "z": 0.5,
                     "receiverResults": [],
                     "receiverResultsUncorrected": []
@@ -50,10 +50,10 @@
     ],
     "dg_setup": {  
         "simulationSettings": {
-            "dg_freq_upper_limit": 200,
+            "dg_freq_upper_limit": 400,
             "dg_c0": 343,
             "dg_rho0": 1.213,
-            "dg_ir_length": 0.05,
+            "dg_ir_length": 0.1,
             "dg_poly_order": 4,
             "dg_ppw": 2,
             "dg_cfl": 1
