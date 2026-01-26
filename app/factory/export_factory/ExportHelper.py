@@ -52,8 +52,13 @@ class ExportHelper:
                 # Convert selected sheets and columns to csv and save them to zip
                 for sheet, columns in sheets_columns.items():
                     df = pd.read_excel(xlsx, sheet_name=sheet)
+                    # Extract columns using their original names from XLSX
+                    df_subset = df[columns]
+                    # For Parameters sheet, uppercase the headers in CSV output only
+                    if str(sheet).lower() == 'parameters':
+                        df_subset = df_subset.rename(columns={col: str(col).upper() for col in df_subset.columns})
                     csv_buffer.seek(0)
-                    df[columns].to_csv(csv_buffer, header=True, index=False)
+                    df_subset.to_csv(csv_buffer, header=True, index=False)
                     zip_file.writestr(f'{sheet}_simulation_{id}.csv', csv_buffer.getvalue())
                     csv_buffer.truncate(0)
 
@@ -118,17 +123,20 @@ class ExportHelper:
             parameters: Dict[str, List[int]] = data['results'][0]['responses'][0]['parameters']
 
             parameter_sheet = pd.DataFrame(parameters)
-            edc_sheet = pd.DataFrame()
 
-            # fill in edc_sheet and pressure_sheet
-            time = receiver_results[0]['t']
-            edc_sheet['t'] = time
-            for result in receiver_results:
-                edc_sheet[str(result['frequency']) + 'Hz'] = result['data']
+            if data['results'][0]['resultType'] == "DE":
+                edc_sheet = pd.DataFrame()
+
+                # fill in edc_sheet and pressure_sheet
+                time = receiver_results[0]['t']
+                edc_sheet['t'] = time
+                for result in receiver_results:
+                    edc_sheet[str(result['frequency']) + 'Hz'] = result['data']
 
             with pd.ExcelWriter(xlsx_path) as writer:
                 parameter_sheet.to_excel(writer, sheet_name='Parameters', index=False)
-                edc_sheet.to_excel(writer, sheet_name='EDC', index=False)
+                if data['results'][0]['resultType'] == "DE":
+                    edc_sheet.to_excel(writer, sheet_name='EDC', index=False)
 
         except Exception as e:
             logger.error(f'Error saving data to xlsx: {e}')

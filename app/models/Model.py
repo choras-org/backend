@@ -20,6 +20,8 @@ class Model(db.Model):
     simulations = db.relationship("Simulation", backref="model", cascade="all, delete")
     hasGeo = db.Column(db.Boolean, nullable=False, default=False)
 
+    imagePath = db.Column(db.String, nullable=True)
+
     createdAt = db.Column(db.String(), default=datetime.now())
     updatedAt = db.Column(db.String(), default=datetime.now())
 

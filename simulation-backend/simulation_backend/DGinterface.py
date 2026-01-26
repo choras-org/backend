@@ -9,7 +9,7 @@ from acousticDE.FiniteVolumeMethod.CreateMeshFVM import generate_mesh
 
 import json
 import numpy as np
-from math import log, sqrt
+from math import log, sqrt, factorial, pow
 import edg_acoustics
 import pandas as pd
 
@@ -149,8 +149,18 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
     PPW = simulation_settings.get("dg_ppw", 2)
     minWavelength = c0 / freq_upper_limit
 
-    print("lc = " + str(minWavelength / PPW))
-    generate_mesh(geo_filename, mesh_filename, minWavelength / PPW * Nx)
+    # Eq. (26) in Wang, H., Sihar, I., Pagan Munoz, R., & Hornikx, M. (2019). 
+    # Room acoustics modelling in the time-domain with the nodal discontinuous Galerkin method. 
+    # Journal of the Acoustical Society of America, 145(4), 2650–2663.
+    # https://doi.org/10.1121/1.5096154
+
+    # Np is calculated using the equation in the text above Eq. (7):
+    # Np = (Nx + d)!/(Nx!d!) where d is the number of dimensions, i.e., 3.
+    # K/V in Eq. (26) is \approx 1/lc^3. Rewriting this results in the equation below:
+    points_per_unit_length = factorial(Nx + 3)/(factorial(Nx)*6)
+    lc = minWavelength / PPW * pow(points_per_unit_length, 1/3)
+    print("lc = " + str(lc))
+    generate_mesh(geo_filename, mesh_filename, lc)
 
     # FUNCTION CALLED HERE
     (
@@ -269,7 +279,7 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
         try:
             with open(json_file_path, "r", encoding="utf-8") as file:
                 data = json.load(file)
-            data["results"][0]["responses"][0]["receiverResults"] = results.IRnew.tolist()
+            data["results"][0]["responses"][0]["receiverResults"] = results.IRnew[0:round(len(results.IRold[0]) * results.dt_old / results.dt_new)].tolist()
             for i in range(rec.shape[1]):
                 data["results"][0]["responses"][i]["receiverResultsUncorrected"] = results.IRold[i].tolist()
             with open(json_file_path, "w", encoding="utf-8") as file:
