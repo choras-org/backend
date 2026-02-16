@@ -4,7 +4,7 @@ from unittest.mock import patch
 from app.models import Material
 from app.services import material_service
 from tests.unit import BaseTestCase
-
+from werkzeug.exceptions import BadRequest
 
 class UsersUnitTests(BaseTestCase):
     def setUp(self):
