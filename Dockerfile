@@ -17,20 +17,26 @@ RUN apt-get update && \
     libocct-foundation-dev \
     libocct-data-exchange-dev
 
-# COPY files relative to repo root
+# Copy requirements and local submodules
 COPY backend/requirements.txt /app
 COPY simulation-backend/ /app/simulation-backend
 COPY backend/MyNewMethod/ /app/MyNewMethod
 
-# Install Python dependencies
+# Upgrade pip
 RUN pip install --upgrade pip
-RUN pip install simulation-backend/.
-RUN pip install MyNewMethod/.
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend code
+# Install local submodules explicitly
+RUN pip install /app/simulation-backend
+RUN pip install /app/MyNewMethod
+
+# Install remaining dependencies from requirements.txt, excluding local submodules
+RUN grep -vE '^-e\s+(\.\./)?(simulation-backend|MyNewMethod)' requirements.txt > temp_reqs.txt \
+    && pip install --no-cache-dir -r temp_reqs.txt
+
+# Copy backend source code
 COPY backend/ /app
 
+# Make entrypoint executable
 RUN chmod +x ./entrypoint.sh
 EXPOSE 5001
 CMD ["/app/entrypoint.sh"]
