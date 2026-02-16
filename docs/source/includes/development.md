@@ -4,7 +4,7 @@ If you have an open-source room acoustic simulation method you would like to add
 
 ## Before changing code
 
-1. Please create a branch of this repository (`sim/<your_method_acronym>`) so that you can work on this freely.
+1. Please create a branch of this repository (`sim/<your_method_name>`) so that you can work on this freely.
 
 2. If you want to authenticate via ssh (instead of the default https), run the following command (navigated to the root of the `backend` repository) to change the url:
 
@@ -16,19 +16,19 @@ git remote set-url origin git@github.com:choras-org/backend.git
 
 1. Add your repository as a submodule to the root of the `backend` repository. Make sure that the repository is public so that others will be able to clone/use it too.
 
-2. Add your method to the requirements.txt list using `-e` ("editable"), meaning changes to the code will immediately reflect without the need to reinstall.
+2. Add your method including a specific version number to the requirements.txt file. Favorably, your method should be installable via pip. If not, you can also use pip's option to install from a git repository via `git+https://gitprovider.com/user/project.git@{version}`. For more information or other version control systems, please refer to the [documentation](https://packaging.python.org/en/latest/tutorials/installing-packages/#installing-from-vcs) provided by the Python Packaging Authority. Note that providing a specific version number is important to ensure reproducibility (and stability) of the results and CHORAS as a platform. If your method is not yet installable via pip, please refer to [packaging guidelines](https://packaging.python.org/en/latest/flow/) provided by the Python Packaging Authority.
 
-3. Add a file to the `simulation-backend/simulation_backend` folder called `<your_method_acronym>interface.py`. _(Please refer to `MyNewMethodInterface.py` in the same folder for an example.)_
+3. Add a file to the `simulation-backend/simulation_backend` folder called `<your_method_name>interface.py`. _(Please refer to `MyNewMethodInterface.py` in the same folder for an example.)_
 
     This file will contain the interface between CHORAS and your simulation method and will contain two main parts:
 
-    - **a function** (`<your_method_acronym>_method()`) **describing the interface between the contents of a .json file and your simulation method**. The function _must_ take as its argument the .json path with the user data. This will also be used to communicate information (% done, results, etc.) back to the user. Eventually, this function will be called by `app/services/simulation_service.py`, but for now, it will be called by...
+    - **a function** (`<your_method_name>_method()`) **describing the interface between the contents of a .json file and your simulation method**. The function _must_ take as its argument the .json path with the user data. This will also be used to communicate information (% done, results, etc.) back to the user. Eventually, this function will be called by `app/services/simulation_service.py`, but for now, it will be called by...
     - ...**a main function** that can call the aforementioned function.
 
 4. In the `simulation-backend/simulation_backend/__init__.py` file import everything from the interface file in the simulation-backend package \_\_init\_\_.py file:
 
     ```python
-    from <your_method_acronym>interface import <your_method_acronym>_method
+    from <your_method_name>interface import <your_method_name>_method
     ```
 
 5. Navigated to the `backend` folder run
@@ -55,14 +55,14 @@ The .json file has the following structure:
 - Results (* these fields get filled by the simulation method)
   - Percentage*: how far is the simulation along
   - Source position: `sourceX`, `sourceY`, `sourceZ`
-  - Result type: this is your method acronym
+  - Result type: this is your method name
   - Frequency band to simulate
   - Responses
     - Receiver position: `x`, `y`, `z`
     - Room-acoustic parameters*: `edt`, `t20`, `t30`, `c80`, `d50`, `ts`, `spl_t0_freq`
     - Impulse response*: `receiverResults`
 
-Below is the `exampleInput_MyNewMethod.json` file (in `simulation-backend/simulation_backend/headless_backend/input/`). In the same folder, please create a new `exampleInput_<your_method_acronym>.json` file based on this file:
+Below is the `exampleInput_MyNewMethod.json` file (in `simulation-backend/simulation_backend/headless_backend/input/`). In the same folder, please create a new `exampleInput_<your_method_name>.json` file based on this file:
 
 ```json
 {
