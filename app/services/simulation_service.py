@@ -16,6 +16,7 @@ from app.services import file_service, material_service, mesh_service, model_ser
 from app.services.auralization_service import auralization_calculation, auralization_calculation_DG
 from app.types import Status, TaskType
 from config import CustomExportParametersConfig
+from app.services.executors.local_executor import LocalExecutor
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -320,9 +321,9 @@ def start_solver_task(simulation_id):
 
 @shared_task
 def run_solver(simulation_run_id: int, json_path: str):
-    from simulation_backend.DGinterface import dg_method
-    from simulation_backend.DEinterface import de_method
-    from simulation_backend.MyNewMethodInterface import mynewmethod_method
+    # from simulation_backend.DGinterface import dg_method
+    # from simulation_backend.DEinterface import de_method
+    # from simulation_backend.MyNewMethodInterface import mynewmethod_method
 
     from app.db import db
     from app.models import SimulationRun
@@ -386,19 +387,49 @@ def run_solver(simulation_run_id: int, json_path: str):
                 logger.error(f"Error saving the simulation solver settings: {ex}")
                 raise Exception(f"Error saving the simulation solver settings {ex}")
 
+            # prepare the sim_config for the executor
+            print("json path in run_solver: " + json_path)
+            host_json_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                "uploads",
+                os.path.basename(json_path)
+            )
+            sim_config = {
+                "env": {
+                    "INPUT_JSON": "/container/path/input.json"
+                },
+                "volumes": {
+                    host_json_path: {"bind": "/container/path/input.json", "mode": "ro"}
+                },
+                "json_path": json_path
+            }
+
             match taskType:
                 case TaskType.DE:
-                    logger.info("DE method")
-                    de_method(json_file_path=json_path)
+                    # de_method(json_file_path=json_path)
+                    # logger.info("DE method")
+                    
+                    #test for strategy pattern
+                    print("Starting DE method with LocalExecutor...")
+                    executor = LocalExecutor()
+                    method_config = {
+                        "container_image": "de_method_image:latest",
+                    }
+                    job_id, container = executor.execute(method_config, sim_config)
+                    logger.info(f"Simulation_service:Local Executor has been called from simulation service and waits until container dies...")
+                    logger.info(f"Started job with ID: {job_id}")
+                    container.wait()
+                    logger.info(f"Simulation_service:...container has finished.")
+                    #we need to wait for the result
 
                 case TaskType.DG:
                     # DG METHOD
-                    dg_method(json_file_path=json_path)
+                    #dg_method(json_file_path=json_path)
                     logger.info("DG method")
 
                 case TaskType.MyNewMethod:
                     # MyNewMethod METHOD
-                    mynewmethod_method(json_file_path=json_path)
+                    #mynewmethod_method(json_file_path=json_path)
                     logger.info("MyNewMethod")
 
                 case _:

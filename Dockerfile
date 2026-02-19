@@ -22,12 +22,12 @@ RUN pip install --upgrade pip setuptools wheel
 
 # Copy requirements and local submodules
 COPY backend/requirements.txt /app
-COPY simulation-backend/ /app/simulation-backend
-COPY backend/MyNewMethod/ /app/MyNewMethod
+#COPY simulation-backend/ /app/simulation-backend
+#COPY backend/MyNewMethod/ /app/MyNewMethod
 
 # Install local submodules first
-RUN pip install /app/simulation-backend
-RUN pip install /app/MyNewMethod
+#RUN pip install /app/simulation-backend
+#RUN pip install /app/MyNewMethod
 
 # Install remaining dependencies from requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
