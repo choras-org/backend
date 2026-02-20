@@ -23,27 +23,15 @@ class LocalExecutor(SimulationExecutor):
         """
         
         image = method_config["container_image"] # update this to be taken from the discovery file
-        #command = method_config.get("command")
         env = sim_config.get("env", {})
         volumes = sim_config.get("volumes", {})
         job_id = str(uuid.uuid4())
-
-        #for the dynamic json file input file
-        # sim_config = {
-        #     "volumes": {
-        #         "/host/path/input.json": {"bind": "/container/path/input.json", "mode": "ro"}
-        #     },
-        #     "env": {
-        #         "INPUT_JSON": "/container/path/input.json"
-        #     }
-        # }
-        print("Local Executor: Before running container...")
 
         try:
             client = docker.from_env()
             container = client.containers.run(
                 image=image,
-                environment=env,
+                environment=env, # for file input, we can mount a volume and pass the path as an env variable
                 volumes=volumes,
                 detach=True,
                 working_dir=self.work_dir,
@@ -51,20 +39,7 @@ class LocalExecutor(SimulationExecutor):
                 remove=True
             )
             self._jobs[job_id] = container
-            print(f"Local Executor: Container spinned up with {job_id}")
             return job_id, container
-        
-        # This code will only work to create a new container from inside another container if:
-
-        # 1) The Docker socket is mounted into the running container:
-        # The host’s Docker daemon must be accessible inside your container.
-        # This is usually done by running your container with: -v /var/run/docker.sock:/var/run/docker.sock
-
-        # 2) The container has the Docker SDK and (optionally) Docker CLI installed:
-        # You already have the SDK (docker Python package), so that’s fine.
-
-        # 3) The user inside the container has permission to access the Docker socket:
-        # (Usually, running as root inside the container works, but for non-root, you may need to add the user to the docker group.)
         
         except Exception as e:
             logger.error(f"Failed to start Docker container: {e}")

@@ -387,22 +387,9 @@ def run_solver(simulation_run_id: int, json_path: str):
                 logger.error(f"Error saving the simulation solver settings: {ex}")
                 raise Exception(f"Error saving the simulation solver settings {ex}")
 
-            # prepare the sim_config for the executor
-            print("json path in run_solver: " + json_path)
-            host_json_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                "uploads",
-                os.path.basename(json_path)
-            )
-            sim_config = {
-                "env": {
-                    "INPUT_JSON": "/container/path/input.json"
-                },
-                "volumes": {
-                    host_json_path: {"bind": "/container/path/input.json", "mode": "ro"}
-                },
-                "json_path": json_path
-            }
+            
+            sim_config ={} #through this the input file can be passed to the container
+            executor = LocalExecutor()
 
             match taskType:
                 case TaskType.DE:
@@ -410,22 +397,26 @@ def run_solver(simulation_run_id: int, json_path: str):
                     # logger.info("DE method")
                     
                     #test for strategy pattern
-                    print("Starting DE method with LocalExecutor...")
-                    executor = LocalExecutor()
+                    
                     method_config = {
-                        "container_image": "de_method_image:latest",
+                        "container_image": "de_image:latest",#de_method_image
                     }
                     job_id, container = executor.execute(method_config, sim_config)
-                    logger.info(f"Simulation_service:Local Executor has been called from simulation service and waits until container dies...")
-                    logger.info(f"Started job with ID: {job_id}")
+                    logger.info(f"DE Simulation_service:...container has finished.")
                     container.wait()
-                    logger.info(f"Simulation_service:...container has finished.")
-                    #we need to wait for the result
 
                 case TaskType.DG:
                     # DG METHOD
                     #dg_method(json_file_path=json_path)
-                    logger.info("DG method")
+
+                    #test for strategy pattern
+                    method_config = {
+                        "container_image": "dg_image:latest",#de_method_image
+                    }
+                    job_id, container = executor.execute(method_config, sim_config)
+                    container.wait()
+                    logger.info(f"DG Simulation_service:...container has finished.")
+                    #we need to wait for the result
 
                 case TaskType.MyNewMethod:
                     # MyNewMethod METHOD
