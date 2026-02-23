@@ -1,12 +1,20 @@
 import json
+import logging
+import os
 from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 def discover_methods() -> List[dict]:
     """
     Reads methods-config.json (array format) and returns the raw array.
     Prints length and IDs only.
     """
-    config_path = "../../../simulation-backend/methods-config.json"
+    config_path = "/app/simulation-backend/methods-config.json"
+
+    
+    logger.error(f"Looking for: {config_path}")
+    logger.error(f"Exists? {os.path.exists(config_path)}")
     
     try:
         with open(config_path, 'r') as f:
@@ -22,7 +30,7 @@ def discover_methods() -> List[dict]:
         ids = []
         
         for cfg in methods_array:
-            task_type = cfg.get("id")
+            task_type = cfg.get("simulationType")
             if task_type and "container_image" in cfg:
                 valid_methods.append(cfg)
                 ids.append(task_type)

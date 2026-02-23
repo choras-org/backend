@@ -1,8 +1,13 @@
 import datetime
 import os
+from pathlib import Path
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 app_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "app")
+
+# In your backend config file or wherever SETTINGS_FILE_FOLDER is used:
+MODULE_DIR = Path(__file__).parent  # Directory containing this Python file
+CHORAS_ROOT = MODULE_DIR.parent     # Go up to choras/
 
 
 class DefaultConfig:
@@ -63,7 +68,8 @@ class DefaultConfig:
     AUDIO_FILE_FOLDER = "example_audios"
     USER_AUDIO_FILE_FOLDER_NAME = os.path.join(UPLOAD_FOLDER_NAME, "audiofiles")
     USER_AUDIO_FILE_FOLDER = os.path.join(basedir, USER_AUDIO_FILE_FOLDER_NAME)
-    SETTINGS_FILE_FOLDER = "example_settings"
+    SETTINGS_FILE_FOLDER = "/app/simulation-backend/example_settings"
+    
     USER_MODEL_IMAGE_FOLDER_NAME = os.path.join(UPLOAD_FOLDER_NAME, "model_images")
 
     # Ensure the upload folder exists
