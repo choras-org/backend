@@ -191,6 +191,7 @@ def start_solver_task(simulation_id):
     json_path = file_service.get_file_related_path(
         model.outputFileId, simulation_id, extension="json"
     )
+    print("the json_path is ", json_path)
     msh_path = file_service.get_file_related_path(
         model.outputFileId, simulation_id, extension="msh"
     )
@@ -386,9 +387,13 @@ def run_solver(simulation_run_id: int, json_path: str):
             except Exception as ex:
                 logger.error(f"Error saving the simulation solver settings: {ex}")
                 raise Exception(f"Error saving the simulation solver settings {ex}")
-
-            
-            sim_config ={} #through this the input file can be passed to the container
+            sim_config = {
+             "env": {
+                "JSON_PATH": json_path,  # e.g. /app/uploads/MeasurementRoom_....json
+                },
+            # no need to pass volumes here anymore, LocalExecutor always mounts uploads_data
+            }
+            #through this the input file can be passed to the container
             executor = LocalExecutor()
 
             match taskType:
@@ -404,6 +409,8 @@ def run_solver(simulation_run_id: int, json_path: str):
                     job_id, container = executor.execute(method_config, sim_config)
                     logger.info(f"DE Simulation_service:...container has finished.")
                     container.wait()
+                    logs = container.logs().decode("utf-8")
+                    logger.info(f"DG container FULL logs:\n{logs}")
 
                 case TaskType.DG:
                     # DG METHOD

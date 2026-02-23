@@ -17,6 +17,7 @@ class ReceiveObject(MethodView):
         try:
             # Process file here (this is synchronous)
             # Get path to project root (one level above this routes folder)
+            print("WE ARE IN THE RECEIVE API ENDPOINT AT BACKEND")
             project_root = os.path.dirname(os.path.dirname(__file__))
 
             # Ensure output folder exists
