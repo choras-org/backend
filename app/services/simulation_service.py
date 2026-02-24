@@ -376,7 +376,7 @@ def run_solver(simulation_run_id: int, json_path: str):
             print(str(result_container))
             taskType = TaskType(result_container["results"][0]["resultType"])
             logger.info(f"{taskType}")
-            logger.error("Demanded Method Container: " + discover_container_image(taskType.value))
+            container_image = discover_container_image(taskType.value)
 
             # save the simulation solver settings
             try:
@@ -400,44 +400,16 @@ def run_solver(simulation_run_id: int, json_path: str):
             #through this the input file can be passed to the container
             executor = LocalExecutor()
 
-            
 
-            match taskType:
-                case TaskType.DE:
-                    # de_method(json_file_path=json_path)
-                    # logger.info("DE method")
-                    
-                    #test for strategy pattern
-                    
-                    method_config = {
-                        "container_image": "de_image:latest",#de_method_image
-                    }
-                    job_id, container = executor.execute(method_config, sim_config)
-                    logger.info(f"DE Simulation_service:...container has finished.")
-                    container.wait()
-                    logs = container.logs().decode("utf-8")
-                    logger.info(f"DG container FULL logs:\n{logs}")
-
-                case TaskType.DG:
-                    # DG METHOD
-                    #dg_method(json_file_path=json_path)
-
-                    #test for strategy pattern
-                    method_config = {
-                        "container_image": "dg_image:latest",#de_method_image
-                    }
-                    job_id, container = executor.execute(method_config, sim_config)
-                    container.wait()
-                    logger.info(f"DG Simulation_service:...container has finished.")
-                    #we need to wait for the result
-
-                case TaskType.MyNewMethod:
-                    # MyNewMethod METHOD
-                    #mynewmethod_method(json_file_path=json_path)
-                    logger.info("MyNewMethod")
-
-                case _:
-                    raise Exception("The selected tasktype is not valid!")
+            #Relevant method container would be started dynamically based on the container_image
+            method_config = {
+                 "container_image": container_image
+            }
+            job_id, container = executor.execute(method_config, sim_config)
+            logger.info(f"{taskType.value} Simulation_service:...container has finished.")
+            container.wait()
+            logs = container.logs().decode("utf-8")
+            logger.info(f"{taskType.value} container FULL logs:\n{logs}")
 
             if json_path is not None:
                 with open(json_path, "r") as json_file_to_check:
