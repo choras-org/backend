@@ -17,6 +17,7 @@ from app.services.auralization_service import auralization_calculation, auraliza
 from app.types import Status, TaskType
 from config import CustomExportParametersConfig
 from app.services.executors.local_executor import LocalExecutor
+from app.services.discovery_service import discover_container_image
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -365,14 +366,17 @@ def run_solver(simulation_run_id: int, json_path: str):
             simulation.status = Status.InProgress
             session.commit()
             logger.info(f"SimulationRun status updated to {simulation_run.status}")
-
+            
             result_container = {}
+            logger.error("JSON PATH "+ json_path)
             if json_path is not None:
                 with open(json_path, "r") as json_file:
                     result_container = json.load(json_file)
 
+            print(str(result_container))
             taskType = TaskType(result_container["results"][0]["resultType"])
             logger.info(f"{taskType}")
+            logger.error("Demanded Method Container: " + discover_container_image(taskType.value))
 
             # save the simulation solver settings
             try:
@@ -395,6 +399,8 @@ def run_solver(simulation_run_id: int, json_path: str):
             }
             #through this the input file can be passed to the container
             executor = LocalExecutor()
+
+            
 
             match taskType:
                 case TaskType.DE:
