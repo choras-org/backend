@@ -26,8 +26,8 @@ COPY backend/requirements.txt /app
 # COPY backend/MyNewMethod/ /app/MyNewMethod
 
 # Install local submodules first
-# RUN pip install /app/simulation-backend
-# RUN pip install /app/MyNewMethod
+#RUN pip install /app/simulation-backend
+#RUN pip install /app/MyNewMethod
 
 # Install remaining dependencies from requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
