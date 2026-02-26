@@ -41,6 +41,7 @@ class LocalExecutor(SimulationExecutor):
 
     def execute(self, method_config: Dict[str, Any], sim_config: Dict[str, Any]) -> tuple:
         image = method_config["container_image"]
+        container_name = method_config["container_name"]
         env = sim_config.get("env", {})
         job_id = str(uuid.uuid4())
         command = method_config.get("command")
@@ -66,7 +67,8 @@ class LocalExecutor(SimulationExecutor):
                 },
                 detach=True,
                 working_dir=self.work_dir,
-                name=f"simjob_{job_id[:8]}",
+                name=container_name,
+                # name=f"simjob_{job_id[:8]}",
                 remove = True,
             )
             self._jobs[job_id] = container

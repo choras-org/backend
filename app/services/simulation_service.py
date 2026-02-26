@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
+import docker
 
 import gmsh
 from celery import shared_task  # , current_task
@@ -291,7 +292,7 @@ def start_solver_task(simulation_id):
     if debug_celery:
         run_solver(new_simulation_run.id, json_path)
     else:
-        task = run_solver.delay(new_simulation_run.id, json_path)
+        task = run_solver.delay(new_simulation_run.id, simulation_id, json_path)
 
         result_container = {}
         if json_path is not None:
@@ -322,7 +323,7 @@ def start_solver_task(simulation_id):
 
 
 @shared_task
-def run_solver(simulation_run_id: int, json_path: str):
+def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
     # from simulation_backend.DGinterface import dg_method
     # from simulation_backend.DEinterface import de_method
     # from simulation_backend.MyNewMethodInterface import mynewmethod_method
@@ -399,14 +400,22 @@ def run_solver(simulation_run_id: int, json_path: str):
             }
             #through this the input file can be passed to the container
             executor = LocalExecutor()
+            # Normalize pieces
+            simulation_name = simulation.name.strip().lower().replace(" ", "_")
+            simulation_method = simulation.taskType.value.lower()  # if Enum
+            simulation_id = str(simulation.id)
+
+            # Standardized base name, e.g. "choras-dg-flow-test-42"
+            container_name = f"choras-{simulation_method}-simulation-{simulation_id}"
 
 
             #Relevant method container would be started dynamically based on the container_image
             method_config = {
-                 "container_image": container_image
+                "container_image": container_image,
+                "container_name": container_name
             }
             job_id, container = executor.execute(method_config, sim_config)
-            logger.info(f"{taskType.value} Simulation_service:...container has finished.")
+            logger.info(f"{taskType.value} Simulation_service:...container has been spinned up.")
             container.wait()
             logs = container.logs().decode("utf-8")
             logger.info(f"{taskType.value} container FULL logs:\n{logs}")
@@ -554,17 +563,30 @@ def get_simulation_run_status_by_id(simulation_run_id):
 
 def cancel_solver_task(simulation_id):
     simulation = get_simulation_by_id(simulation_id)
-
+    
     if not simulation:
         logger.error(
             f"Simulation for the simulation id {str(simulation_id)} does not exist!"
         )
         abort(400, message="Simulation doesn't exist!")
 
+    # Normalize pieces
+    simulation_name = simulation.name.strip().lower().replace(" ", "_")
+    simulation_method = simulation.taskType.value.lower()  # if Enum
+    simulation_id = str(simulation.id)
+
+    # Standardized base name, e.g. "choras-dg-flow-test-42"
+    container_name = f"choras-{simulation_method}-simulation-{simulation_id}"
+
+    logger.info("Trying to KILL Container - container name")
+
+
     model = model_service.get_model(simulation.modelId)
     json_path = file_service.get_file_related_path(
         model.outputFileId, simulation_id, extension="json"
     )
+
+    logger.info("Trying to KILL Container - model name")
 
     if json_path is not None:
         with open(json_path, "r") as json_file:
@@ -575,6 +597,8 @@ def cancel_solver_task(simulation_id):
 
     taskID = data["task_id"]
     print(f"Canceling task: {taskID}")
+
+    logger.info("Trying to KILL Container - task ID")
 
     # Use current_app for better connection handling
     from celery import current_app
@@ -596,7 +620,20 @@ def cancel_solver_task(simulation_id):
     print("should_cancel = " + str(data["should_cancel"]))
     print("json path: " + json_path)
 
+    logger.info("Trying to KILL Container - Celery")
+
     with open(json_path, "w") as json_result_file:
         json_result_file.write(json.dumps(data))
+
+    try:
+        client = docker.from_env()
+        container = client.containers.get(container_name)
+        container.kill()
+        container.remove()
+        logger.info(f"Killed and removed container: {container_name}")
+    except docker.errors.NotFound:
+        logger.error(f"Container {container_name} not found (already stopped)")
+    except Exception as e:
+        logger.error(f"Failed to kill container {container_name}: {e}")
 
     return {"message": f"Cancellation request sent for task {taskID}"}
