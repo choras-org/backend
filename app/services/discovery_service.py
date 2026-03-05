@@ -5,6 +5,13 @@ from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
+def discover_method_names() -> List[str]:
+    """
+    Reads methods-config.json (array format) and returns only the method names.
+    """
+    valid_methods = discover_methods()
+    return [cfg.get("simulationType") for cfg in valid_methods if cfg.get("simulationType")]
+
 def discover_methods() -> List[dict]:
     """
     Reads methods-config.json (array format) and returns the raw array.
