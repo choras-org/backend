@@ -124,9 +124,9 @@ def get_simulation_by_id(simulation_id):
     return simulation
 
 
-def create_source_task(task_type, source_id):
+def create_source_task(source_id):
     try:
-        task = Task(taskType=task_type, status=Status.Created)
+        task = Task(taskType=TaskType.SimulationMethod, status=Status.Created)
         db.session.add(task)
         db.session.commit()
 
@@ -145,7 +145,7 @@ def create_source_task(task_type, source_id):
     }
 
 
-def create_result_source_object(source, receivers, result_type):
+def create_result_source_object(source, receivers, simulation_method):
     responses_obj = []
 
     for receiver in receivers:
@@ -178,7 +178,7 @@ def create_result_source_object(source, receivers, result_type):
         "sourceX": source["x"],
         "sourceY": source["y"],
         "sourceZ": source["z"],
-        "resultType": result_type,
+        "resultType": simulation_method,
         "frequencies": [125, 250, 500, 1000, 2000],
         "responses": responses_obj,
     }
@@ -205,31 +205,13 @@ def start_solver_task(simulation_id):
     results_container = []
 
     for source in simulation.sources:
-        task_statuses = []
-        if simulation.taskType.value in (TaskType.DE.value, TaskType.BOTH.value):
-            task_statuses.append(create_source_task(TaskType.DE.value, source["id"]))
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.DE.value
-                )
+
+        task_statuses = [create_source_task(source["id"])]
+        results_container.append(
+            create_result_source_object(
+                source, simulation.receivers, simulation.simulationMethod
             )
-        if simulation.taskType.value in (TaskType.DG.value, TaskType.BOTH.value):
-            task_statuses.append(create_source_task(TaskType.DG.value, source["id"]))
-            # TODO: Create custom DG JSON results_container
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.DG.value
-                )
-            )
-        if simulation.taskType.value == TaskType.MyNewMethod.value:
-            task_statuses.append(
-                create_source_task(TaskType.MyNewMethod.value, source["id"])
-            )
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.MyNewMethod.value
-                )
-            )
+        )
 
         sources_tasks.append(
             {
@@ -244,7 +226,7 @@ def start_solver_task(simulation_id):
     new_simulation_run = SimulationRun(
         sources=sources_tasks,
         receivers=simulation.receivers,
-        taskType=simulation.taskType,
+        simulationMethod=simulation.simulationMethod,
         settingsPreset=simulation.settingsPreset,
         layerIdByMaterialId=simulation.layerIdByMaterialId,
         solverSettings=simulation.solverSettings,
@@ -376,9 +358,9 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
                     result_container = json.load(json_file)
 
             print(str(result_container))
-            taskType = TaskType(result_container["results"][0]["resultType"])
-            logger.info(f"{taskType}")
-            container_image = discover_container_image(taskType.value)
+            simulation_method = result_container["results"][0]["resultType"]
+            logger.info(f"{simulation_method}")
+            container_image = discover_container_image(simulation_method)
 
             # save the simulation solver settings
             try:
@@ -405,11 +387,11 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
             print(f"Resource type: {resource_type.value}")
 
             simulation_name = simulation.name.strip().lower().replace(" ", "_")
-            simulation_method = simulation.taskType.value.lower()  # if Enum
+            simulation_method_lower = simulation_method.lower()
             simulation_id = str(simulation.id)
 
             # # Standardized base name, e.g. "choras-dg-flow-test-42"
-            container_name = f"choras-{simulation_method}-simulation-{simulation_id}"
+            container_name = f"choras-{simulation_method_lower}-simulation-{simulation_id}"
 
 
             if resource_type == ResourceType.LOCAL:
@@ -435,13 +417,12 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
                 "container_name": container_name
             }
             job_id, container = executor.execute(method_config, sim_config)
-            logger.info(f"{taskType.value} Simulation_service:...container has been spinned up.")
-            
+
+            logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
             container.wait()
-            
             logger.info(f"{taskType.value} Simulation_service:...container has finished.")
-            logs = container.logs().decode("utf-8")
-            logger.info(f"{taskType.value} container FULL logs:\n{logs}")
+            # logs = container.logs().decode("utf-8")
+            # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
 
             if json_path is not None:
                 with open(json_path, "r") as json_file_to_check:
@@ -469,19 +450,22 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
                         session.add(export)
 
                         # auralization: generate impulse response wav file
-                        match taskType:
-                            case TaskType.DE:
+                        # TODO: fix DG method such that this auralization works,
+                        # the idea is to have one shared pipeline across all
+                        # methods. 
+                        match simulation_method:
+                            case "DE":
                                 imp_tot, fs = auralization_calculation(
                                     None,
                                     json_path.replace(".json", "_pressure.csv"),
                                     json_path.replace(".json", ".wav"),
                                 )
-                            case TaskType.DG:
+                            case "DG":
                                 imp_tot, fs = auralization_calculation_DG(
                                     None,
                                     json_path.replace(".json", "_pressure.csv"),
                                     json_path.replace(".json", ".wav"),
-                                )
+                                )       
 
                         # auralization: save the impulse response to xlsx
                         if not ExportHelper.write_data_to_xlsx_file(
@@ -595,11 +579,11 @@ def cancel_solver_task(simulation_id):
 
     # Normalize pieces
     simulation_name = simulation.name.strip().lower().replace(" ", "_")
-    simulation_method = simulation.taskType.value.lower()  # if Enum
+    simulation_method_lower = simulation.simulationMethod.lower()  # if Enum
     simulation_id = str(simulation.id)
 
     # Standardized base name, e.g. "choras-dg-flow-test-42"
-    container_name = f"choras-{simulation_method}-simulation-{simulation_id}"
+    container_name = f"choras-{simulation_method_lower}-simulation-{simulation_id}"
 
     logger.info("Trying to KILL Container - container name")
 
