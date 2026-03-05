@@ -1,7 +1,7 @@
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
 from app.schemas.model_schema import ModelInfoBasicSchema
-from app.types import Setting, Status, TaskType
+from app.types import Setting, Status, TaskType, ResourceType
 
 
 class SolverSettingsSchema(Schema):
@@ -18,6 +18,7 @@ class SimulationCreateBodySchema(Schema):
     receivers = fields.List(fields.Dict(), required=False)
     taskType = fields.Enum(TaskType, required=False)
     settingsPreset = fields.Enum(Setting, required=False)
+    resourceType = fields.Enum(ResourceType, required=False)
 
 
 class SimulationSchema(SimulationCreateBodySchema):

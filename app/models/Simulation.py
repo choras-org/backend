@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON
 
 from app.db import db
-from app.types import Setting, Status, TaskType
+from app.types import Setting, Status, TaskType, ResourceType
 
 
 class Simulation(db.Model):
@@ -17,6 +17,8 @@ class Simulation(db.Model):
     sources = db.Column(JSON, default=[])
     receivers = db.Column(JSON, default=[])
     taskType = db.Column(db.Enum(TaskType), default=TaskType.DE)
+    resourceType = db.Column(db.Enum(ResourceType), default=ResourceType.LOCAL)  # NEW
+
     layerIdByMaterialId = db.Column(JSON, default={})
     settingsPreset = db.Column(db.Enum(Setting), default=Setting.Default)
     solverSettings = db.Column(JSON, nullable=False)
