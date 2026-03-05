@@ -429,20 +429,20 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
                         # auralization: generate impulse response wav file
                         # TODO: fix DG method such that this auralization works,
                         # the idea is to have one shared pipeline across all
-                        # methods
-
-
-                        imp_tot, fs = auralization_calculation(
-                            None,
-                            json_path.replace(".json", "_pressure.csv"),
-                            json_path.replace(".json", ".wav"),
-                        )
-                        
-                        imp_tot, fs = auralization_calculation(
-                            None,
-                            json_path.replace(".json", "_pressure.csv"),
-                            json_path.replace(".json", ".wav"),
-                        )
+                        # methods. 
+                        match simulation_method:
+                            case "DE":
+                                imp_tot, fs = auralization_calculation(
+                                    None,
+                                    json_path.replace(".json", "_pressure.csv"),
+                                    json_path.replace(".json", ".wav"),
+                                )
+                            case "DG":
+                                imp_tot, fs = auralization_calculation_DG(
+                                    None,
+                                    json_path.replace(".json", "_pressure.csv"),
+                                    json_path.replace(".json", ".wav"),
+                                )       
 
                         # auralization: save the impulse response to xlsx
                         if not ExportHelper.write_data_to_xlsx_file(

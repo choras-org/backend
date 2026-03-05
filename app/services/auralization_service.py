@@ -291,7 +291,12 @@ def run_auralization(auralizationId: int) -> None:
         #TODO: fix behavior for DG auralization, DG method output format 
         # should be changed. We want a single universal auralization method,
         # without having to switch logic between them for each simulation method. 
-        auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
+        match simulation.simulationMethod:
+            case "DE":
+                 _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
+            case "DG":
+                 _, _ = auralization_calculation_DG(signal_file_name, pressure_file_name, wav_output_file_name)
+                         
 
         auralization.status = Status.Completed
 
