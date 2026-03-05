@@ -420,7 +420,7 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
 
             logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
             container.wait()
-            logger.info(f"{taskType.value} Simulation_service:...container has finished.")
+            logger.info(f"{simulation_method} Simulation_service:...container has finished.")
             # logs = container.logs().decode("utf-8")
             # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
 
