@@ -7,7 +7,51 @@ import uuid
 import os
 from pathlib import Path
 import docker
+import json
 paramiko.util.log_to_file("paramiko.log", level="DEBUG")
+
+# def get_host_path_for_container_path(container_path: str) -> str:
+#         """
+#         Looks up the host path for a given container path by inspecting
+#         the current container's own mounts via the Docker socket.
+#         """
+#         try:
+#             client = docker.from_env()
+#             import socket
+#             hostname = socket.gethostname()
+#             container = client.containers.get(hostname)
+#             for mount in container.attrs["Mounts"]:
+#                 destination = mount.get("Destination", "")
+#                 if container_path.startswith(destination):
+#                     host_source = mount["Source"]
+#                     relative = os.path.relpath(container_path, destination)
+#                     return os.path.join(host_source, relative).replace("\\", "/")
+#         except Exception as e:
+#             logger.error(f"Could not resolve host path for {container_path}: {e}")
+            
+#         raise RuntimeError(f"No mount found covering container path: {container_path}")
+
+def get_filenames(json_path):
+    """Update msh_path and geo_path in the JSON to only the file name."""
+    with open(json_path, "r") as f:
+        data = json.load(f)
+    if "msh_path" in data:
+        data["msh_path"] = Path(data["msh_path"]).name
+    if "geo_path" in data:
+        data["geo_path"] = Path(data["geo_path"]).name
+    with open(json_path, "w") as f:
+        json.dump(data, f, indent=4)
+    return data["msh_path"], data["geo_path"]
+
+def get_local_file_path(json_path, filename):
+    """Get the local path for a file in the same directory as the JSON."""
+    return os.path.join(os.path.dirname(json_path), filename)
+
+def get_remote_file_path(image_name, job_id, filename):
+    """Get the remote path for a file inside the singularity image."""
+    return f"{image_name}_sif_{job_id}/app/{filename}"
+    
+    
 
 class CloudExecutor(SimulationExecutor):
     
@@ -56,6 +100,11 @@ class CloudExecutor(SimulationExecutor):
         except Exception as e:
             print(f"Error while transfering file via SFTP: {e}")
 
+    def send_input_files_to_singularity_image(self, image_name, job_id, sim_config):
+
+        
+    
+        self.upload_file_via_sftp(container_json_path, remote_json_path)
 
     def build_singularity_image(self, singularity_image_name="sif_sandbox", image_tar_name=None):
             
@@ -70,33 +119,14 @@ class CloudExecutor(SimulationExecutor):
             print(f"Error while building singularity image: {e}")
 
 
-    def get_host_path_for_container_path(self, container_path: str) -> str:
-        """
-        Looks up the host path for a given container path by inspecting
-        the current container's own mounts via the Docker socket.
-        """
-        try:
-            client = docker.from_env()
-            import socket
-            hostname = socket.gethostname()
-            container = client.containers.get(hostname)
-            for mount in container.attrs["Mounts"]:
-                destination = mount.get("Destination", "")
-                if container_path.startswith(destination):
-                    host_source = mount["Source"]
-                    relative = os.path.relpath(container_path, destination)
-                    return os.path.join(host_source, relative).replace("\\", "/")
-        except Exception as e:
-            logger.error(f"Could not resolve host path for {container_path}: {e}")
-            
-        raise RuntimeError(f"No mount found covering container path: {container_path}")
+    
 
 
-    def execute_singularity_image(self, singularity_image_name="sif_sandbox"):
+    def execute_singularity_image(self, singularity_image_name="sif_sandbox", input_json = "exampleInput_DG.json"):
             
         try:
             #this need to be refactored!!!!!  
-            run_cmd = f"singularity exec -w --pwd /app --env JSON_PATH=/app/exampleInput_DG.json {singularity_image_name} python DGinterface.py"
+            run_cmd = f"singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {singularity_image_name} python DGinterface.py"
             #this need to be refactored!!!!! Then test DE as well
             
             stdin, stdout, stderr = self.ssh_client.exec_command(run_cmd)
@@ -117,24 +147,24 @@ class CloudExecutor(SimulationExecutor):
         local_tar_image_path = os.path.join(os.path.dirname(__file__), tar_image_name)
 
         self.upload_file_via_sftp(local_tar_image_path, tar_image_name)
-        self.build_singularity_image(image_name + "_sif_" + job_id, tar_image_name)    
-
-        # tranfer the input json file in o the singularity image
-        # env = sim_config.get("env", {})
-        # container_json_path = env.get("JSON_PATH")
-        # print(f"container_json_path: {container_json_path}")
-        # container_uploads_dir = str(Path(container_json_path).parent)
-        # print(f"container_uploads_dir: {container_uploads_dir}")
-        # host_uploads_dir = self.get_host_path_for_container_path(container_uploads_dir)
-        # print(f"host_uploads_dir: {host_uploads_dir}")
-
-        # print(f"Resolved host path: {host_uploads_dir} for container path: {container_uploads_dir}")
-        # json_filename = Path(container_json_path).name
-        # print(f"json file name: {json_filename}")
-
-        # remote_json_path = f"{image_name}_sif_{job_id}/app/{json_filename}"
-        # print(f"remote json path: {remote_json_path}")
-        # self.upload_file_via_sftp(container_json_path, remote_json_path)
+        self.build_singularity_image(image_name + "_sif_" + job_id, tar_image_name)   
 
 
-        self.execute_singularity_image(image_name + "_sif_" + job_id)
+        #tranfer the input json, geo and msh files into the singularity image
+        env = sim_config.get("env", {})
+        container_json_path = env.get("JSON_PATH")
+        json_filename = Path(container_json_path).name
+        msh_filename, geo_filename = get_filenames(container_json_path)
+
+        remote_json_path = get_remote_file_path(image_name, job_id, json_filename)
+        remote_msh_path = get_remote_file_path(image_name, job_id, msh_filename)
+        remote_geo_path = get_remote_file_path(image_name, job_id, geo_filename)
+
+        self.upload_file_via_sftp(container_json_path, remote_json_path)
+        self.upload_file_via_sftp(get_local_file_path(container_json_path, msh_filename), remote_msh_path)
+        self.upload_file_via_sftp(get_local_file_path(container_json_path, geo_filename), remote_geo_path)
+
+        self.execute_singularity_image(singularity_image_name=image_name + "_sif_" + job_id, input_json=json_filename)
+
+
+        #add logic if build fail to not continue
