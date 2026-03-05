@@ -179,3 +179,12 @@ class FeatureToggle(DefaultConfig):
     @classmethod
     def is_enabled(cls, feature_name: str) -> bool:
         return getattr(cls, feature_name, False)
+
+
+class CloudConfig:
+    """
+    Cloud Configuration
+    """
+    CLOUD_EXECUTOR_HOST = "145.38.205.131"
+    CLOUD_EXECUTOR_USER = "kchanioglo"
+    CLOUD_EXECUTOR_KEY_PATH = "/root/.ssh/id_ed25519"
