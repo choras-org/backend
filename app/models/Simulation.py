@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON
 
 from app.db import db
-from app.types import Setting, Status
+from app.types import Setting, Status, TaskType, ResourceType
 from app.services.discovery_service import discover_method_names
 
 simulation_methods = discover_method_names()
@@ -25,6 +25,8 @@ class Simulation(db.Model):
     hasBeenEdited = db.Column(db.Boolean, nullable=False, default=False)
     sources = db.Column(JSON, default=[])
     receivers = db.Column(JSON, default=[])
+    resourceType = db.Column(db.Enum(ResourceType), default=ResourceType.LOCAL)  # NEW
+
     simulationMethod = db.Column(db.String(), default="DE")
     layerIdByMaterialId = db.Column(JSON, default={})
     settingsPreset = db.Column(db.Enum(Setting), default=Setting.Default)

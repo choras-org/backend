@@ -15,7 +15,7 @@ from app.factory.export_factory.ExportHelper import ExportHelper
 from app.models import Export, File, Simulation, SimulationRun, Task
 from app.services import file_service, material_service, mesh_service, model_service
 from app.services.auralization_service import auralization_calculation, auralization_calculation_DG
-from app.types import Status, TaskType
+from app.types import Status, TaskType, ResourceType
 from config import CustomExportParametersConfig, CloudConfig
 from app.services.executors.local_executor import LocalExecutor
 from app.services.executors.cloud_executor import CloudExecutor
@@ -381,9 +381,11 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
                 },
             # no need to pass volumes here anymore, LocalExecutor always mounts uploads_data
             }
-            #through this the input file can be passed to the container
-            # executor = LocalExecutor()
-            # # Normalize pieces
+
+            SIMULATION_MODE = os.getenv("SIMULATION_MODE", "local")
+            resource_type = simulation.resourceType
+            print(f"Resource type: {resource_type.value}")
+
             simulation_name = simulation.name.strip().lower().replace(" ", "_")
             simulation_method_lower = simulation_method.lower()
             simulation_id = str(simulation.id)
@@ -391,14 +393,23 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
             # # Standardized base name, e.g. "choras-dg-flow-test-42"
             container_name = f"choras-{simulation_method_lower}-simulation-{simulation_id}"
 
-            
-            #Cloud or Local need to be dynamically chosen from frontend
-            # executor = LocalExecutor()  # For local execution
-            executor = CloudExecutor(
+
+            if resource_type == ResourceType.LOCAL:
+                executor = LocalExecutor()
+            else:
+                executor = CloudExecutor(
                 CloudConfig.CLOUD_EXECUTOR_HOST,
                 CloudConfig.CLOUD_EXECUTOR_USER,
                 key_path = CloudConfig.CLOUD_EXECUTOR_KEY_PATH
             )
+            #through this the input file can be passed to the container
+            # executor = LocalExecutor()
+            # # Normalize pieces
+            
+            
+            #Cloud or Local need to be dynamically chosen from frontend
+            # executor = LocalExecutor()  # For local execution
+            
 
             #Relevant method container would be started dynamically based on the container_image
             method_config = {
@@ -409,7 +420,7 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
 
             logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
             container.wait()
-            logger.info(f"{taskType.value} Simulation_service:...container has finished.")
+            logger.info(f"{simulation_method} Simulation_service:...container has finished.")
             # logs = container.logs().decode("utf-8")
             # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
 
