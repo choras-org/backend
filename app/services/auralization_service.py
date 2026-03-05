@@ -23,7 +23,7 @@ from app.models.Auralization import Auralization
 from app.models.Export import Export
 from app.models.Model import Model
 from app.models.Simulation import Simulation
-from app.types import Status, TaskType
+from app.types import Status
 from config import AuralizationParametersConfig as AuralizationParameters
 from config import CustomExportParametersConfig, DefaultConfig, app_dir
 
@@ -244,9 +244,9 @@ def create_new_auralization(simulation_id: int, audiofile_id: int) -> Optional[A
         logger.info(f"Start running auralization task for auralization id: {auralization.id}")
 
         if debug_celery:
-            run_auralization(auralizationId=auralization.id, taskType=simulation.taskType.value)
+            run_auralization(auralizationId=auralization.id)
         else:
-            run_auralization.delay(auralizationId=auralization.id, taskType=simulation.taskType.value)
+            run_auralization.delay(auralizationId=auralization.id)
 
         logger.info(f"Auralization task for auralization id: {auralization.id} is running")
 
@@ -259,7 +259,7 @@ def create_new_auralization(simulation_id: int, audiofile_id: int) -> Optional[A
 
 
 @shared_task
-def run_auralization(auralizationId: int, taskType) -> None:
+def run_auralization(auralizationId: int) -> None:
     try:
         auralization: Auralization = get_auralization_by_id(auralizationId)
         auralization.status = Status.InProgress
@@ -286,13 +286,12 @@ def run_auralization(auralizationId: int, taskType) -> None:
         logger.debug("pressure_file_name: %s", pressure_file_name)
         logger.debug("wav_output_file_name: %s", wav_output_file_name)
 
-        logger.debug("match case Tasktype")
-        match taskType:
-            case TaskType.DE.value:
-                 _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
-            case TaskType.DG.value:
-                 _, _ = auralization_calculation_DG(signal_file_name, pressure_file_name, wav_output_file_name)
+        logger.debug("run auralization calculation")
 
+        #TODO: fix behavior for DG auralization, DG method output format 
+        # should be changed. We want a single universal auralization method,
+        # without having to switch logic between them for each simulation method. 
+        auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
 
         auralization.status = Status.Completed
 
