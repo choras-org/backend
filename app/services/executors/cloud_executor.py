@@ -10,6 +10,7 @@ from .simulation_executor_interface import SimulationExecutor
 import uuid
 from pathlib import Path
 import docker
+import json
 paramiko.util.log_to_file("paramiko.log", level="DEBUG")
 
 # ---------------------------------------------------------------------------
@@ -27,6 +28,26 @@ _OUTPUT_EXTENSIONS = {".json", ".csv"}
 
 # The baked-in JSON filename inside the sandbox /app directory.
 BAKED_IN_JSON_FILENAME = "exampleInput_DG.json"
+
+def get_filenames(json_path):
+    """Update msh_path and geo_path in the JSON to only the file name."""
+    with open(json_path, "r") as f:
+        data = json.load(f)
+    if "msh_path" in data:
+        data["msh_path"] = Path(data["msh_path"]).name
+    if "geo_path" in data:
+        data["geo_path"] = Path(data["geo_path"]).name
+    with open(json_path, "w") as f:
+        json.dump(data, f, indent=4)
+    return data["msh_path"], data["geo_path"]
+
+def get_local_file_path(json_path, filename):
+    """Get the local path for a file in the same directory as the JSON."""
+    return os.path.join(os.path.dirname(json_path), filename)
+
+def get_remote_file_path(image_name, job_id, filename):
+    """Get the remote path for a file inside the singularity image."""
+    return f"{image_name}_sif_{job_id}/app/{filename}"
 
 class _CompletedJob:
     """
@@ -101,6 +122,11 @@ class CloudExecutor(SimulationExecutor):
         except Exception as e:
             print(f"Error while transfering file via SFTP: {e}")
             raise
+    def send_input_files_to_singularity_image(self, image_name, job_id, sim_config):
+
+        
+    
+        self.upload_file_via_sftp(container_json_path, remote_json_path)
     
     def _download_file_via_sftp(self, remote_path: str, local_path: str):
         """
@@ -179,11 +205,11 @@ class CloudExecutor(SimulationExecutor):
             
         raise RuntimeError(f"No mount found covering container path: {container_path}")
 
-    def execute_singularity_image(self, singularity_image_name="sif_sandbox"):
+    def execute_singularity_image(self, singularity_image_name="sif_sandbox",input_json = "exampleInput_DG.json"):
             
         try:
             #this need to be refactored!!!!!  
-            run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/exampleInput_DG.json {singularity_image_name} python DGinterface.py > {singularity_image_name}/app/singularity_run.log 2>&1 &"
+            run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {singularity_image_name} python DGinterface.py > {singularity_image_name}/app/singularity_run.log 2>&1 &"
             #this need to be refactored!!!!! Then test DE as well
             
             stdin, stdout, stderr = self.ssh_client.exec_command(run_cmd) 
@@ -405,8 +431,19 @@ class CloudExecutor(SimulationExecutor):
         # print(f"remote json path: {remote_json_path}")
         # self.upload_file_via_sftp(container_json_path, remote_json_path)
 
+        env = sim_config.get("env", {})
+        container_json_path = env.get("JSON_PATH")
+        json_filename = Path(container_json_path).name
+        msh_filename, geo_filename = get_filenames(container_json_path)
 
-        self.execute_singularity_image(image_name + "_sif_" + job_id)
+        remote_json_path = get_remote_file_path(image_name, job_id, json_filename)
+        remote_msh_path = get_remote_file_path(image_name, job_id, msh_filename)
+        remote_geo_path = get_remote_file_path(image_name, job_id, geo_filename)
+
+        self.upload_file_via_sftp(container_json_path, remote_json_path)
+        self.upload_file_via_sftp(get_local_file_path(container_json_path, msh_filename), remote_msh_path)
+        self.upload_file_via_sftp(get_local_file_path(container_json_path, geo_filename), remote_geo_path)
+        self.execute_singularity_image(singularity_image_name=image_name + "_sif_" + job_id, input_json=json_filename)
         self._disconnect()
         env               = sim_config.get("env", {})
         local_uploads_dir = str(Path(env.get("JSON_PATH")).parent)  # /app/uploads
@@ -421,4 +458,3 @@ class CloudExecutor(SimulationExecutor):
 
         return job_id, _CompletedJob()
 
-s
