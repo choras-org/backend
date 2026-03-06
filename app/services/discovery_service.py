@@ -61,6 +61,14 @@ def discover_container_image(simulation_type: str) -> str | None:
             return cfg.get("container_image")
     return None
 
+def discover_entry_file(simulation_type: str) -> str | None:
+    methods = discover_methods()
+    print("")
+    for cfg in methods:
+        if cfg.get("simulationType") == simulation_type:
+            return cfg.get("entryFile")
+    return None
+
 
 if __name__ == "__main__":
     methods = discover_methods()

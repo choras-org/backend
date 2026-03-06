@@ -55,11 +55,12 @@ def get_remote_file_path(image_name, job_id, filename):
 
 class CloudExecutor(SimulationExecutor):
     
-    def __init__(self, hostname, username, password=None, key_path=None, remote_work_dir="/app"):
+    def __init__(self, hostname, username, password=None, key_path=None, entry_file=None, remote_work_dir="/app"):
         self.hostname = hostname
         self.username = username
         self.password = password
         self.key_path = key_path
+        self.entry_file = entry_file
         self.remote_work_dir = remote_work_dir
         self.ssh_client = None
 
@@ -100,12 +101,6 @@ class CloudExecutor(SimulationExecutor):
         except Exception as e:
             print(f"Error while transfering file via SFTP: {e}")
 
-    def send_input_files_to_singularity_image(self, image_name, job_id, sim_config):
-
-        
-    
-        self.upload_file_via_sftp(container_json_path, remote_json_path)
-
     def build_singularity_image(self, singularity_image_name="sif_sandbox", image_tar_name=None):
             
         try:
@@ -119,14 +114,12 @@ class CloudExecutor(SimulationExecutor):
             print(f"Error while building singularity image: {e}")
 
 
-    
-
-
     def execute_singularity_image(self, singularity_image_name="sif_sandbox", input_json = "exampleInput_DG.json"):
             
         try:
             #this need to be refactored!!!!!  
-            run_cmd = f"singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {singularity_image_name} python DGinterface.py"
+            run_cmd = f"singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {singularity_image_name} python {self.entry_file}"
+            print(f"Running command: {run_cmd}")
             #this need to be refactored!!!!! Then test DE as well
             
             stdin, stdout, stderr = self.ssh_client.exec_command(run_cmd)
