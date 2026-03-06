@@ -250,7 +250,7 @@ class CloudExecutor(SimulationExecutor):
                               dg_image_sif_<uuid>
         remote_tar_path     : relative to user home, e.g. dg_image.tar
         """
-        local_json_path = os.path.join(local_uploads_dir, BAKED_IN_JSON_FILENAME)
+        local_json_path = os.path.join(local_uploads_dir, Path(remote_json_path).name)
 
         last_progress: Optional[float] = None
         poll_interval = float(POLL_INTERVAL_MIN)
@@ -427,7 +427,7 @@ class CloudExecutor(SimulationExecutor):
         local_uploads_dir = str(Path(env.get("JSON_PATH")).parent)  # /app/uploads
 
         self.poll_until_complete(
-            remote_json_path    = f"{remote_app_dir_path}/{BAKED_IN_JSON_FILENAME}",
+            remote_json_path    = f"{remote_app_dir_path}/{json_filename}",
             local_uploads_dir   = local_uploads_dir,
             remote_app_dir      = remote_app_dir_path,
             remote_sandbox_path = sandbox_name,
