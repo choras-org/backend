@@ -66,11 +66,12 @@ class _CompletedJob:
 
 class CloudExecutor(SimulationExecutor):
     
-    def __init__(self, hostname, username, password=None, key_path=None, remote_work_dir="/app"):
+    def __init__(self, hostname, username, password=None, key_path=None, entry_file=None, remote_work_dir="/app"):
         self.hostname = hostname
         self.username = username
         self.password = password
         self.key_path = key_path
+        self.entry_file = entry_file
         self.remote_work_dir = remote_work_dir
         self.ssh_client = None
 
@@ -122,11 +123,6 @@ class CloudExecutor(SimulationExecutor):
         except Exception as e:
             print(f"Error while transfering file via SFTP: {e}")
             raise
-    def send_input_files_to_singularity_image(self, image_name, job_id, sim_config):
-
-        
-    
-        self.upload_file_via_sftp(container_json_path, remote_json_path)
     
     def _download_file_via_sftp(self, remote_path: str, local_path: str):
         """
@@ -184,32 +180,14 @@ class CloudExecutor(SimulationExecutor):
             raise
 
 
-    def get_host_path_for_container_path(self, container_path: str) -> str:
-        """
-        Looks up the host path for a given container path by inspecting
-        the current container's own mounts via the Docker socket.
-        """
-        try:
-            client = docker.from_env()
-            import socket
-            hostname = socket.gethostname()
-            container = client.containers.get(hostname)
-            for mount in container.attrs["Mounts"]:
-                destination = mount.get("Destination", "")
-                if container_path.startswith(destination):
-                    host_source = mount["Source"]
-                    relative = os.path.relpath(container_path, destination)
-                    return os.path.join(host_source, relative).replace("\\", "/")
-        except Exception as e:
-            logger.error(f"Could not resolve host path for {container_path}: {e}")
-            
-        raise RuntimeError(f"No mount found covering container path: {container_path}")
+   
 
     def execute_singularity_image(self, singularity_image_name="sif_sandbox",input_json = "exampleInput_DG.json"):
             
         try:
             #this need to be refactored!!!!!  
-            run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {singularity_image_name} python DGinterface.py > {singularity_image_name}/app/singularity_run.log 2>&1 &"
+            run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {singularity_image_name} python {self.entry_file} > {singularity_image_name}/app/singularity_run.log 2>&1 &"
+            print(f"Running command: {run_cmd}")
             #this need to be refactored!!!!! Then test DE as well
             
             stdin, stdout, stderr = self.ssh_client.exec_command(run_cmd) 

@@ -19,7 +19,7 @@ from app.types import Status, TaskType, ResourceType
 from config import CustomExportParametersConfig, CloudConfig
 from app.services.executors.local_executor import LocalExecutor
 from app.services.executors.cloud_executor import CloudExecutor
-from app.services.discovery_service import discover_container_image
+from app.services.discovery_service import discover_container_image, discover_entry_file
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -393,6 +393,7 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
             # # Standardized base name, e.g. "choras-dg-flow-test-42"
             container_name = f"choras-{simulation_method_lower}-simulation-{simulation_id}"
 
+            entry_file = discover_entry_file(simulation_method)
 
             if resource_type == ResourceType.LOCAL:
                 executor = LocalExecutor()
@@ -400,7 +401,8 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
                 executor = CloudExecutor(
                 CloudConfig.CLOUD_EXECUTOR_HOST,
                 CloudConfig.CLOUD_EXECUTOR_USER,
-                key_path = CloudConfig.CLOUD_EXECUTOR_KEY_PATH
+                key_path = CloudConfig.CLOUD_EXECUTOR_KEY_PATH,
+                entry_file = entry_file
             )
             #through this the input file can be passed to the container
             # executor = LocalExecutor()
