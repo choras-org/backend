@@ -4,14 +4,11 @@ import numpy as np
 import json
 import logging
 import traceback
+from Diffusion.acousticDE.FiniteVolumeMethod.FVMfunctions import create_vgroups_names
 
 from deism.core_deism import *
 from deism.data_loader import *
-from deism.room_check import (
-    get_room_geometry,
-    update_surface_areas,
-    update_wall_centers,
-)
+from deism.room_check import sync_room_geometry
 
 
 logger = logging.getLogger(__name__)
@@ -27,6 +24,20 @@ def parse_value(val):
         return np.array(val, dtype=float)
     else:
         raise ValueError(f"Unsupported type for parse_value: {type(val)}")
+
+
+def get_deism_surface_order(vgroups_names):
+    """Map Gmsh physical surfaces to DEISM's expected wall order."""
+    surface_names_by_tag = {
+        int(tag): name for dim, tag, name in vgroups_names if int(dim) == 2
+    }
+    deism_tag_order = [2, 5, 4, 6, 1, 3]
+    missing_tags = [tag for tag in deism_tag_order if tag not in surface_names_by_tag]
+    if missing_tags:
+        raise KeyError(
+            f"Missing physical surface tags required by DEISM: {missing_tags}"
+        )
+    return [surface_names_by_tag[tag] for tag in deism_tag_order]
 
 
 def deism_method(json_file_path=None):
@@ -57,21 +68,14 @@ def deism_method(json_file_path=None):
             result_container = json.load(json_file)
             geo_path = result_container["geo_path"]  # This should now be absolute path
 
-        # Step 2: update areas, wall centers, volume
-        update_surface_areas(json_file_path, geo_path)
-        update_wall_centers(json_file_path, geo_path)
-        Volume, room = get_room_geometry(geo_file=geo_path)
+        # Step 2: update areas, wall centers, vertices, and volume in one pass
+        Volume, room = sync_room_geometry(json_file_path, geo_path)
 
-        # Step 3: write volume to JSON
-        with open(json_file_path, "r+") as json_file:
-            data = json.load(json_file)
-            data["geometry"][0]["room_volumn"] = Volume
-            json_file.seek(0)
-            json.dump(data, json_file, indent=4)
-            json_file.truncate()
+        with open(json_file_path, "r") as json_file:
+            result_container = json.load(json_file)
 
-        # Step 4: use the already-updated data instead of re-loading
-        result_container = data
+        vGroupsNames = create_vgroups_names(result_container["geo_path"])
+        print("vGroupsNames", vGroupsNames)
 
         # Checking whether the 'should_cancel' flag has been set to True by the user
         # Do not call this function all the time, as it is quite heavy
@@ -136,20 +140,15 @@ def deism_method(json_file_path=None):
         # The first dimension is for the walls, viz., x1, x2, y1, y2, z1, z2
         # Corresponding to wall 1, wall 3, wall 2, wall 4, floor, ceiling
 
-        # This should be obtained from result_container["absorption_coefficients"] as the names of the surfaces in CHORAS are UUIDs
-        wall_order = ["wall1", "wall3", "wall2", "wall4", "floor", "ceiling"]
+        wall_order = get_deism_surface_order(vGroupsNames)
         # Create an empty array for the absorption coefficients
         absorption_coefficients = np.zeros((6, len(freq_bands)))
         wall_centers = np.zeros((6, 3))
         room_areas = np.zeros((6, 1))
-        for wall in wall_order:
-            absorption_coefficients[wall_order.index(wall), :] = parse_value(
-                abs_coeffs_loaded[wall]
-            )
-            wall_centers[wall_order.index(wall), :] = parse_value(
-                wall_centers_loaded[wall]
-            )
-            room_areas[wall_order.index(wall), :] = parse_value(room_areas_loaded[wall])
+        for index, wall in enumerate(wall_order):
+            absorption_coefficients[index, :] = parse_value(abs_coeffs_loaded[wall])
+            wall_centers[index, :] = parse_value(wall_centers_loaded[wall])
+            room_areas[index, :] = parse_value(room_areas_loaded[wall])
 
         # Apply DEISM
         deism = DEISM("RIR", room)
@@ -172,16 +171,15 @@ def deism_method(json_file_path=None):
         # update source and receiver positions in deism
         deism.params["posSource"] = np.array(coord_source)
         deism.params["posRec"] = np.array(coord_rec)
-        deism.update_images()
+        deism.update_source_receiver()
         deism.update_directivities()
-        pressure = deism.run_DEISM()
+        deism.run_DEISM()
+        rir = deism.get_results()
         # -----------------------------------------------------------
         # Save the simulation results
         # -----------------------------------------------------------
         # Save the simulation results in the json file
-        result_container["results"][0]["responses"][0][
-            "receiverResults"
-        ] = pressure.tolist()
+        result_container["results"][0]["responses"][0]["receiverResults"] = rir.tolist()
         with open(json_file_path, "w") as new_result_json:
             new_result_json.write(json.dumps(result_container, indent=4))
         print("deism_method: simulation done!")
@@ -208,7 +206,7 @@ if __name__ == "__main__":
     from headless_backend.HelperFunctions import (
         find_input_file_in_subfolders,
         create_tmp_from_input,
-        save_results
+        save_results,
     )
 
     # Load the input file
