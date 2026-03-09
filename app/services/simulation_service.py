@@ -225,6 +225,13 @@ def start_solver_task(simulation_id):
                     source, simulation.receivers, TaskType.MyNewMethod.value
                 )
             )
+        if simulation.taskType.value in (TaskType.DON.value):
+            task_statuses.append(create_source_task(TaskType.DON.value, source["id"]))
+            results_container.append(
+                create_result_source_object(
+                    source, simulation.receivers, TaskType.DON.value
+                )
+            )
 
         sources_tasks.append(
             {
@@ -322,6 +329,7 @@ def start_solver_task(simulation_id):
 def run_solver(simulation_run_id: int, json_path: str):
     from simulation_backend.DGinterface import dg_method
     from simulation_backend.DEinterface import de_method
+    from simulation_backend.DeepONetInterface import deeponet_method
     from simulation_backend.MyNewMethodInterface import mynewmethod_method
 
     from app.db import db
@@ -396,6 +404,11 @@ def run_solver(simulation_run_id: int, json_path: str):
                     dg_method(json_file_path=json_path)
                     logger.info("DG method")
 
+                case TaskType.DON:
+                    # MyNewMethod METHOD
+                    deeponet_method(json_file_path=json_path)
+                    logger.info("DeepONet method")
+
                 case TaskType.MyNewMethod:
                     # MyNewMethod METHOD
                     mynewmethod_method(json_file_path=json_path)
@@ -416,12 +429,13 @@ def run_solver(simulation_run_id: int, json_path: str):
                         logger.info("Saving to xlsx...")
 
                         # save the simulation result json to xlsx
-                        if not ExportHelper.parse_json_file_to_xlsx_file(
-                            json_path, json_path.replace(".json", ".xlsx")
-                        ):
-                            logger.error("Error saving the result to xlsx")
-                            raise "Error saving the result to xlsx"
-
+                        try:
+                            ExportHelper.parse_json_file_to_xlsx_file(
+                                json_path, json_path.replace(".json", ".xlsx")
+                            )
+                        except Exception as ex:
+                            logger.error(f"Error saving the result to xlsx: {ex}")
+                            
                         # db - save the xlsx file path
                         export = Export(
                             name=Path(json_path).name.replace(".json", ".xlsx"),
@@ -443,19 +457,22 @@ def run_solver(simulation_run_id: int, json_path: str):
                                     json_path.replace(".json", "_pressure.csv"),
                                     json_path.replace(".json", ".wav"),
                                 )
-
+                            case TaskType.DON:
+                                imp_tot, fs = auralization_calculation_DG(
+                                    None,
+                                    json_path.replace(".json", "_pressure.csv"),
+                                    json_path.replace(".json", ".wav"),
+                                )
                         # auralization: save the impulse response to xlsx
-                        if not ExportHelper.write_data_to_xlsx_file(
-                            json_path.replace(".json", ".xlsx"),
-                            CustomExportParametersConfig.impulse_response,
-                            {f"{fs}Hz": imp_tot},
-                        ):
-                            logger.error(
-                                "Error saving the impulse response to xlsx"
+                        try:
+                            ExportHelper.write_data_to_xlsx_file(
+                                json_path.replace(".json", ".xlsx"),
+                                CustomExportParametersConfig.impulse_response,
+                                {f"{fs}Hz": imp_tot},
                             )
-                            raise "Error saving the impulse response to xlsx"
-                                
 
+                        except Exception as ex:
+                            logger.error(f"Error saving the impulse response to xlsx: {ex}")                        
                         
             result_container = {}
             if json_path is not None:

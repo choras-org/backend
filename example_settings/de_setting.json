@@ -3,6 +3,7 @@
     "options": [
         {
             "name": "Simulation length",
+            "description": "Selects what parameter determines the length of the simulation. If EDT is selected, the Impulse response length variable will have no effect, and vice versa.",
             "id": "sim_len_type",
             "type": "string",
             "display": "radio",
@@ -15,6 +16,7 @@
         },
         {
             "name": "Energy decay threshold",
+            "description": "The threshold (in dB) until when the DE method simulates. Only used if the Simulation length parameter is set to EDT.",
             "id": "edt",
             "type": "integer",
             "display": "text",
@@ -26,6 +28,7 @@
         },
         {
             "name": "Impulse response length",
+            "description": "The length of the impulse response the DE method will simulate. Only used if the Simulation length parameter is set to IR length.",
             "id": "de_ir_length",
             "type": "float",
             "display": "text",
@@ -37,6 +40,7 @@
         },
         {
             "name": "Speed of sound",
+            "description": "The speed of sound in the medium (air).",
             "id": "de_c0",
             "type": "float",
             "display": "text",
@@ -48,6 +52,7 @@
         },
         {
             "name": "Characteristic length (mesh)",
+            "description": "Distance between nodes that the meshing tool aims for (in meters). Higher values yield shorter simulation times, but might cause errors due to a too coarse mesh.",
             "id": "de_lc",
             "type": "float",
             "display": "text",

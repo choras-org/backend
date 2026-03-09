@@ -133,22 +133,6 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
     # Block 1: User input
     # --------------------
     simulation_settings = result_container["simulationSettings"]
-
-    # TODO: should make a better solution for this that calls the dg_method function as if there was no deeponet
-    called_from_deeponet = False
-    if result_container["results"][0]["resultType"] == "DON":
-        called_from_deeponet = True
-
-    if called_from_deeponet:
-        output_path = result_container["output_path"]
-        output_results = result_container["output_filename"]
-        file_format = result_container["file_format"]
-
-        # clean up
-        os.makedirs(output_path, exist_ok=True)
-        Path(os.path.join(output_path, f"{output_results}.{file_format}")).unlink(missing_ok=True)
-        Path(os.path.join(output_path, "results.json")).unlink(missing_ok=True)
-        
     freq_upper_limit = simulation_settings["dg_freq_upper_limit"]
 
     mesh_filename = result_container["msh_path"]
@@ -276,18 +260,6 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
         rec, "brute_force"
     )  # brute_force or scipy(default) approach to locate the receiver points in the mesh
 
-    if called_from_deeponet:
-        # write initial conditition
-        if file_format == "npz":
-            ic_mesh = np.array([sim.xyz[0].flatten(), sim.xyz[0].flatten(), sim.xyz[0].flatten()])
-            numpy.savez(
-                os.path.join(output_path, output_results),
-                IC_pressure=sim.P.flatten(),
-                IC_mesh=ic_mesh,
-                )
-        else:
-            raise NotImplementedError("file_format")
-
     tsi_time_integrator = edg_acoustics.TSI_TI(sim.RHS_operator, sim.dtscale, CFL, Nt=3)
     sim.init_TimeIntegrator(tsi_time_integrator)
     sim.time_integration(
@@ -316,7 +288,7 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
         except Exception:
             print("Error saving the simulation solver settings")
             raise Exception("Error saving the simulation solver settings")
-
+    
         df = pd.DataFrame()
         df["t"] = impulse_length * np.arange(0, len(data["results"][0]["responses"][0]["receiverResults"]))/len(data["results"][0]["responses"][0]["receiverResults"])
         df["pressure"] = data["results"][0]["responses"][0]["receiverResults"] 
@@ -325,9 +297,28 @@ def dg_method(json_file_path: str | Path, save_results_to_json: bool = True):
             json_file_path.replace(".json", "_pressure.csv"), "w", newline=""
         ) as pressure_result_csv:
             df.to_csv(pressure_result_csv, index=False)
+    else:        
+        output_path = result_container["output_path"]
+        output_results = result_container["output_filename"]
+        file_format = result_container["file_format"]
 
-    if called_from_deeponet:
+        # clean up
+        os.makedirs(output_path, exist_ok=True)
+        Path(os.path.join(output_path, f"{output_results}.{file_format}")).unlink(missing_ok=True)
+
+        # write initial conditition
+        if file_format == "npz":
+            ic_mesh = np.array([sim.xyz[0].flatten(), sim.xyz[0].flatten(), sim.xyz[0].flatten()])
+            numpy.savez(
+                os.path.join(output_path, output_results),
+                IC_pressure=sim.P.flatten(),
+                IC_mesh=ic_mesh,
+                )
+        else:
+            raise NotImplementedError("file_format")
+
         results.write_results(os.path.join(output_path, output_results), file_format, append=True)
+
     print("Finished!")
 
 

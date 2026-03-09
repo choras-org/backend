@@ -14,5 +14,13 @@
         "simulationType": "DG",
         "repositoryURL": "https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics/",
         "documentationURL": "https://dg-roomacoustics.readthedocs.io/en/latest/"
+    },
+    {
+        "description": "DeepONet for Acoustic Wave Propagation is a deep neural network that trains on other simulation methods (currently uses the Discontinuous Galerkin (DG)), and allows to create impulse responses at arbitrary receiver locations in the space. The latter is currently not yet supported by CHORAS.",
+        "label": "DeepONet",
+        "name": "don_setting.json",
+        "simulationType": "DON",
+        "repositoryURL": "https://github.com/dtu-act/deeponet-acoustic-wave-prop/",
+        "documentationURL": "https://github.com/dtu-act/deeponet-acoustic-wave-prop/"
     }
 ]

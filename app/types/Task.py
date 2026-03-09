@@ -6,5 +6,6 @@ class TaskType(Enum):
     Mesh = "Mesh"
     DE = "DE"
     DG = "DG"
+    DON = "DON"
     MyNewMethod = "MyNewMethod"
     BOTH = "BOTH"
