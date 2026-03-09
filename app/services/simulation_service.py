@@ -1,29 +1,55 @@
 import json
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
+from unittest import case
 
-import gmsh
 from celery import shared_task  # , current_task
 from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
 from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
-from app.models import Export, File, Simulation, SimulationRun, Task
-from app.services import file_service, material_service, mesh_service, model_service
+from app.models import Export, Simulation, SimulationRun, Task
+from app.services import file_service, material_service, model_service
 from app.services.auralization_service import auralization_calculation, auralization_calculation_DG
 from app.types import Status, TaskType
 from config import CustomExportParametersConfig
 
+"""Services for managing simulations.
+
+This module exposes helpers for creating, updating, deleting and
+querying simulation records as well as orchestrating solver tasks via
+Celery. It coordinates with other service layers (model_service,
+file_service, etc.) and updates database models such as
+:class:`~app.models.Simulation` and :class:`~app.models.SimulationRun`.
+"""
+
 # Create logger for this module
 logger = logging.getLogger(__name__)
 
+# If you want to run the simulation methods locally to be able to set breakpoints, set this to True
 debug_celery = False
 
-
 def create_new_simulation(simulation_data):
+    """
+    Persist a new :class:`~app.models.Simulation` instance.
+
+    Parameters
+    ----------
+    simulation_data : dict
+        Key/value pairs used to construct the Simulation object.
+
+    Returns
+    -------
+    Simulation
+        The database object that was created.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with ``400`` if the insert fails.
+    """
     new_simulation = Simulation(**simulation_data)
 
     try:
@@ -39,6 +65,27 @@ def create_new_simulation(simulation_data):
 
 
 def update_simulation_by_id(simulation_data, simulation_id):
+    """
+    Apply a partial update to an existing simulation.
+
+    Parameters
+    ----------
+    simulation_data : dict
+        Fields to update on the simulation.
+    simulation_id : int
+        Primary key of the simulation to modify.
+
+    Returns
+    -------
+    Simulation
+        The updated simulation object.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with ``400`` on commit failure or if the simulation does
+        not exist.
+    """
     simulation = get_simulation_by_id(simulation_id)
 
     try:
@@ -57,6 +104,19 @@ def update_simulation_by_id(simulation_data, simulation_id):
 
 
 def get_simulation_by_model_id(model_id):
+    """
+    Retrieve all simulations that belong to a given model.
+
+    Parameters
+    ----------
+    model_id : int
+        Identifier of the model.
+
+    Returns
+    -------
+    list[Simulation]
+        List of simulations sorted by ``updatedAt`` descending.
+    """
     return (
         Simulation.query.filter_by(modelId=model_id)
         .order_by(Simulation.updatedAt.desc())
@@ -65,6 +125,15 @@ def get_simulation_by_model_id(model_id):
 
 
 def get_simulation_run():
+    """
+    Fetch all simulation run records and refresh their status from the
+    underlying JSON result file.
+
+    Returns
+    -------
+    list[SimulationRun]
+        All :class:`~app.models.SimulationRun` instances.
+    """
     result = (
         SimulationRun.query.options(joinedload(SimulationRun.simulation))
         .filter(SimulationRun.simulation)
@@ -78,6 +147,24 @@ def get_simulation_run():
 
 
 def get_simulation_run_by_id(simulation_run_id):
+    """
+    Return a single simulation run by its primary key.
+
+    Parameters
+    ----------
+    simulation_run_id : int
+        The id of the simulation run to retrieve.
+
+    Returns
+    -------
+    SimulationRun
+        The matching simulation run.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with ``400`` if no record is found.
+    """
     simulation_run = SimulationRun.query.filter_by(id=simulation_run_id).first()
     if not simulation_run:
         logger.error(
@@ -88,6 +175,19 @@ def get_simulation_run_by_id(simulation_run_id):
 
 
 def delete_simulation(simulation_id):
+    """
+    Remove a simulation and any associated run from the database.
+
+    Parameters
+    ----------
+    simulation_id : int
+        Primary key of the simulation to delete.
+    
+    Raises
+    ------
+    HTTPException
+        Aborts with ``500`` if an error occurs during deletion.
+    """
     try:
         simulation = Simulation.query.filter_by(id=simulation_id).one()
         SimulationRun.query.filter_by(id=simulation.id).delete()
@@ -102,6 +202,19 @@ def delete_simulation(simulation_id):
 
 
 def delete_simulation_run(simulation_run_id):
+    """
+    Delete a single simulation run record.
+
+    Parameters
+    ----------
+    simulation_run_id : int
+        Primary key of the run to remove.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with ``500`` if an error occurs during deletion.
+    """
     try:
         SimulationRun.query.filter_by(id=simulation_run_id).delete()
         db.session.commit()
@@ -113,6 +226,24 @@ def delete_simulation_run(simulation_run_id):
 
 
 def get_simulation_by_id(simulation_id):
+    """
+    Retrieve a simulation by its identifier, aborting if absent.
+
+    Parameters
+    ----------
+    simulation_id : int
+        The simulation's primary key.
+
+    Returns
+    -------
+    Simulation
+        The found simulation instance.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with ``400`` if no record is found.
+    """
     simulation = Simulation.query.filter_by(id=simulation_id).first()
     if not simulation:
         logger.error("Simulation with id " + str(simulation_id) + " does not exist!")
@@ -121,6 +252,31 @@ def get_simulation_by_id(simulation_id):
 
 
 def create_source_task(task_type, source_id):
+    """
+    Helper that creates a ``Task`` object associated with a source location.
+
+    This is used when initializing a new simulation run; it does not
+    persist the task in the run record itself but returns a status
+    dictionary to the caller.
+
+    Parameters
+    ----------
+    task_type : TaskType
+        The type of solver task (e.g. ``DE``, ``DG``).
+    source_id : Any
+        Identifier for the source point.
+
+    Returns
+    -------
+    dict
+        Status information to include in a simulation run payload.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with ``500`` if an error occurs during task creation.
+
+    """
     try:
         task = Task(taskType=task_type, status=Status.Created)
         db.session.add(task)
@@ -142,6 +298,23 @@ def create_source_task(task_type, source_id):
 
 
 def create_result_source_object(source, receivers, result_type):
+    """
+    Construct the skeleton of a result entry for a source/receiver pair.
+
+    Parameters
+    ----------
+    source : dict
+        Source point metadata.
+    receivers : Any
+        List of receiver metadata dictionaries.
+    result_type : TaskType
+        Indicates which solver results will be stored.
+
+    Returns
+    -------
+    dict
+        A template JSON object that will be populated by the solver.
+    """
     responses_obj = []
 
     for receiver in receivers:
@@ -181,6 +354,25 @@ def create_result_source_object(source, receivers, result_type):
 
 
 def start_solver_task(simulation_id):
+    """
+    Initialize a :class:`~app.models.SimulationRun` and enqueue the
+    solver task via Celery.
+
+    This method prepares the JSON input file, computes absorption
+    coefficients, and updates the database state for both the simulation
+    and the newly created run. If ``debug_celery`` is enabled the
+    solver is invoked synchronously for easier breakpoint debugging.
+
+    Parameters
+    ----------
+    simulation_id : int
+        Primary key of the simulation to run.
+
+    Returns
+    -------
+    SimulationRun
+        The newly created simulation run record.
+    """
     simulation = get_simulation_by_id(simulation_id)
 
     if simulation.simulationRunId:
@@ -201,30 +393,12 @@ def start_solver_task(simulation_id):
 
     for source in simulation.sources:
         task_statuses = []
-        if simulation.taskType.value in (TaskType.DE.value, TaskType.BOTH.value):
-            task_statuses.append(create_source_task(TaskType.DE.value, source["id"]))
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.DE.value
-                )
+        task_statuses.append(create_source_task(simulation.taskType.value, source["id"]))
+        results_container.append(
+            create_result_source_object(
+                source, simulation.receivers, simulation.taskType.value
             )
-        if simulation.taskType.value in (TaskType.DG.value, TaskType.BOTH.value):
-            task_statuses.append(create_source_task(TaskType.DG.value, source["id"]))
-            # TODO: Create custom DG JSON results_container
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.DG.value
-                )
-            )
-        if simulation.taskType.value == TaskType.MyNewMethod.value:
-            task_statuses.append(
-                create_source_task(TaskType.MyNewMethod.value, source["id"])
-            )
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.MyNewMethod.value
-                )
-            )
+        )
 
         sources_tasks.append(
             {
@@ -285,6 +459,7 @@ def start_solver_task(simulation_id):
             )
         )
 
+    # If the debug_celery flag is true, run the solver right here so we can debug (put breakpoints and such)
     if debug_celery:
         run_solver(new_simulation_run.id, json_path)
     else:
@@ -320,6 +495,23 @@ def start_solver_task(simulation_id):
 
 @shared_task
 def run_solver(simulation_run_id: int, json_path: str):
+    """
+    Celery task entry point to execute a solver method.
+
+    The function loads the provided JSON file, determines the task type,
+    calls the appropriate backend implementation, and handles post-
+    processing including xlsx export, auralization, and updating
+    database status fields. Errors transition the run and simulation to
+    ``Status.Error``.
+
+    Parameters
+    ----------
+    simulation_run_id : int
+        Identifier of the run being executed.
+    json_path : str
+        Filesystem path to the JSON payload used by the solver.
+    """
+
     from simulation_backend.DGinterface import dg_method
     from simulation_backend.DEinterface import de_method
     from simulation_backend.MyNewMethodInterface import mynewmethod_method
@@ -329,7 +521,6 @@ def run_solver(simulation_run_id: int, json_path: str):
     from app.types import Status
 
     # Create logger for this module
-
     logger.info(f"Running solver task for simulation_run_id: {simulation_run_id}")
 
     # Scoped session factory to ensure proper session management
@@ -495,6 +686,24 @@ def run_solver(simulation_run_id: int, json_path: str):
 
 
 def get_simulation_result_by_id(simulation_id):
+    """
+    Fetch the raw result object stored for a completed simulation.
+
+    Parameters
+    ----------
+    simulation_id : int
+        Primary key of the simulation.
+
+    Returns
+    -------
+    list
+        ``results`` array from the JSON data.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with ``400`` if the result file cannot be read.
+    """
     simulation = get_simulation_by_id(simulation_id)
     model = model_service.get_model(simulation.modelId)
     json_path = file_service.get_file_related_path(
@@ -512,6 +721,16 @@ def get_simulation_result_by_id(simulation_id):
 
 
 def update_simulation_run_status(simulation_run, simulation):
+    """
+    Synchronize the ``percentage`` field of a run from its JSON file.
+
+    Parameters
+    ----------
+    simulation_run : SimulationRun
+        The run object to update.
+    simulation : Simulation
+        The parent simulation, used to locate the JSON path.
+    """
     # TODO: update source percentage later
     model = model_service.get_model(simulation.modelId)
     json_path = file_service.get_file_related_path(
@@ -529,6 +748,19 @@ def update_simulation_run_status(simulation_run, simulation):
 
 
 def get_simulation_run_status_by_id(simulation_run_id):
+    """
+    Helper that returns a run and refreshes its percentage status.
+
+    Parameters
+    ----------
+    simulation_run_id : int
+        Identifier of the simulation run.
+
+    Returns
+    -------
+    SimulationRun
+        The updated run object with current percentage.
+    """
     simulation = Simulation.query.filter_by(simulationRunId=simulation_run_id).first()
     if not simulation:
         logger.error(
@@ -546,6 +778,23 @@ def get_simulation_run_status_by_id(simulation_run_id):
 
 
 def cancel_solver_task(simulation_id):
+    """
+    Signal a running solver task to cancel and mark the JSON payload
+    accordingly.
+
+    The Celery task is revoked and the ``should_cancel`` flag in the
+    JSON file is toggled so downstream logic avoids writing outputs.
+
+    Parameters
+    ----------
+    simulation_id : int
+        Identifier of the simulation whose task should be cancelled.
+
+    Returns
+    -------
+    dict
+        Message indicating cancellation request status.
+    """
     simulation = get_simulation_by_id(simulation_id)
 
     if not simulation:

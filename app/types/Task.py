@@ -7,4 +7,3 @@ class TaskType(Enum):
     DE = "DE"
     DG = "DG"
     MyNewMethod = "MyNewMethod"
-    BOTH = "BOTH"
