@@ -50,7 +50,7 @@
     ],
     "dg_setup": {  
         "simulationSettings": {
-            "dg_freq_upper_limit": 200,
+            "dg_freq_upper_limit": 400,
             "dg_c0": 343,
             "dg_rho0": 1.213,
             "dg_ir_length": 0.1,

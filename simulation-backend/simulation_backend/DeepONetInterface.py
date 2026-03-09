@@ -75,7 +75,7 @@ def _convert_relative_to_absolute_paths(
     return data
 
 
-def _prepare_dg_json(json_file_path: str) -> str:
+def _prepare_dg_json(json_file_path: str, dirname: str) -> str:
     """
     Create a new JSON file from the configuration file to be used by the DG method.
 
@@ -128,9 +128,16 @@ def _run_dg_simulation(json_file_path: str | Path) -> None:
     Args:
         json_file_path: Path to the JSON configuration file
     """
-    gmsh.initialize()
+    should_finalise = False
+    if gmsh.isInitialized():
+        should_finalise = True
+    else:
+        gmsh.initialize()
+
     dg_method(json_file_path, save_results_to_json=False)
-    gmsh.finalize()
+
+    if should_finalise:
+        gmsh.finalize()
 
 
 def _load_and_process_dg_results(
@@ -447,6 +454,35 @@ def _write_results_json(
     print(f"Results written to: {output_json_path}")
 
 
+def _convert_from_CHORAS_json(json_file_path: str | Path, dirname: str):
+   
+    default_data_path = _resolve_path("app/models/data/deeponet_default_settings.json", Path(dirname).parent.parent)
+    with open(default_data_path, "r", encoding="utf-8") as default_file:
+        default_data = json.load(default_file)
+        
+    with open(json_file_path, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    default_data["absorption_coefficients"] = data["absorption_coefficients"]
+    default_data["msh_path"] = data["msh_path"]
+    default_data["geo_path"] = data["geo_path"]
+
+    default_data["results"][0]["sourceX"] = data["results"][0]["sourceX"]
+    default_data["results"][0]["sourceY"] = data["results"][0]["sourceY"]
+    default_data["results"][0]["sourceZ"] = data["results"][0]["sourceZ"]
+
+    data["simulationSettings"] = {
+        k.replace("don_", "dg_", 1): v
+        for k, v in data["simulationSettings"].items()
+    }
+
+    default_data["dg_setup"]["simulationSettings"] = data["simulationSettings"]
+    default_data["should_cancel"] = False
+
+    with open(json_file_path, "w") as file:
+        json.dump(default_data, file, indent=4)
+
+
 def deeponet_method(json_file_path: str | Path, output_json_path: str | Path = None):
     """
     Execute the complete DeepONet pipeline: DG simulation, data preparation, training, and inference.
@@ -467,6 +503,14 @@ def deeponet_method(json_file_path: str | Path, output_json_path: str | Path = N
     """
     # Step 1: Convert relative paths to absolute paths
     dirname = os.path.dirname(__file__)
+
+    with open(json_file_path, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    # This means that the data came from CHORAS
+    if "dg_setup" not in data:
+        _convert_from_CHORAS_json(json_file_path, dirname)
+
     settings = _convert_relative_to_absolute_paths(json_file_path, dirname)
 
     # Set default output path if not provided
@@ -476,7 +520,7 @@ def deeponet_method(json_file_path: str | Path, output_json_path: str | Path = N
         )
 
     # Step 2: Run DG simulation
-    dg_json = _prepare_dg_json(json_file_path)
+    dg_json = _prepare_dg_json(json_file_path, dirname)
     _run_dg_simulation(dg_json)
 
     # Step 3: Load and process DG results

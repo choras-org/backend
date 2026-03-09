@@ -6,7 +6,7 @@ from app.schemas.simulation_schema import SimulationWithRunSchema
 
 
 class ProjectSchema(Schema):
-    id = fields.Number()
+    id = fields.Integer()
     name = fields.Str(required=True)
     description = fields.Str(required=True)
     group = fields.Str(required=True)
