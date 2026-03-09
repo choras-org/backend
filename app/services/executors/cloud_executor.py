@@ -392,23 +392,6 @@ class CloudExecutor(SimulationExecutor):
         remote_app_dir_path = f"{sandbox_name}/app"
         self.build_singularity_image(image_name + "_sif_" + job_id, tar_image_name)    
 
-        # tranfer the input json file in o the singularity image
-        # env = sim_config.get("env", {})
-        # container_json_path = env.get("JSON_PATH")
-        # print(f"container_json_path: {container_json_path}")
-        # container_uploads_dir = str(Path(container_json_path).parent)
-        # print(f"container_uploads_dir: {container_uploads_dir}")
-        # host_uploads_dir = self.get_host_path_for_container_path(container_uploads_dir)
-        # print(f"host_uploads_dir: {host_uploads_dir}")
-
-        # print(f"Resolved host path: {host_uploads_dir} for container path: {container_uploads_dir}")
-        # json_filename = Path(container_json_path).name
-        # print(f"json file name: {json_filename}")
-
-        # remote_json_path = f"{image_name}_sif_{job_id}/app/{json_filename}"
-        # print(f"remote json path: {remote_json_path}")
-        # self.upload_file_via_sftp(container_json_path, remote_json_path)
-
         env = sim_config.get("env", {})
         container_json_path = env.get("JSON_PATH")
         json_filename = Path(container_json_path).name
