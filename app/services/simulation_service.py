@@ -19,7 +19,9 @@ from app.types import Status, TaskType, ResourceType
 from config import CustomExportParametersConfig, CloudConfig
 from app.services.executors.local_executor import LocalExecutor
 from app.services.executors.cloud_executor import CloudExecutor
+from app.services.executors.factory import executor_factory
 from app.services.discovery_service import discover_container_image, discover_entry_file
+
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -394,16 +396,9 @@ def run_solver(simulation_run_id: int, simulation_id: int, json_path: str):
             container_name = f"choras-{simulation_method_lower}-simulation-{simulation_id}"
 
             entry_file = discover_entry_file(simulation_method)
+            
+            executor = executor_factory(resource_type, entry_file)
 
-            if resource_type == ResourceType.LOCAL:
-                executor = LocalExecutor()
-            else:
-                executor = CloudExecutor(
-                CloudConfig.CLOUD_EXECUTOR_HOST,
-                CloudConfig.CLOUD_EXECUTOR_USER,
-                key_path = CloudConfig.CLOUD_EXECUTOR_KEY_PATH,
-                entry_file = entry_file
-            )
             #through this the input file can be passed to the container
             # executor = LocalExecutor()
             # # Normalize pieces
@@ -552,25 +547,8 @@ def update_simulation_run_status(simulation_run, simulation):
             logger.warning(msg=f"Can not update percentage of the simulation run: {ex}")
             abort(400, message=f"Can not update percentage of the simulation run: {ex}")
 
-
-def get_simulation_run_status_by_id(simulation_run_id):
-    simulation = Simulation.query.filter_by(simulationRunId=simulation_run_id).first()
-    if not simulation:
-        logger.error(
-            f"Simulation for the simulation run id {str(simulation_run_id)} does not exist!"
-        )
-        abort(400, message="Simulation doesn't exist!")
-
-    simulation_run = SimulationRun.query.filter_by(id=simulation_run_id).first()
-    if not simulation_run:
-        abort(400, message="Simulation run doesn't exist!")
-
-    update_simulation_run_status(simulation_run, simulation)
-
-    return simulation_run
-
-
-def cancel_solver_task(simulation_id):
+def cancel_solver_task(simulation_id: int) -> dict:
+    """Cancel a running job by its ID."""
     simulation = get_simulation_by_id(simulation_id)
     
     if not simulation:
@@ -633,16 +611,28 @@ def cancel_solver_task(simulation_id):
 
     with open(json_path, "w") as json_result_file:
         json_result_file.write(json.dumps(data))
-
-    try:
-        client = docker.from_env()
-        container = client.containers.get(container_name)
-        container.kill()
-        container.remove()
-        logger.info(f"Killed and removed container: {container_name}")
-    except docker.errors.NotFound:
-        logger.error(f"Container {container_name} not found (already stopped)")
-    except Exception as e:
-        logger.error(f"Failed to kill container {container_name}: {e}")
-
+    
+    executor = executor_factory(simulation.resourceType)
+    executor.cancel(container_name)
+    
     return {"message": f"Cancellation request sent for task {taskID}"}
+
+
+def get_simulation_run_status_by_id(simulation_run_id):
+    simulation = Simulation.query.filter_by(simulationRunId=simulation_run_id).first()
+    if not simulation:
+        logger.error(
+            f"Simulation for the simulation run id {str(simulation_run_id)} does not exist!"
+        )
+        abort(400, message="Simulation doesn't exist!")
+
+    simulation_run = SimulationRun.query.filter_by(id=simulation_run_id).first()
+    if not simulation_run:
+        abort(400, message="Simulation run doesn't exist!")
+
+    update_simulation_run_status(simulation_run, simulation)
+
+    return simulation_run
+
+
+

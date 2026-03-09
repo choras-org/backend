@@ -5,6 +5,9 @@ import logging
 from typing import Any, Dict
 from .simulation_executor_interface import SimulationExecutor
 from pathlib import Path
+from flask_smorest import abort
+import json
+from app.services import model_service, file_service
 
 logger = logging.getLogger(__name__)
 
@@ -77,3 +80,16 @@ class LocalExecutor(SimulationExecutor):
         except Exception as e:
             logger.error(f"Failed to start Docker container: {e}")
             raise
+    
+    def cancel(self, container_name):
+        
+        try:
+            client = docker.from_env()
+            container = client.containers.get(container_name)
+            container.kill()
+            container.remove()
+            logger.info(f"Killed and removed container: {container_name}")
+        except docker.errors.NotFound:
+            logger.error(f"Container {container_name} not found (already stopped)")
+        except Exception as e:
+            logger.error(f"Failed to kill container {container_name}: {e}")
