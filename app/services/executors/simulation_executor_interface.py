@@ -7,7 +7,7 @@ class SimulationExecutor(ABC):
         """Start the simulation job and return a job ID & container."""
         pass
 
-    # @abstractmethod
-    # def cancel(self, job_id: str) -> bool:
-    #     """Cancel a running job by its ID."""
-    #     pass
+    @abstractmethod
+    def cancel(self, simulation_id: int) -> dict:
+        """Cancel a running job by its ID."""
+        pass

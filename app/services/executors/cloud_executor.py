@@ -45,9 +45,9 @@ def get_local_file_path(json_path, filename):
     """Get the local path for a file in the same directory as the JSON."""
     return os.path.join(os.path.dirname(json_path), filename)
 
-def get_remote_file_path(image_name, job_id, filename):
+def get_remote_file_path(remote_work_dir, image_name, job_id, filename):
     """Get the remote path for a file inside the singularity image."""
-    return f"{image_name}_sif_{job_id}/app/{filename}"
+    return f"{remote_work_dir}/{image_name}_sif_{job_id}/app/{filename}"
 
 class _CompletedJob:
     """
@@ -66,7 +66,7 @@ class _CompletedJob:
 
 class CloudExecutor(SimulationExecutor):
     
-    def __init__(self, hostname, username, password=None, key_path=None, entry_file=None, remote_work_dir="/app"):
+    def __init__(self, hostname, username, remote_work_dir, password=None, key_path=None, entry_file=None):
         self.hostname = hostname
         self.username = username
         self.password = password
@@ -101,6 +101,7 @@ class CloudExecutor(SimulationExecutor):
 
         except Exception as e:
             print(f"Error while connecting SSH: {e}")
+
     def _disconnect(self):
         """Quietly close the SSH client if one is open."""
         if self.ssh_client:
@@ -110,8 +111,22 @@ class CloudExecutor(SimulationExecutor):
                 pass
             self.ssh_client = None
 
+    def _mkdir_remote(self, path: str):
+        """ Make a directory in the remote if it doesn't already exist. """
+        if self.ssh_client:
+            try:
+                stdin, stdout, stderr = self.ssh_client.exec_command(f"mkdir -p {path}")
+                exit_status = stdout.channel.recv_exit_status()  # wait for command to finish
+                if exit_status != 0:
+                    error = stderr.read().decode()
+                    print(f"Error creating remote directory: {error}")
+                else:
+                    print(f"Directory {path} created successfully on {self.hostname}")
+            except Exception as e:
+                print(f"Error creating remote directory: {e}")
 
-    def upload_file_via_sftp(self, local_path, remote_path):
+
+    def _upload_file_via_sftp(self, local_path, remote_path):
         
         try:
             if self.ssh_client is None:
@@ -164,10 +179,10 @@ class CloudExecutor(SimulationExecutor):
         stdout.channel.recv_exit_status()   # block until done
 
 
-    def build_singularity_image(self, singularity_image_name="sif_sandbox", image_tar_name=None):
+    def _build_singularity_image(self, singularity_image_name="sif_sandbox", image_tar_name=None):
             
         try:
-            build_cmd = f"singularity build --sandbox {singularity_image_name} docker-archive://{image_tar_name}"
+            build_cmd = f"singularity build --sandbox {self.remote_work_dir}/{singularity_image_name} docker-archive://{self.remote_work_dir}/{image_tar_name}"
             print("Singularity image name is ", singularity_image_name, "\n")
             print("image tar name is ",image_tar_name,"\n")
             _, stdout, stderr = self.ssh_client.exec_command(build_cmd)
@@ -180,14 +195,16 @@ class CloudExecutor(SimulationExecutor):
             raise
 
 
-   
 
-    def execute_singularity_image(self, singularity_image_name="sif_sandbox",input_json = "exampleInput_DG.json"):
+    def _execute_singularity_image(self, singularity_image_name="sif_sandbox",input_json = "exampleInput_DG.json"):
             
         try:
             #this need to be refactored!!!!!  
-            run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {singularity_image_name} python {self.entry_file} > {singularity_image_name}/app/singularity_run.log 2>&1 &"
+            run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {self.remote_work_dir}/{singularity_image_name} python {self.entry_file} > {self.remote_work_dir}/{singularity_image_name}/app/singularity_run.log 2>&1 &"
+            # run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {self.remote_work_dir}/{singularity_image_name} python {self.entry_file}"
+            
             print(f"Running command: {run_cmd}")
+
             #this need to be refactored!!!!! Then test DE as well
             
             stdin, stdout, stderr = self.ssh_client.exec_command(run_cmd) 
@@ -214,7 +231,7 @@ class CloudExecutor(SimulationExecutor):
         except Exception:
             return None
     
-    def poll_until_complete(
+    def _poll_until_complete(
         self,
         remote_json_path: str,
         local_uploads_dir: str,
@@ -379,43 +396,67 @@ class CloudExecutor(SimulationExecutor):
             print(f"[Cleanup] Error: {e}")
             return False
 
+
     def execute(self, method_config: Dict[str, Any], sim_config: Dict[str, Any]):
         self._connect()
+        self._mkdir_remote(self.remote_work_dir)
 
         job_id = str(uuid.uuid4())
         image_name = method_config["container_image"].split(":")[0]  # Docker image name without the :latest tag
         tar_image_name = image_name + ".tar"
         local_tar_image_path = os.path.join(os.path.dirname(__file__), tar_image_name)
 
-        self.upload_file_via_sftp(local_tar_image_path, tar_image_name)
+        self._upload_file_via_sftp(
+            local_tar_image_path, 
+            f"{self.remote_work_dir}/{tar_image_name}")
+        
         sandbox_name        = f"{image_name}_sif_{job_id}"
-        remote_app_dir_path = f"{sandbox_name}/app"
-        self.build_singularity_image(image_name + "_sif_" + job_id, tar_image_name)    
+        remote_app_dir_path = f"{self.remote_work_dir}/{sandbox_name}/app"
+
+
+        self._build_singularity_image(image_name + "_sif_" + job_id, tar_image_name)    
 
         env = sim_config.get("env", {})
         container_json_path = env.get("JSON_PATH")
         json_filename = Path(container_json_path).name
         msh_filename, geo_filename = get_filenames(container_json_path)
 
-        remote_json_path = get_remote_file_path(image_name, job_id, json_filename)
-        remote_msh_path = get_remote_file_path(image_name, job_id, msh_filename)
-        remote_geo_path = get_remote_file_path(image_name, job_id, geo_filename)
+        remote_json_path = get_remote_file_path(
+            self.remote_work_dir, image_name, job_id, json_filename)
+        remote_msh_path = get_remote_file_path(
+            self.remote_work_dir, image_name, job_id, msh_filename)
+        remote_geo_path = get_remote_file_path(
+            self.remote_work_dir, image_name, job_id, geo_filename)
 
-        self.upload_file_via_sftp(container_json_path, remote_json_path)
-        self.upload_file_via_sftp(get_local_file_path(container_json_path, msh_filename), remote_msh_path)
-        self.upload_file_via_sftp(get_local_file_path(container_json_path, geo_filename), remote_geo_path)
-        self.execute_singularity_image(singularity_image_name=image_name + "_sif_" + job_id, input_json=json_filename)
+        self._upload_file_via_sftp(
+            container_json_path, 
+            remote_json_path)
+        
+        self._upload_file_via_sftp(
+            get_local_file_path(container_json_path, msh_filename), 
+            remote_msh_path)
+        
+        self._upload_file_via_sftp(
+            get_local_file_path(container_json_path, geo_filename), 
+            remote_geo_path)
+        
+        self._execute_singularity_image(
+            singularity_image_name=image_name + "_sif_" + job_id, input_json=json_filename)
+
         self._disconnect()
         env               = sim_config.get("env", {})
         local_uploads_dir = str(Path(env.get("JSON_PATH")).parent)  # /app/uploads
 
-        self.poll_until_complete(
+        self._poll_until_complete(
             remote_json_path    = f"{remote_app_dir_path}/{json_filename}",
             local_uploads_dir   = local_uploads_dir,
-            remote_app_dir      = remote_app_dir_path,
+            remote_app_dir      = f"{remote_app_dir_path}",
             remote_sandbox_path = sandbox_name,
             remote_tar_path     = tar_image_name,
         )
 
         return job_id, _CompletedJob()
 
+    def cancel(self, container_name):
+        """Cancel a running job by its ID."""
+        pass
