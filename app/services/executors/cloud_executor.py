@@ -204,7 +204,7 @@ class CloudExecutor(SimulationExecutor):
             
         try:
             #this need to be refactored!!!!!  
-            run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {self.remote_work_dir}/{singularity_image_name} python {self.entry_file} > {self.remote_work_dir}/{singularity_image_name}/app/singularity_run.log 2>&1 &"
+            run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {self.remote_work_dir}/{singularity_image_name} python {self.entry_file} --image-name {singularity_image_name} &> {self.remote_work_dir}/{singularity_image_name}/app/singularity_run.log 2>&1 &"
             # run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {self.remote_work_dir}/{singularity_image_name} python {self.entry_file}"
             
             print(f"Running command: {run_cmd}")
@@ -412,6 +412,76 @@ class CloudExecutor(SimulationExecutor):
         except Exception as e:
             print(f"[Cleanup] Error: {e}")
             return False
+
+        
+    def _get_container_processes(self, image_name: str) -> List[str]:
+        """ 
+        Returns a list of PIDs for processes related to a particular
+        Singularity container. Assumes an existing ssh session. 
+
+        Raises RuntimeError if command fails.
+        Returns an empty list if no processes are found
+        """
+        processes: List[str] = []
+
+        try:
+            # only get processes associated with the current user.
+            # both parent singularity process and the python process inside
+            # the container have the image name in the command.
+            cmd = f"pgrep -u {self.username} -f {image_name}"
+            stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
+
+            # wait for command to finish
+            exit_status = stdout.channel.recv_exit_status()
+
+            if exit_status !=0:
+                error_msg = stderr.read().decode().strip()
+                if "no process found" in error_msg.lower() or exit_status == 1:
+                    print("No processes matching the Singularity image were found.")
+                    return []
+                else:
+                    raise RuntimeError(f"Error executing remote command: {error_msg}")
+            
+            output = stdout.read().decode().strip()
+            if output:
+                processes = output.split("\n")
+            
+            print(f"Found process(es) with PID(s): {processes}")
+        except paramiko.SSHException as e:
+            raise RuntimeError(f"Failed to execute remote command: {e}")
+        finally:
+            self._disconnect()
+
+        return processes 
+
+    def _kill_container_processes(self, image_name: str):
+        """ 
+        Kills the processes related to a Singularity container
+            """
+
+        self._connect()
+        
+        try:
+            pids = self._get_container_processes(image_name)
+            pid_str = " ".join(pids)
+            cmd = f"kill {pid_str}"
+            stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
+
+            # wait for command to finish
+            exit_status = stdout.channel.recv_exit_status()
+
+            if exit_status != 0:
+                error_msg = stderr.read().decode().strip()
+                raise RuntimeError(f"Failed to kill PIDs {pid_str}: {error_msg}")
+
+            print(f"Successfully killed PIDs: {pid_str}")
+
+        except paramiko.SSHException as e:
+            raise RuntimeError(f"SSH execution error: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error killing remote PIDs: {e}")
+
+
 
 
     def execute(self, method_config: Dict[str, Any], sim_config: Dict[str, Any]):
