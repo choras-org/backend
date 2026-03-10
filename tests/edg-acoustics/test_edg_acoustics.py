@@ -3,7 +3,7 @@ import shutil
 import pytest
 import tempfile
 from pathlib import Path
-from simulation_backend.DGinterface import dg_method
+from simulation_backend.dg_method.DGinterface import dg_method
 import json
 import gmsh
 import numpy as np

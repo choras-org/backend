@@ -5,7 +5,7 @@ import numpy as np
 import numpy.testing as npt
 import os
 import json
-import simulation_backend.pyroomacoustics_interface as pra_interface
+import simulation_backend.pyroomacoustics_method.pyroomacoustics_interface as pra_interface
 import tempfile
 from pathlib import Path
 import shutil
