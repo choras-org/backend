@@ -171,18 +171,22 @@ class CloudExecutor(SimulationExecutor):
             sftp.close()
 
     def _delete_remote_path(self, remote_path: str):
-        """
-        Delete a file or directory (recursively) on the remote host.
-        remote_path is relative to the authenticated user's home directory.
-        """
-        _, stdout, _ = self.ssh_client.exec_command(f"rm -rf {remote_path}")
-        stdout.channel.recv_exit_status()   # block until done
+        full_path = os.path.join(self.remote_work_dir, remote_path)
+        print(f"[Delete] Removing: {full_path}")
+        _, stdout, stderr = self.ssh_client.exec_command(f"rm -rf {full_path}")
+        exit_code = stdout.channel.recv_exit_status()
+        if exit_code != 0:
+            print(f"[Delete] Warning: rm -rf exited with code {exit_code}")
+        else:
+            print(f"[Delete] Successfully removed: {full_path}")
 
 
     def _build_singularity_image(self, singularity_image_name="sif_sandbox", image_tar_name=None):
             
         try:
             build_cmd = f"singularity build --sandbox {self.remote_work_dir}/{singularity_image_name} docker-archive://{self.remote_work_dir}/{image_tar_name}"
+            print("self.username is ",self.username,"\n")
+            print("REMOTE WORK DIRECTORY IS ", self.remote_work_dir,"\n")
             print("Singularity image name is ", singularity_image_name, "\n")
             print("image tar name is ",image_tar_name,"\n")
             _, stdout, stderr = self.ssh_client.exec_command(build_cmd)
@@ -289,35 +293,48 @@ class CloudExecutor(SimulationExecutor):
                 time.sleep(poll_interval)
                 continue
 
-            # 2 ── download and parse the remote JSON ─────────────────────
-            try:
-                tmp_path = local_json_path + ".tmp"
-                self._download_file_via_sftp(remote_json_path, tmp_path)
+            # 2 ── download and parse the remote JSON (with retry on corrupt read)
+            json_data = None
+            tmp_path = local_json_path + ".tmp"
+            MAX_PARSE_RETRIES = 3
 
-                with open(tmp_path, "r") as fh:
-                    json_data = json.load(fh)
+            for attempt in range(MAX_PARSE_RETRIES):
+                try:
+                    self._download_file_via_sftp(remote_json_path, tmp_path)
+                    with open(tmp_path, "r") as fh:
+                        json_data = json.load(fh)
+                    break  # success — exit retry loop
+                except json.JSONDecodeError as e:
+                    print(f"[Polling] JSON parse failed (attempt {attempt + 1}/{MAX_PARSE_RETRIES}): {e}")
+                    if attempt < MAX_PARSE_RETRIES - 1:
+                        print(f"[Polling] Simulation may still be writing — retrying in 5s...")
+                        time.sleep(5)
+                except Exception as e:
+                    print(f"[Polling] Download error: {e}. Will retry next cycle.")
+                    break
 
-                current_progress = self._parse_overall_progress(json_data)
-                print(f"[Polling] Progress: {current_progress}%")
-
-                # 3 ── only replace the local file when progress has changed
-                if current_progress != last_progress:
-                    shutil.move(tmp_path, local_json_path)
-                    print(
-                        f"[Polling] {last_progress} → {current_progress}%  "
-                        f"(JSON written to {local_json_path})"
-                    )
-                    last_progress = current_progress
-                else:
+            if json_data is None:
+                print(f"[Polling] Could not read JSON after {MAX_PARSE_RETRIES} attempts. Skipping cycle.")
+                if os.path.exists(tmp_path):
                     os.remove(tmp_path)
-
-            except Exception as e:
-                print(f"[Polling] Error reading remote JSON: {e}. Will retry.")
                 self._disconnect()
                 time.sleep(poll_interval)
                 continue
 
-            # 4 ── check for job completion ────────────────────────────────
+            # 3 ── parse progress ──────────────────────────────────────────
+            current_progress = self._parse_overall_progress(json_data)
+            print(f"[Polling] Progress: {current_progress}%")
+
+            # 4 ── only write local file when progress has changed ─────────
+            if current_progress != last_progress:
+                shutil.move(tmp_path, local_json_path)
+                print(f"[Polling] {last_progress} → {current_progress}% (JSON written to {local_json_path})")
+                last_progress = current_progress
+            else:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+
+            # 5 ── check for job completion ────────────────────────────────
             if last_progress is not None and last_progress >= 100:
                 print("[Polling] Job complete — collecting outputs …")
                 success = self._collect_outputs_and_cleanup(
@@ -329,7 +346,7 @@ class CloudExecutor(SimulationExecutor):
                 self._disconnect()
                 return success
 
-            # 5 ── disconnect, apply back-off, sleep ──────────────────────
+            # 6 ── disconnect, apply back-off, sleep ──────────────────────
             self._disconnect()
 
             if cycle >= POLL_FAST_PHASE_CYCLES:

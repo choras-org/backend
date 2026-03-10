@@ -3,7 +3,7 @@ import shutil
 import pytest
 import tempfile
 from pathlib import Path
-from simulation_backend.DEinterface import de_method
+from simulation_backend.de_method.DEinterface import de_method
 import json
 import gmsh
 import numpy as np
