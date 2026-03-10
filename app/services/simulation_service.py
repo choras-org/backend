@@ -23,6 +23,47 @@ logger = logging.getLogger(__name__)
 debug_celery = False
 
 
+def _export_impulse_response_from_receiver_results(
+    json_path: str, session, simulation_id: int, receiver_results, fs: int = 44100
+):
+    """
+    Create export artifacts expected by auralization endpoints:
+    - `<base>.xlsx` with sheet `Impulse response` and column `{fs}Hz`
+    - `<base>.wav` containing the impulse response samples
+    - `Export` DB row pointing at the xlsx
+    """
+    xlsx_path = json_path.replace(".json", ".xlsx")
+    wav_path = json_path.replace(".json", ".wav")
+
+    if receiver_results is None:
+        raise ValueError("receiverResults is missing")
+    if not isinstance(receiver_results, list) or len(receiver_results) == 0:
+        raise ValueError("receiverResults is empty or not a list")
+
+    # Write the impulse response sheet (used by `/auralizations/<id>/impulse/plot`)
+    if not ExportHelper.write_data_to_xlsx_file(
+        xlsx_path,
+        CustomExportParametersConfig.impulse_response,
+        {f"{fs}Hz": receiver_results},
+        mode="w",
+    ):
+        raise RuntimeError("Error saving impulse response to xlsx")
+
+    # Write wav file (used by `/auralizations/<id>/impulse/wav`)
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        ir = np.asarray(receiver_results, dtype=np.float32)
+        sf.write(wav_path, ir, fs)
+    except Exception as e:
+        raise RuntimeError(f"Error writing impulse response wav: {e}")
+
+    # Save export record to DB
+    export = Export(name=Path(xlsx_path).name, simulationId=simulation_id)
+    session.add(export)
+
+
 def create_new_simulation(simulation_data):
     new_simulation = Simulation(**simulation_data)
 
@@ -460,6 +501,31 @@ def run_solver(simulation_run_id: int, json_path: str):
 
                 case _:
                     raise Exception("The selected tasktype is not valid!")
+
+            # Post-processing/export for methods that don't already generate impulse response artifacts.
+            if json_path is not None:
+                with open(json_path, "r") as json_file_to_check:
+                    data = json.load(json_file_to_check)
+
+                if "should_cancel" in data and data["should_cancel"] is True:
+                    logger.info("Cancelled: do not export")
+                else:
+                    if taskType == TaskType.DEISM:
+                        try:
+                            receiver_results = data["results"][0]["responses"][0][
+                                "receiverResults"
+                            ]
+                            _export_impulse_response_from_receiver_results(
+                                json_path,
+                                session,
+                                simulation.id,
+                                receiver_results,
+                                fs=44100,
+                            )
+                            logger.info("DEISM impulse response exported to wav/xlsx")
+                        except Exception as ex:
+                            logger.error(f"Error exporting DEISM impulse response: {ex}")
+                            raise
 
             result_container = {}
             if json_path is not None:
