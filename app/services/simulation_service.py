@@ -391,10 +391,9 @@ def run_solver(simulation_run_id: int, json_path: str):
                 "simulation_id":  str(simulation.id),
                 "task_id": result_container["task_id"]
             }
-
-            container = executor.execute(method_config, sim_config)
-
+            
             logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
+            container = executor.execute(method_config, sim_config)
             container.wait()
             logger.info(f"{simulation_method} Simulation_service:...container has finished.")
 

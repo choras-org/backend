@@ -184,14 +184,6 @@ class CloudExecutor(SimulationExecutor):
 
 
     def _delete_remote_path(self, remote_path: str):
-        full_path = os.path.join(self.remote_work_dir, remote_path)
-        print(f"[Delete] Removing: {full_path}")
-        _, stdout, stderr = self.ssh_client.exec_command(f"rm -rf {full_path}")
-        exit_code = stdout.channel.recv_exit_status()
-        if exit_code != 0:
-            print(f"[Delete] Warning: rm -rf exited with code {exit_code}")
-        else:
-            print(f"[Delete] Successfully removed: {full_path}")
         """
         Delete a file or directory (recursively) on the remote host.
         remote_path is relative to the authenticated user's home directory, 
@@ -211,11 +203,10 @@ class CloudExecutor(SimulationExecutor):
 
     def _execute_singularity_image(self, sandbox_name="sif_sandbox",input_json = "exampleInput_DG.json"):
             
-        #this need to be refactored!!!!!  
         run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {self.remote_work_dir}/{sandbox_name} python {self.entry_file} --image-name {sandbox_name} &> {self.remote_work_dir}/{sandbox_name}/app/singularity_run.log 2>&1 &"
 
         print(f"Running command: {run_cmd}")
-        #this need to be refactored!!!!! Then test DE as well
+
         self._run_remote_command(run_cmd)
         print(f"Singularity launched in background.")
 
@@ -290,7 +281,7 @@ class CloudExecutor(SimulationExecutor):
             cycle += 1
             print(f"[Polling] Cycle {cycle} (interval={poll_interval:.0f}s)")
 
-            # 2 ── download and parse the remote JSON (with retry on corrupt read)
+            # download and parse the remote JSON (with retry on corrupt read)
             json_data = None
             tmp_path = local_json_path + ".tmp"
             MAX_PARSE_RETRIES = 3
@@ -352,13 +343,12 @@ class CloudExecutor(SimulationExecutor):
             print(f"[Polling] Sleeping {poll_interval:.0f}s …\n")
             time.sleep(poll_interval)
 
-    # ------------------------------------------------------------------
-    # Output collection & cloud cleanup
-    # ------------------------------------------------------------------
     def _cleanup(self, 
         remote_sandbox_path: str,
         remote_tar_path: Optional[str]):
-        
+        """ 
+        Helper method for cleanup on the cloud. Removes the sandbox and tar.
+        """
         print(f"[Cleanup] Removing sandbox : ~/{remote_sandbox_path}")
         self._delete_remote_path(remote_sandbox_path)
 
