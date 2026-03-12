@@ -8,6 +8,6 @@ class SimulationExecutor(ABC):
         pass
 
     @abstractmethod
-    def cancel(self, simulation_id: int) -> dict:
+    def cancel(self, cancelation_info: Dict[str, Any]):
         """Cancel a running job by its ID."""
         pass

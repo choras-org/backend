@@ -40,14 +40,17 @@ class LocalExecutor(SimulationExecutor):
         if work_dir is None:
             work_dir = os.getenv("DOCKER_WORK_DIR", "/app")
         self.work_dir = work_dir
-        self._jobs = {}
+
+    def _get_container_name(self, method_config: Dict[str, Any]) -> str:
+        simulation_method = method_config["simulation_method"]
+        simulation_id = method_config["simulation_id"]
+        return f"choras-{simulation_method}-simulation-{simulation_id}"
 
     def execute(self, method_config: Dict[str, Any], sim_config: Dict[str, Any]) -> tuple:
+        
         image = method_config["container_image"]
-        container_name = method_config["container_name"]
+        container_name = self._get_container_name(method_config)
         env = sim_config.get("env", {})
-        job_id = str(uuid.uuid4())
-        command = method_config.get("command")
 
         # Resolve the container path (e.g. /app/uploads) to the real host path
         # so Docker can mount it into the child container
@@ -74,15 +77,15 @@ class LocalExecutor(SimulationExecutor):
                 # name=f"simjob_{job_id[:8]}",
                 remove = True,
             )
-            self._jobs[job_id] = container
-            return job_id, container
+            return container
 
         except Exception as e:
             logger.error(f"Failed to start Docker container: {e}")
             raise
     
-    def cancel(self, container_name):
-        
+    def cancel(self, cancelation_info: Dict[str, Any]):
+        """Cancel a running Docker container by its container name."""
+        container_name = self._get_container_name(cancelation_info)
         try:
             client = docker.from_env()
             container = client.containers.get(container_name)
