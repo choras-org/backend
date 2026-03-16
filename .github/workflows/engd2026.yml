@@ -53,6 +53,7 @@ jobs:
           fi
           pip install pyroomacoustics
           pip install python-dotenv
+          pip install flask
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
 
       - name: Run tests
