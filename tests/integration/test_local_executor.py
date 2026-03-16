@@ -2,8 +2,6 @@ import os
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
 from pathlib import Path
-
-# ── adjust this import to match your actual module path ──────────────────────
 from app.services.executors.local_executor import LocalExecutor
 
 # =============================================================================
@@ -40,7 +38,10 @@ def method_config():
         "container_image": "my-sim-image:latest",
         "container_name": "sim_container",
         "command": "python run.py",
+        "simulation_method": "dg",
+        "simulation_id": "123",
     }
+
 
 
 @pytest.fixture
@@ -57,21 +58,24 @@ def sim_config():
 # =============================================================================
 
 class TestLocalExecutorExecuteEdgeCases:
+
     @patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
     def test_docker_image_not_found(self, mock_resolve, mock_docker_client, method_config, sim_config):
-        """Should raise an error error if Docker image does not exist locally."""
+        """Should raise an error if Docker image does not exist locally."""
         mock_docker_client.containers.run.side_effect = Exception("No such image: my-sim-image:latest")
         executor = LocalExecutor()
         with pytest.raises(Exception, match="No such image"):
             executor.execute(method_config, sim_config)
 
+
     @patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
-    def test_docker_socket_not_available(self, mock_resolve):
-        """Should raise an error error if Docker daemon is down (docker.from_env fails)."""
+    def test_docker_socket_not_available(self, mock_resolve, method_config, sim_config):
+        """Should raise an error if Docker daemon is down (docker.from_env fails)."""
         with patch("app.services.executors.local_executor.docker.from_env", side_effect=Exception("Docker daemon not available")):
             executor = LocalExecutor()
             with pytest.raises(Exception, match="Docker daemon not available"):
-                executor.execute({"container_image": "img", "container_name": "name", "command": None}, {"env": {"JSON_PATH": "/app/uploads/input.json"}})
+                executor.execute(method_config, sim_config)
+
 
     @patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
     def test_json_path_missing(self, mock_resolve, mock_docker_client, method_config, sim_config):
@@ -91,15 +95,18 @@ class TestLocalExecutorExecuteEdgeCases:
 
     @patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
     def test_container_exits_nonzero_obj_missing(self, mock_resolve, mock_docker_client, method_config, sim_config):
-        """If the .obj file is missing, container exits non-zero but execute() still returns container object (silent bad day)."""
+        """If the container later exits non-zero, execute() still returns the created container object."""
         fake_container = MagicMock()
-        fake_container.wait.return_value = {"StatusCode": 1}  # Simulate failure
+        fake_container.wait.return_value = {"StatusCode": 1}
         mock_docker_client.containers.run.return_value = fake_container
+
         executor = LocalExecutor()
-        job_id, container = executor.execute(method_config, sim_config)
-        assert job_id in executor._jobs
+        container = executor.execute(method_config, sim_config)
+
         assert container is fake_container
-        # No error is raised here, but you could check logs or container.wait().
+        mock_docker_client.containers.run.assert_called_once()
+
+
 
     @patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
     def test_duplicate_container_name_conflict(self, mock_resolve, mock_docker_client, method_config, sim_config):
