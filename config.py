@@ -192,3 +192,16 @@ class CloudConfig:
     CLOUD_EXECUTOR_USER = "smondal"
     CLOUD_EXECUTOR_KEY_PATH = f"{Path.home()}/.ssh/id_ed25519"
     CLOUD_EXECUTOR_DIRECTORY = f"/data/storage/{CLOUD_EXECUTOR_USER}"
+
+
+class TestingConfigs(DefaultConfig):
+    APP_ENV = DefaultConfig.APP_ENV_TESTING
+    TESTING = True
+    DEBUG = True
+    WTF_CSRF_ENABLED = False
+    LOG_FILE_API = f"{basedir}/logs/api_tests.log"
+
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL",
+        "sqlite:///" + os.path.join(basedir, "test.db")
+    )
