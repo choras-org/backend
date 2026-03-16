@@ -1,13 +1,32 @@
 
+import json
 import pytest
-from unittest.mock import MagicMock, patch
+import paramiko
+from unittest.mock import MagicMock, patch, mock_open
 from app.services.executors.cloud_executor import CloudExecutor, SSHCommandError
 
 # =============================================================================
 # CloudExecutor.execute() Integration/Edge Case Tests
 # =============================================================================
 
-class TestCloudExecutorExecute:
+
+class TestCloudExecutorUnit:
+    def setup_method(self):
+        # Patch SSHClient and SFTPClient for all tests
+        self.ssh_patcher = patch("paramiko.SSHClient")
+        self.sftp_patcher = patch("paramiko.SFTPClient")
+        self.mock_ssh = self.ssh_patcher.start()
+        self.mock_sftp = self.sftp_patcher.start()
+        mock_stdin = MagicMock()
+        mock_stdout = MagicMock()
+        mock_stderr = MagicMock()
+        # stdout.channel.recv_exit_status() returns 0 by default
+        mock_stdout.channel.recv_exit_status.return_value = 0
+        # stdout.read() and stderr.read() return empty bytes by default
+        mock_stdout.read.return_value = b""
+        mock_stderr.read.return_value = b""
+        self.mock_ssh.return_value.exec_command.return_value = (mock_stdin, mock_stdout, mock_stderr)
+
     def _executor(self):
         # Provide dummy but valid args for CloudExecutor
         return CloudExecutor("host", "user", "/tmp")
@@ -16,7 +35,8 @@ class TestCloudExecutorExecute:
         return {
             "container_image": "my-sim-image:latest",
             "container_name": "sim_container",
-            "command": "python run.py"
+            "command": "python run.py",
+            "task_id": "dummy-task"
         }
 
     def _sim_config(self):
@@ -28,21 +48,23 @@ class TestCloudExecutorExecute:
 
     def test_ssh_authentication_fails(self):
         """SSH authentication fails (AuthenticationException) → SSHCommandError raised mid-execute, sandbox partially created but not cleaned up."""
-        with patch("paramiko.SSHClient") as mock_ssh:
-            mock_ssh.return_value.connect.side_effect = Exception("Authentication failed")
-            executor = self._executor()
-            with pytest.raises(SSHCommandError, match="Authentication failed"):
-                executor.execute(self._method_config(), self._sim_config())
+        self.mock_ssh.return_value.connect.side_effect = paramiko.AuthenticationException("Authentication failed")
+        executor = self._executor()
+        with pytest.raises(SSHCommandError, match="SSH authentication failed"):
+            executor.execute(self._method_config(), self._sim_config())
 
     def test_sftp_upload_tar_fails_halfway(self):
-        """SFTP upload of tar fails halfway → sandbox build attempted on incomplete tar."""
-        with patch("paramiko.SSHClient") as mock_ssh, \
-             patch("paramiko.SFTPClient") as mock_sftp:
-            mock_ssh.return_value.open_sftp.return_value = mock_sftp.return_value
-            mock_sftp.return_value.put.side_effect = Exception("SFTP upload interrupted")
-            executor = self._executor()
-            with pytest.raises(Exception, match="SFTP upload interrupted"):
-                executor.execute(self._method_config(), self._sim_config())
+        executor = self._executor()
+
+        ssh_instance = self.mock_ssh.return_value
+        sftp_mock = MagicMock()
+        sftp_mock.__enter__.return_value = sftp_mock
+        sftp_mock.put.side_effect = Exception("SFTP upload interrupted")
+        ssh_instance.open_sftp.return_value = sftp_mock
+
+        with pytest.raises(Exception, match="SFTP upload interrupted"):
+            executor.execute(self._method_config(), self._sim_config())
+
 
     def test_build_singularity_image_fails(self):
         """_build_singularity_image fails (corrupted tar, insufficient disk space on remote) → singularity never launches but no cleanup runs."""
@@ -50,51 +72,81 @@ class TestCloudExecutorExecute:
             executor = self._executor()
             with pytest.raises(Exception, match="Disk full"):
                 executor.execute(self._method_config(), self._sim_config())
+                
 
     def test_remote_json_never_reaches_100(self):
-        """Remote JSON never reaches 100% (simulation crashes silently on remote) → polling loops forever, never exits."""
-        # Patch a method that would be called in the polling loop. If not present, add a dummy method for test.
-        if not hasattr(CloudExecutor, "_poll_progress"):
-            setattr(CloudExecutor, "_poll_progress", lambda self: {"progress": 50})
-        with patch.object(CloudExecutor, "_poll_progress", side_effect=lambda self: {"progress": 50}):
-            executor = self._executor()
-            with patch("time.sleep", side_effect=Exception("Timeout")):
-                with pytest.raises(Exception, match="Timeout"):
-                    executor.execute(self._method_config(), self._sim_config())
+        """Polling phase never reaches completion → execute remains stuck in the post-launch wait path until interrupted."""
+        executor = self._executor()
+
+        with patch.object(executor, "_upload_file_via_sftp", return_value=None), \
+            patch.object(executor, "_build_singularity_image", return_value=None), \
+            patch.object(executor, "_execute_singularity_image", return_value=None), \
+            patch("app.services.executors.cloud_executor.get_filenames", return_value=("a.msh", "b.geo")), \
+            patch.object(executor, "_poll_until_complete", side_effect=Exception("Timeout")):
+
+            with pytest.raises(Exception, match="Timeout"):
+                executor.execute(self._method_config(), self._sim_config())
+
 
     def test_remote_json_always_corrupt(self):
-        """Remote JSON is always corrupt / unreadable across all 3 retries → polling skips cycle indefinitely, same infinite loop risk."""
-        if not hasattr(CloudExecutor, "_poll_progress"):
-            setattr(CloudExecutor, "_poll_progress", lambda self: {"progress": 50})
-        with patch.object(CloudExecutor, "_poll_progress", side_effect=Exception("Corrupt JSON")):
-            executor = self._executor()
-            with patch("time.sleep", side_effect=Exception("Timeout")):
-                with pytest.raises(Exception, match="Timeout"):
-                    executor.execute(self._method_config(), self._sim_config())
+        """Remote progress JSON is unreadable on every polling retry → polling keeps retrying/skipping cycles until externally interrupted."""
+        executor = self._executor()
+
+        with patch.object(executor, "_upload_file_via_sftp", return_value=None), \
+            patch.object(executor, "_build_singularity_image", return_value=None), \
+            patch.object(executor, "_execute_singularity_image", return_value=None), \
+            patch("app.services.executors.cloud_executor.get_filenames", return_value=("a.msh", "b.geo")), \
+            patch.object(CloudExecutor, "_should_cancel", return_value=False), \
+            patch.object(CloudExecutor, "_download_file_via_sftp", return_value=None), \
+            patch("app.services.executors.cloud_executor.json.load",
+                side_effect=json.JSONDecodeError("Corrupt JSON", "x", 0)), \
+            patch("app.services.executors.cloud_executor.os.path.exists", return_value=False), \
+            patch("app.services.executors.cloud_executor.time.sleep", side_effect=Exception("Timeout")):
+
+            with pytest.raises(Exception, match="Timeout"):
+                executor.execute(self._method_config(), self._sim_config())
+
+
 
     def test_cancel_flag_created_before_polling(self):
-        """Cancel flag created before polling even starts → should exit immediately without downloading outputs."""
-        if not hasattr(CloudExecutor, "_check_cancel_flag"):
-            setattr(CloudExecutor, "_check_cancel_flag", lambda self: True)
-        with patch.object(CloudExecutor, "_check_cancel_flag", return_value=True):
-            executor = self._executor()
+        """Cancel flag is detected before any polling download occurs → polling exits immediately and execute returns the completed-job stub."""
+        executor = self._executor()
+
+        with patch.object(executor, "_upload_file_via_sftp", return_value=None), \
+            patch.object(executor, "_build_singularity_image", return_value=None), \
+            patch.object(executor, "_execute_singularity_image", return_value=None), \
+            patch("app.services.executors.cloud_executor.get_filenames", return_value=("a.msh", "b.geo")), \
+            patch.object(CloudExecutor, "_should_cancel", return_value=True), \
+            patch.object(CloudExecutor, "_download_file_via_sftp") as download_mock:
+
             result = executor.execute(self._method_config(), self._sim_config())
-            assert result == "cancelled"
+
+            download_mock.assert_not_called()
+            assert isinstance(result, object)
+            assert result.__class__.__name__ == "_CompletedJob"
+
+
 
     def test_collect_outputs_and_cleanup_fails_mid_download(self):
         """_collect_outputs_and_cleanup fails mid-download (network drops) → some files downloaded, some not, sandbox not cleaned up."""
-        if not hasattr(CloudExecutor, "_collect_outputs_and_cleanup"):
-            setattr(CloudExecutor, "_collect_outputs_and_cleanup", lambda self: None)
-        with patch.object(CloudExecutor, "_collect_outputs_and_cleanup", side_effect=Exception("Network error")):
-            executor = self._executor()
+        executor = self._executor()
+
+        with patch.object(executor, "_upload_file_via_sftp", return_value=None), \
+            patch.object(executor, "_build_singularity_image", return_value=None), \
+            patch.object(executor, "_execute_singularity_image", return_value=None), \
+            patch("app.services.executors.cloud_executor.get_filenames", return_value=("a.msh", "b.geo")), \
+            patch.object(executor, "_poll_until_complete", side_effect=Exception("Network error")):
+
             with pytest.raises(Exception, match="Network error"):
                 executor.execute(self._method_config(), self._sim_config())
 
-    def test_remote_sandbox_already_exists(self):
-        """Remote sandbox directory already exists from a previous failed run with the same task_id → _build_singularity_image may behave unexpectedly."""
-        if not hasattr(CloudExecutor, "_sandbox_exists"):
-            setattr(CloudExecutor, "_sandbox_exists", lambda self: True)
-        with patch.object(CloudExecutor, "_sandbox_exists", return_value=True):
-            executor = self._executor()
-            with pytest.raises(Exception):
+
+    def test_build_fails_when_remote_sandbox_already_exists(self):
+        """Remote sandbox already exists → build step fails and execute propagates the build error."""
+        executor = self._executor()
+
+        with patch.object(executor, "_upload_file_via_sftp", return_value=None), \
+            patch.object(executor, "_build_singularity_image", side_effect=Exception("sandbox already exists")):
+
+            with pytest.raises(Exception, match="sandbox already exists"):
                 executor.execute(self._method_config(), self._sim_config())
