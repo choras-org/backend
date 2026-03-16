@@ -97,7 +97,10 @@ class CloudExecutor(SimulationExecutor):
                 connect_kwargs["look_for_keys"] = False
             if self.password:
                 connect_kwargs["password"] = self.password
-            ssh.connect(**connect_kwargs)
+            try:
+                ssh.connect(**connect_kwargs)
+            except paramiko.AuthenticationException:
+                raise SSHCommandError("SSH authentication failed")
             print(f"SSH connection established to {self.hostname} as {self.username}")
             yield ssh
         finally:
