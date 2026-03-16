@@ -57,7 +57,8 @@ jobs:
           pip install python-dotenv
           pip install flask
           pip install sqlalchemy
-
+          pip install paramiko
+          pip install passlib
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
 
       - name: Run tests
