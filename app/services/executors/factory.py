@@ -10,11 +10,14 @@ def executor_factory(resource_type: ResourceType,
     
     if resource_type == ResourceType.LOCAL:
         return LocalExecutor()
-    else:
+    elif resource_type == ResourceType.CLOUD:
         return CloudExecutor(
-        CloudConfig.CLOUD_EXECUTOR_HOST,
-        CloudConfig.CLOUD_EXECUTOR_USER,
-        key_path = CloudConfig.CLOUD_EXECUTOR_KEY_PATH,
-        remote_work_dir=CloudConfig.CLOUD_EXECUTOR_DIRECTORY,
-        entry_file = entry_file
-    )
+            CloudConfig.CLOUD_EXECUTOR_HOST,
+            CloudConfig.CLOUD_EXECUTOR_USER,
+            key_path = CloudConfig.CLOUD_EXECUTOR_KEY_PATH,
+            remote_work_dir=CloudConfig.CLOUD_EXECUTOR_DIRECTORY,
+            entry_file = entry_file
+        ) 
+    else :
+        raise ValueError(f"Unsupported resource type: {resource_type}")
+
