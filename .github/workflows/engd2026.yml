@@ -54,11 +54,13 @@ jobs:
           pip install pyroomacoustics
           pip install python-dotenv
           pip install flask
+          pip install sqlalchemy
+
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
 
       - name: Run tests
         run: |
-            pytest tests/cloud_executor_test.py tests/local_executor_test.py || echo "Tests failed, but workflow continues"
+            pytest tests/integration/test_cloud_executor.py tests/integration/test_local_executor.py || echo "Tests failed, but workflow continues"
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4
