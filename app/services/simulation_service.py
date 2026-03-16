@@ -506,20 +506,38 @@ def get_simulation_result_by_id(simulation_id):
 
 
 def update_simulation_run_status(simulation_run, simulation):
-    # TODO: update source percentage later
     model = model_service.get_model(simulation.modelId)
     json_path = file_service.get_file_related_path(
         model.outputFileId, simulation.id, extension="json"
     )
-    with open(json_path, "r") as json_file:
+
+    # Cloud jobs: JSON is only written after first poll cycle completes.
+    # Return early with a 0% progress placeholder until it arrives.
+    if not json_path or not os.path.exists(json_path):
+        logger.info(
+            f"[Status] JSON not yet available for simulation {simulation.id} "
+            f"— simulation is still starting up."
+        )
+        simulation_run.percentage = 0
         try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        return
+
+    try:
+        with open(json_path, "r") as json_file:
             result_container = json.load(json_file)
             simulation_run.percentage = result_container["results"][0]["percentage"]
             db.session.commit()
-        except Exception as ex:
-            db.session.rollback()
-            logger.warning(msg=f"Can not update percentage of the simulation run: {ex}")
-            abort(400, message=f"Can not update percentage of the simulation run: {ex}")
+    except json.JSONDecodeError:
+        # File exists but is mid-write (race condition during cloud polling)
+        logger.warning(f"[Status] JSON for simulation {simulation.id} is mid-write, skipping.")
+        db.session.rollback()
+    except Exception as ex:
+        db.session.rollback()
+        logger.warning(f"Can not update percentage of the simulation run: {ex}")
+        abort(400, message=f"Can not update percentage of the simulation run: {ex}")
 
 def cancel_solver_task(simulation_id: int) -> dict:
     """Cancel a running job by its ID."""
