@@ -149,7 +149,7 @@ sphinx-design # Docs, required for tabs and other design elements
 sphinx-copybutton # Docs, required for copy buttons in code blocks
 sphinx-gallery # Docs, required for example gallery
 matplotlib<3.7.0 # Docs, required for plot directive
-deism==2.2.1.9
+deism==2.2.1.10
 
 -e ./simulation-backend
 -e ./Diffusion

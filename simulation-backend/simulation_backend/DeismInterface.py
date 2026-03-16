@@ -11,12 +11,51 @@ from contextlib import contextmanager
 # from Diffusion.acousticDE.FiniteVolumeMethod.FVMfunctions import create_vgroups_names
 import gmsh
 from deism.core_deism import *
-from deism.data_loader import *
+from deism.data_loader import ConflictChecks, detect_conflicts, compute_rest_params
 from deism.room_check import *
 
 
 logger = logging.getLogger(__name__)
 DEISM_SUBPROCESS_ENV = "CHORAS_DEISM_SUBPROCESS"
+
+DEISM_JSON_KEY_MAP = {
+    "soundSpeed": ("soundSpeed", float),
+    "airDensity": ("airDensity", float),
+    "RIRLength": ("rt60", float),
+    "samplingRate": ("sampleRate", int),
+    "maxReflectionOrder": ("maxReflOrder", int),
+    "sourceOrder": ("nSourceOrder", int),
+    "receiverOrder": ("vReceiverOrder", int),
+    "sourceRadius": ("radiusSource", float),
+    "receiverRadius": ("radiusReceiver", float),
+    "sourceOrientation": ("orientSource", "array"),
+    "receiverOrientation": ("orientReceiver", "array"),
+    "sourceDirectivity": ("sourceType", str),
+    "receiverDirectivity": ("receiverType", str),
+    "ifRemoveDirect": ("ifRemoveDirectPath", int),
+    "Method": ("DEISM_mode", str),
+    "mixEarlyOrder": ("mixEarlyOrder", int),
+    "numParaImages": ("numParaImages", int),
+    "ifReceiverNormalize": ("ifReceiverNormalize", int),
+    "QFlowStrength": ("qFlowStrength", float),
+    "SilentMode": ("silentMode", int),
+    # Backward-compatible aliases for the previous CHORAS JSON contract.
+    "rt60": ("rt60", float),
+    "sampleRate": ("sampleRate", int),
+    "maxReflOrder": ("maxReflOrder", int),
+    "nSourceOrder": ("nSourceOrder", int),
+    "vReceiverOrder": ("vReceiverOrder", int),
+    "radiusSource": ("radiusSource", float),
+    "radiusReceiver": ("radiusReceiver", float),
+    "orientSource": ("orientSource", "array"),
+    "orientReceiver": ("orientReceiver", "array"),
+    "sourceType": ("sourceType", str),
+    "receiverType": ("receiverType", str),
+    "ifRemoveDirectPath": ("ifRemoveDirectPath", int),
+    "DEISM_mode": ("DEISM_mode", str),
+    "qFlowStrength": ("qFlowStrength", float),
+    "silentMode": ("silentMode", int),
+}
 
 
 def create_vgroups_names(file_path):
@@ -76,6 +115,67 @@ def parse_value(val):
         return np.array(val, dtype=float)
     else:
         raise ValueError(f"Unsupported type for parse_value: {type(val)}")
+
+
+def parse_array_value(val):
+    """Parse JSON array-like settings into a numpy vector."""
+    if isinstance(val, str):
+        return np.array([float(x.strip()) for x in val.split(",") if x.strip()])
+    if isinstance(val, (list, tuple, np.ndarray)):
+        return np.array(val, dtype=float)
+    raise ValueError(f"Unsupported array setting type: {type(val)}")
+
+
+def apply_simulation_settings_to_deism(deism, simulation_settings):
+    """
+    Override DEISM yaml-loaded params with values coming from the runtime JSON.
+
+    The JSON keys intentionally follow the final parameter names used in
+    `deism.data_loader`.
+    """
+    if not simulation_settings:
+        return
+    if not isinstance(simulation_settings, dict):
+        raise TypeError("simulationSettings must be a JSON object")
+
+    for key, value in simulation_settings.items():
+        if value is None:
+            continue
+        if key not in DEISM_JSON_KEY_MAP:
+            logger.warning("Ignoring unsupported DEISM setting key: %s", key)
+            continue
+
+        target_key, caster = DEISM_JSON_KEY_MAP[key]
+        if caster == "array":
+            deism.params[target_key] = parse_array_value(value)
+        else:
+            deism.params[target_key] = caster(value)
+
+    # Recompute dependent parameters after overriding the yaml defaults.
+    deism.params = compute_rest_params(deism.params)
+
+
+def apply_choras_runtime_overrides(deism, coord_source, coord_rec, freq_bands):
+    """
+    Apply CHORAS-owned runtime values after the DEISM yaml/json merge.
+    """
+    deism.params["posSource"] = np.array(coord_source, dtype=float)
+    deism.params["posReceiver"] = np.array(coord_rec, dtype=float)
+
+    if freq_bands is not None:
+        deism.params["freqs"] = np.array(freq_bands, dtype=float)
+        deism.params["waveNumbers"] = (
+            2 * np.pi * deism.params["freqs"] / deism.params["soundSpeed"]
+        )
+
+        if deism.params.get("ifReceiverNormalize") == 1:
+            deism.params["pointSrcStrength"] = (
+                1j
+                * deism.params["waveNumbers"]
+                * deism.params["soundSpeed"]
+                * deism.params["airDensity"]
+                * deism.params["qFlowStrength"]
+            )
 
 
 def create_deism_instance(mode, room_type):
@@ -244,7 +344,7 @@ def _deism_method_impl(json_file_path=None):
         freq_bands = None
 
         if result_container:
-            simulation_settings = result_container["simulationSettings"]
+            simulation_settings = result_container.get("simulationSettings", {})
             coord_source = [
                 result_container["results"][0]["sourceX"],
                 result_container["results"][0]["sourceY"],
@@ -292,6 +392,8 @@ def _deism_method_impl(json_file_path=None):
         # Apply DEISM
         with use_real_stdio():
             deism = create_deism_instance("RIR", room)
+        apply_simulation_settings_to_deism(deism, simulation_settings)
+        apply_choras_runtime_overrides(deism, coord_source, coord_rec, freq_bands)
         update_result_percentage(result_container, json_file_path, 35)
         print("valuess of deism")  #
         print("vertices", vertices)
@@ -304,6 +406,9 @@ def _deism_method_impl(json_file_path=None):
             room_volumn,
             room_areas,
         )
+        # Apply parameter conflict checks in deism class
+        ConflictChecks.check_all_conflicts(deism.params)
+        detect_conflicts(deism.params)
         update_result_percentage(result_container, json_file_path, 45)
         deism.update_wall_materials(
             absorption_coefficients, freq_bands, "absorpCoefficient"
@@ -313,8 +418,6 @@ def _deism_method_impl(json_file_path=None):
         update_result_percentage(result_container, json_file_path, 65)
         # deism.update_images()
         # update source and receiver positions in deism
-        deism.params["posSource"] = np.array(coord_source)
-        deism.params["posReceiver"] = np.array(coord_rec)
         with use_real_stdio():
             deism.update_source_receiver()
         update_result_percentage(result_container, json_file_path, 75)
@@ -332,6 +435,10 @@ def _deism_method_impl(json_file_path=None):
         # -----------------------------------------------------------
         # Save the simulation results in the json file
         result_container["results"][0]["responses"][0]["receiverResults"] = rir.tolist()
+        # Add a plot that shows the rir in the output folder
+        plt.plot(rir)
+        plt.savefig(os.path.join(os.path.dirname(json_file_path), "rir.png"))
+        plt.close()
         update_result_percentage(result_container, json_file_path, 100)
         print("deism_method: simulation done!")
 

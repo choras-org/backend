@@ -2,98 +2,211 @@
     "type": "simulationSettings",
     "options": [
         {
-            "name": "Impulse response length",
-            "id": "ir_length",
+            "name": "Speed of sound",
+            "id": "soundSpeed",
             "type": "float",
             "display": "text",
-            "min": 0,
+            "min": 100,
+            "max": 500,
+            "default": 343,
+            "step": 1,
+            "endAdornment": "m/s"
+        },
+        {
+            "name": "Air density",
+            "id": "airDensity",
+            "type": "float",
+            "display": "text",
+            "min": 0.1,
+            "max": 5,
+            "default": 1.2,
+            "step": 0.1,
+            "endAdornment": "kg/m^3"
+        },
+        {
+            "name": "RIR length",
+            "id": "RIRLength",
+            "type": "float",
+            "display": "text",
+            "min": 0.1,
             "max": 20,
-            "default": 0,
+            "default": 1,
             "step": 0.1,
             "endAdornment": "s"
         },
         {
             "name": "Sampling rate",
-            "id": "sampling_rate",
-            "type": "float",
+            "id": "samplingRate",
+            "type": "integer",
             "display": "text",
             "min": 8000,
-            "max": 48000,
-            "default": 16000,
+            "max": 96000,
+            "default": 44100,
             "step": 1,
             "endAdornment": "Hz"
         },
         {
-            "name": "Text Box Integer With Min Max",
-            "id": "text_box_int",
+            "name": "Max reflection order",
+            "id": "maxReflectionOrder",
             "type": "integer",
             "display": "text",
             "min": 0,
             "max": 100,
-            "default": null
+            "default": 10,
+            "step": 1
         },
         {
-            "name": "Text Box Integer Without Min Max",
-            "id": "text_box_int_2",
-            "type": "integer",
-            "display": "text",
-            "min": null,
-            "max": null,
-            "default": null
-        },
-        {
-            "name": "Text Box Float",
-            "id": "text_box_float",
-            "type": "float",
-            "display": "text",
-            "min": 0,
-            "max": 100,
-            "default": null
-        },
-        {
-            "name": "Slider Float",
-            "id": "slider_float",
-            "type": "float",
-            "display": "slider",
-            "min": 0,
-            "max": 100,
-            "step": 0.1,
-            "default": null
-        },
-        {
-            "name": "Slider Integer",
-            "id": "slider_int",
-            "type": "integer",
-            "min": 0,
-            "max": 100,
-            "step": 1,
-            "default": null
-        },
-        {
-            "name": "Checkbox",
-            "id": "checkbox",
-            "type": "list",
-            "display": "checkbox",
-            "options": 
-            {
-                "option 1": "value 1", 
-                "option 2": "value 2",
-                "option 3": "value 3"
-            },
-            "default": ["option 1", "option 2"]
-        },
-        {
-            "name": "Radio",
-            "id": "radio_buttons",
+            "name": "Source type",
+            "id": "sourceDirectivity",
             "type": "string",
             "display": "radio",
-            "options": 
+            "options":
             {
-                "option 1": "value 1", 
-                "option 2": "value 2",
-                "option 3": "value 3"
+                "Monopole": "monopole"
             },
-            "default": "option 1"
+            "default": "monopole"
+        },
+        {
+            "name": "Receiver type",
+            "id": "receiverDirectivity",
+            "type": "string",
+            "display": "radio",
+            "options":
+            {
+                "Monopole": "monopole"
+            },
+            "default": "monopole"
+        },
+        {
+            "name": "Source SH order",
+            "id": "sourceOrder",
+            "type": "integer",
+            "display": "text",
+            "min": 0,
+            "max": 10,
+            "default": 0,
+            "step": 1
+        },
+        {
+            "name": "Receiver SH order",
+            "id": "receiverOrder",
+            "type": "integer",
+            "display": "text",
+            "min": 0,
+            "max": 10,
+            "default": 0,
+            "step": 1
+        },
+        {
+            "name": "Source radius",
+            "id": "sourceRadius",
+            "type": "float",
+            "display": "text",
+            "min": 0.01,
+            "max": 1,
+            "default": 0.4,
+            "step": 0.01,
+            "endAdornment": "m"
+        },
+        {
+            "name": "Receiver radius",
+            "id": "receiverRadius",
+            "type": "float",
+            "display": "text",
+            "min": 0.01,
+            "max": 1,
+            "default": 0.5,
+            "step": 0.01,
+            "endAdornment": "m"
+        },
+        {
+            "name": "Source orientation",
+            "id": "sourceOrientation",
+            "type": "string",
+            "display": "text",
+            "default": "0, 0, 0",
+            "endAdornment": "deg"
+        },
+        {
+            "name": "Receiver orientation",
+            "id": "receiverOrientation",
+            "type": "string",
+            "display": "text",
+            "default": "180, 0, 0",
+            "endAdornment": "deg"
+        },
+        {
+            "name": "DEISM mode",
+            "id": "Method",
+            "type": "string",
+            "display": "radio",
+            "options":
+            {
+                "ORG": "ORG",
+                "LC": "LC",
+                "MIX": "MIX"
+            },
+            "default": "MIX"
+        },
+        {
+            "name": "Remove direct path",
+            "id": "ifRemoveDirect",
+            "type": "integer",
+            "display": "text",
+            "min": 0,
+            "max": 1,
+            "default": 0,
+            "step": 1
+        },
+        {
+            "name": "Early mix order",
+            "id": "mixEarlyOrder",
+            "type": "integer",
+            "display": "text",
+            "min": 0,
+            "max": 20,
+            "default": 2,
+            "step": 1
+        },
+        {
+            "name": "Parallel images",
+            "id": "numParaImages",
+            "type": "integer",
+            "display": "text",
+            "min": 1,
+            "max": 50000,
+            "default": 1000,
+            "step": 1
+        },
+        {
+            "name": "Normalize receiver",
+            "id": "ifReceiverNormalize",
+            "type": "integer",
+            "display": "text",
+            "min": 0,
+            "max": 1,
+            "default": 1,
+            "step": 1
+        },
+        {
+            "name": "Flow strength",
+            "id": "QFlowStrength",
+            "type": "float",
+            "display": "text",
+            "min": 0,
+            "max": 1,
+            "default": 0.001,
+            "step": 0.0001
+        },
+        {
+            "name": "Silent mode",
+            "id": "SilentMode",
+            "type": "integer",
+            "display": "text",
+            "min": 0,
+            "max": 1,
+            "default": 0,
+            "step": 1
         }
     ]
 }

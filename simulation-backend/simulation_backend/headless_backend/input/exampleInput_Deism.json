@@ -10,16 +10,45 @@
     "msh_path": "MeasurementRoom.msh",
     "geo_path": "MeasurementRoom_uuids.geo",
     "simulationSettings": {
-        "mnm_1": 0.5,
-        "mnm_2": 50.0
+        "soundSpeed": 343,
+        "airDensity": 1.2,
+        "RIRLength": 1.0,
+        "samplingRate": 44100,
+        "maxReflectionOrder": 10,
+        "sourceDirectivity": "monopole",
+        "receiverDirectivity": "monopole",
+        "sourceOrder": 0,
+        "receiverOrder": 0,
+        "sourceRadius": 0.4,
+        "receiverRadius": 0.5,
+        "sourceOrientation": [
+            0,
+            0,
+            0
+        ],
+        "receiverOrientation": [
+            180,
+            0,
+            0
+        ],
+        "ifRemoveDirect": 0,
+        "Method": "MIX",
+        "mixEarlyOrder": 2,
+        "numParaImages": 1000,
+        "ifReceiverNormalize": 1,
+        "QFlowStrength": 0.001,
+        "SilentMode": 0
     },
     "results": [
         {
-            "percentage": 100,
+            "label": "Source 1",
+            "orderNumber": 1,
+            "percentage": 0,
+            "sourcePointId": "source-1",
             "sourceX": 2,
             "sourceY": 2,
             "sourceZ": 1.5,
-            "resultType": "MyNewMethod",
+            "resultType": "DEISM",
             "frequencies": [
                 125,
                 250,
@@ -29,9 +58,12 @@
             ],
             "responses": [
                 {
+                    "label": "Receiver 1",
+                    "orderNumber": 1,
                     "x": 1,
                     "y": 1,
                     "z": 1.5,
+                    "pointId": "receiver-1",
                     "parameters": {
                         "edt": [],
                         "t20": [],
@@ -45,5 +77,7 @@
                 }
             ]
         }
-    ]
+    ],
+    "should_cancel": false,
+    "task_id": -1
 }
