@@ -52,6 +52,7 @@ jobs:
             echo "No backend/requirements.txt found, skipping installation"
           fi
           pip install pyroomacoustics
+          pip install python-dotenv
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
 
       - name: Run tests
@@ -73,13 +74,6 @@ jobs:
           name: coverage-xml
           path: backend/coverage.xml
           retention-days: 30
-
-      - name: Print coverage summary
-        if: always()
-        run: |
-          cd backend
-          echo "=== Coverage Summary ==="
-          cat coverage.xml | grep -o 'line-rate="[^"]*"' | head -1 || echo "Coverage report not found"
 
   docker-build:
     runs-on: ubuntu-latest
