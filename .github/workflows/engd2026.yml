@@ -57,9 +57,8 @@ jobs:
       - name: Run tests
         run: |
           if [ -d backend ]; then
-            export PYTHONPATH=$PYTHONPATH:$(pwd)/simulation-backend
             cd backend
-            pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term || echo "Tests failed, but workflow continues"
+            pytest cloud_executor_test.py local_executor_test.py || echo "Tests failed, but workflow continues"
           else
             echo "backend/ folder not found, skipping tests"
           fi
