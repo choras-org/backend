@@ -61,6 +61,7 @@ jobs:
           pip install passlib
           pip install alembic
           pip install flask_sqlalchemy
+          pip install soundfile
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
 
       - name: Run tests
