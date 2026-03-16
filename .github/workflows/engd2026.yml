@@ -47,22 +47,13 @@ jobs:
             libglu1-mesa \
             libgl1 \
             mesa-utils
-          if [ -f backend/requirements.txt ]; then
-            cd backend
+          if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
-            echo "No backend/requirements.txt found, skipping installation"
+            echo "No requirements.txt found, skipping installation"
           fi
           pip install pyroomacoustics
           pip install python-dotenv
-          pip install flask
-          pip install sqlalchemy
-          pip install paramiko
-          pip install passlib
-          pip install alembic
-          pip install flask_sqlalchemy
-          pip install soundfile
-          pip install celery
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
 
       - name: Run tests
