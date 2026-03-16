@@ -62,6 +62,7 @@ jobs:
           pip install alembic
           pip install flask_sqlalchemy
           pip install soundfile
+          pip install celery
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
 
       - name: Run tests
