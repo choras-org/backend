@@ -56,12 +56,7 @@ jobs:
 
       - name: Run tests
         run: |
-          if [ -d backend ]; then
-            cd backend
             pytest cloud_executor_test.py local_executor_test.py || echo "Tests failed, but workflow continues"
-          else
-            echo "backend/ folder not found, skipping tests"
-          fi
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4
