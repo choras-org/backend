@@ -57,7 +57,7 @@ jobs:
 
       - name: Run tests
         run: |
-            pytest tests/integration tests/unit/services/test_discovery_service tests/unit/test_run_solver || echo "Tests failed, but workflow continues"
+            pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/test_run_solver.py || echo "Tests failed, but workflow continues"
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4
