@@ -19,6 +19,22 @@ jobs:
   backend-tests:
     runs-on: ubuntu-latest
     if: github.repository == 'Saptarshi666/backend'  # ← CHANGE THIS
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,22 +63,20 @@ jobs:
             libglu1-mesa \
             libgl1 \
             mesa-utils
-          if [ -f backend/requirements.txt ]; then
-            cd backend
+          if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
-            echo "No backend/requirements.txt found, skipping installation"
+            echo "No requirements.txt found, skipping installation"
           fi
           pip install pyroomacoustics
-          pip install python-dotenv
-          pip install flask
-          pip install sqlalchemy
-
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
 
       - name: Run tests
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          TESTING: "true"
         run: |
-            pytest tests/integration/test_cloud_executor.py tests/integration/test_local_executor.py || echo "Tests failed, but workflow continues"
+            pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/services/test_run_solver.py || echo "Tests failed, but workflow continues"
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4
