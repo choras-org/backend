@@ -281,12 +281,12 @@ class TestLocalExecutorExecuteHappyPath:
         call_kwargs = mock_docker_client.containers.run.call_args.kwargs
         assert call_kwargs["environment"] == sim_config["env"]
 
-    @patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
+    """@patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
     def test_volume_mount_uses_resolved_host_path(self, mock_resolve, mock_docker_client, method_config, sim_config):
-        """
+        
         I4 — EP-D1
         Volume mount uses resolved host path bound to container path in rw mode.
-        """
+        
         mock_docker_client.containers.run.return_value = MagicMock()
         executor = LocalExecutor()
         executor.execute(method_config, sim_config)
@@ -295,7 +295,30 @@ class TestLocalExecutorExecuteHappyPath:
         volumes = call_kwargs["volumes"]
         assert "/host/uploads" in volumes
         assert volumes["/host/uploads"]["bind"] == "/app/uploads"
-        assert volumes["/host/uploads"]["mode"] == "rw"
+        assert volumes["/host/uploads"]["mode"] == "rw" """
+        
+    #@patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
+    def test_volume_mount_uses_resolved_host_path(self, mock_docker_client, method_config, sim_config):
+        """
+        I4 — EP-D1
+        Volume mount uses resolved host path bound to container path in rw mode.
+        """
+        container_mock = MagicMock()
+        container_mock.attrs = {
+            "Mounts": [{"Source": "/host/uploads", "Destination": "/app/uploads"}]
+        }
+        mock_docker_client.containers.get.return_value = container_mock
+        mock_docker_client.containers.run.return_value = MagicMock()
+
+        executor = LocalExecutor()
+        with patch("socket.gethostname", return_value="test-container"):
+            executor.execute(method_config, sim_config)
+
+        volumes = mock_docker_client.containers.run.call_args.kwargs["volumes"]
+        normalised_volumes = {os.path.normpath(k): v for k, v in volumes.items()}
+        assert "/host/uploads" in normalised_volumes
+        assert normalised_volumes["/host/uploads"]["bind"] == "/app/uploads"
+        assert normalised_volumes["/host/uploads"]["mode"] == "rw"
 
     @patch("app.services.executors.local_executor.get_host_path_for_container_path", return_value="/host/uploads")
     def test_container_runs_detached(self, mock_resolve, mock_docker_client, method_config, sim_config):
@@ -413,12 +436,12 @@ class TestLocalExecutorCancel:
         fake_container.kill.assert_called_once()
         fake_container.remove.assert_called_once()
 
-    def test_cancel_container_not_found_does_not_raise(self, mock_docker_client, method_config):
-        """
+    """def test_cancel_container_not_found_does_not_raise(self, mock_docker_client, method_config):
+        
         I11 — EP-D2
         cancel() called but container already stopped →
         NotFound is caught, no exception propagates.
-        """
+        
         import docker
         mock_docker_client.containers.get.side_effect = docker.errors.NotFound("not found")
 
@@ -431,4 +454,20 @@ class TestLocalExecutorCancel:
         try:
             executor.cancel(cancelation_info)
         except docker.errors.NotFound:
-            pytest.fail("cancel() should not raise NotFound when container is already gone")
+            pytest.fail("cancel() should not raise NotFound when container is already gone")"""
+
+    def test_cancel_container_not_found_does_not_raise(self, mock_docker_client, method_config):
+        """
+        I11 — EP-D2
+        cancel() called but container already stopped →
+        NotFound is caught, no exception propagates.
+        """
+        import docker
+        mock_docker_client.containers.get.side_effect = docker.errors.NotFound("not found")
+        executor = LocalExecutor()
+        cancelation_info = {
+            "simulation_method": method_config["simulation_method"],
+            "simulation_id": method_config["simulation_id"],
+        }
+        # If this raises, pytest will report the exception directly — no need for try/except
+        executor.cancel(cancelation_info)
