@@ -68,9 +68,17 @@ class DefaultConfig:
     AUDIO_FILE_FOLDER = "example_audios"
     USER_AUDIO_FILE_FOLDER_NAME = os.path.join(UPLOAD_FOLDER_NAME, "audiofiles")
     USER_AUDIO_FILE_FOLDER = os.path.join(basedir, USER_AUDIO_FILE_FOLDER_NAME)
-    SETTINGS_FILE_FOLDER = "/app/simulation-backend/example_settings"
+    #SETTINGS_FILE_FOLDER = "/app/simulation-backend/example_settings"
+    SETTINGS_FILE_FOLDER = os.environ.get(
+    "SETTINGS_FILE_FOLDER",
+    "/app/simulation-backend/example_settings"
+)
 
-    METHODS_CONFIG_PATH = "/app/simulation-backend/methods-config.json"
+    #METHODS_CONFIG_PATH = "/app/simulation-backend/methods-config.json"
+    METHODS_CONFIG_PATH = os.environ.get(
+    "METHODS_CONFIG_PATH",
+    "/app/simulation-backend/methods-config.json"
+)
 
     
     USER_MODEL_IMAGE_FOLDER_NAME = os.path.join(UPLOAD_FOLDER_NAME, "model_images")
@@ -188,7 +196,21 @@ class CloudConfig:
     """
     Cloud Configuration
     """
-    CLOUD_EXECUTOR_HOST = "145.38.205.131"
+    CLOUD_EXECUTOR_HOST = "145.38.205.131"   # "145.38.205.107"
+    
     CLOUD_EXECUTOR_USER = "smondal"
     CLOUD_EXECUTOR_KEY_PATH = f"{Path.home()}/.ssh/id_ed25519"
     CLOUD_EXECUTOR_DIRECTORY = f"/data/storage/{CLOUD_EXECUTOR_USER}"
+
+
+class TestingConfigs(DefaultConfig):
+    APP_ENV = DefaultConfig.APP_ENV_TESTING
+    TESTING = True
+    DEBUG = True
+    WTF_CSRF_ENABLED = False
+    LOG_FILE_API = f"{basedir}/logs/api_tests.log"
+
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL",
+        "sqlite:///" + os.path.join(basedir, "test.db")
+    )

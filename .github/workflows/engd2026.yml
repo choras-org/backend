@@ -38,8 +38,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Check branch naming
         run: |
@@ -70,11 +68,67 @@ jobs:
           fi
           pip install pyroomacoustics
           pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
+      - name: Create mock methods-config.json and settings for CI
+        run: |
+          mkdir -p ${{ github.workspace }}/simulation-backend
+          mkdir -p ${{ github.workspace }}/simulation-backend/example_settings
+          cat > ${{ github.workspace }}/simulation-backend/methods-config.json << 'EOF'
+          [
+            {
+              "simulationType": "DG",
+              "containerImage": "dg_image:latest",
+              "envVars": {"CUDA_VISIBLE_DEVICES": "0"},
+              "label": "Discontinuous Galerkin method",
+              "settings": "dg_setting.json",
+              "entryFile": "DGinterface.py",
+              "repositoryURL": "https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics/",
+              "documentationURL": "https://dg-roomacoustics.readthedocs.io/en/latest/"
+            },
+            {
+              "simulationType": "DE",
+              "containerImage": "de_image:latest",
+              "envVars": {},
+              "label": "Diffusion Equation method",
+              "settings": "de_setting.json",
+              "entryFile": "DEinterface.py",
+              "repositoryURL": "https://github.com/Building-acoustics-TU-Eindhoven/acousticDE/",
+              "documentationURL": "https://building-acoustics-tu-eindhoven.github.io/acousticDE/index.html"
+            },
+            {
+              "simulationType": "MyNewMethod",
+              "containerImage": "mynew_image:latest",
+              "envVars": {},
+              "label": "My New Method",
+              "entryFile": "MyNewMethodInterface.py",
+              "settings": "my_new_setting.json",
+              "repositoryURL": "",
+              "documentationURL": ""
+            },
+            {
+              "simulationType": "PA",
+              "containerImage": "pa_image:latest",
+              "envVars": {},
+              "label": "Pyromacoustics Method",
+              "entryFile": "pyroomacoustics_interface.py",
+              "settings": "examples.json",
+              "repositoryURL": "",
+              "documentationURL": ""
+            }
+          ]
+          EOF
+          # Create empty mock settings files
+          touch ${{ github.workspace }}/simulation-backend/example_settings/dg_setting.json
+          touch ${{ github.workspace }}/simulation-backend/example_settings/de_setting.json
+          touch ${{ github.workspace }}/simulation-backend/example_settings/my_new_setting.json
+          touch ${{ github.workspace }}/simulation-backend/example_settings/examples.json
 
       - name: Run tests
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          APP_TEST_SETTINGS_MODULE: config.TestingConfigs
           TESTING: "true"
+          METHODS_CONFIG_PATH: ${{ github.workspace }}/simulation-backend/methods-config.json
+          SETTINGS_FILE_FOLDER: ${{ github.workspace }}/simulation-backend/example_settings
         run: |
             pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/services/test_run_solver.py || echo "Tests failed, but workflow continues"
 
