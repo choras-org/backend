@@ -7,6 +7,19 @@ from config import CloudConfig
 
 def executor_factory(resource_type: ResourceType, 
                      entry_file: str = None) -> SimulationExecutor: 
+    """
+    Factory function to create a SimulationExecutor based on the resource type.
+
+    Args:
+        resource_type (ResourceType): The type of resource to use (LOCAL or CLOUD).
+        entry_file (str, optional): The entry file for the executor, used for cloud execution. Defaults to None.
+
+    Returns:
+        SimulationExecutor: An instance of LocalExecutor or CloudExecutor depending on the resource type.
+
+    Raises:
+        ValueError: If the resource type is not supported.
+    """
     
     if resource_type == ResourceType.LOCAL:
         return LocalExecutor()
@@ -18,6 +31,6 @@ def executor_factory(resource_type: ResourceType,
             remote_work_dir=CloudConfig.CLOUD_EXECUTOR_DIRECTORY,
             entry_file = entry_file
         ) 
-    else :
+    else:
         raise ValueError(f"Unsupported resource type: {resource_type}")
 

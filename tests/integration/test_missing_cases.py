@@ -1,4 +1,5 @@
 import json
+import os
 import pytest
 from unittest.mock import MagicMock, patch
 from app.services.executors.cloud_executor import (
@@ -275,6 +276,26 @@ class TestDownloadFileViaSftp:
         mock_sftp.get.assert_called_once_with(
             "remote/file.json", "/local/file.json"
         )
+    
+    def test_successful_download_writes_file_to_local_path(self, tmp_path):
+        """ test successfully download files to the local remo """
+        local_path = str(tmp_path / "file.json")
+
+        def fake_get(remote, local):
+            with open(local, "w") as f:
+                json.dump({"results": [{"percentage": 50}]}, f)
+
+        mock_sftp = MagicMock()
+        mock_sftp.get.side_effect = fake_get
+        executor = make_executor()
+
+        with make_sftp_session(executor, mock_sftp):
+            executor._download_file_via_sftp("remote/file.json", local_path)
+
+        assert os.path.exists(local_path)
+        with open(local_path) as f:
+            data = json.load(f)
+        assert data["results"][0]["percentage"] == 50
 
 
 # =============================================================================

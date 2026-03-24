@@ -742,21 +742,22 @@ class TestCollectOutputsAndCleanup:
         return mock_ssh_session(executor, mock_ssh)
 
     def test_downloads_only_json_and_csv_ignores_others(self, tmp_path):
-        """
-        I17 — EP-O1
-        Remote dir contains .json, .csv, .py, .msh →
-        only .json and .csv downloaded.
-        """
+        """ checks if the correct files (.json and .csv ) are downloaded from the cloud and the other files are ignored """
         mock_sftp = MagicMock()
         executor = make_executor()
 
+        # Let _list_remote_files run for real — only mock the SFTP transport
+        def fake_listdir_attr(path):
+            entries = []
+            for name in ["results.json", "pressure.csv", "solver.py", "room.msh"]:
+                e = MagicMock()
+                e.filename = name
+                entries.append(e)
+            return entries
+
+        mock_sftp.listdir_attr.side_effect = fake_listdir_attr
+
         with self._sftp_session(executor, mock_sftp), \
-             patch.object(executor, "_list_remote_files", return_value=[
-                 "/remote/app/results.json",
-                 "/remote/app/pressure.csv",
-                 "/remote/app/solver.py",
-                 "/remote/app/room.msh",
-             ]), \
              patch.object(executor, "_cleanup"):
             executor._collect_outputs_and_cleanup(
                 remote_app_dir="/remote/app",
