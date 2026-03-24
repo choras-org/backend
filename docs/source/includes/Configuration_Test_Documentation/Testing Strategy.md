@@ -91,7 +91,7 @@ The following known gaps remain after our test suite:
 - **DEF-006** — New simulation methods beyond DE and DG silently skip
   auralization due to an incomplete `match` block.
   **DEF-007** - The functions in the cloud executor assume that the outputs made
-  by the simmulation methods will be .json anc .csv files only. Thus the download 
+  by the simmulation methods will be .json and .csv files only. Thus the download 
   function will download all the .json and .csv files that are present in the remote 
   sandbox. New simmulation methods that make other output files but dont have an extension of 
   .json or .csv will not be downloaded. Also .json and .csv files that may not be output files 
