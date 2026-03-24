@@ -35,6 +35,12 @@ debug_celery = False
 def create_new_simulation(simulation_data):
 
     new_simulation = Simulation(**simulation_data)
+    if new_simulation.simulationMethod not in simulation_methods and \
+            new_simulation.simulationMethod != None:
+        logger.error(
+            f"Simulation method {new_simulation.simulationMethod} is not available!"
+        )
+        abort(400, message="Invalid simulation method")
 
     try:
         db.session.add(new_simulation)
@@ -51,17 +57,23 @@ def create_new_simulation(simulation_data):
 def update_simulation_by_id(simulation_data, simulation_id):
     simulation = get_simulation_by_id(simulation_id)
 
-    try:
-        for key, value in simulation_data.items():
-            setattr(simulation, key, value)
+    for key, value in simulation_data.items():
+        if key == "simulationMethod" and value not in simulation_methods:
+            logger.error(
+                f"Simulation method {value} is not available!"
+            )
+            abort(400, message="Invalid simulation method")   
+        setattr(simulation, key, value)
 
-        simulation.updatedAt = datetime.now()
+    simulation.updatedAt = datetime.now()
+    
+    try:
         db.session.commit()
 
     except Exception as ex:
         db.session.rollback()
         logger.error(f"Can not update the simulation: {ex}")
-        abort(400, message=f"Can not update the simulation: {ex}")
+        abort(500, message=f"Can not update the simulation: {ex}")
 
     return simulation
 
