@@ -22,7 +22,9 @@ from app.services.executors.local_executor import LocalExecutor
 from app.services.executors.cloud_executor import CloudExecutor
 from app.services.executors.factory import executor_factory
 from app.services.discovery_service import discover_container_image, discover_entry_file
+from app.services.discovery_service import discover_method_names
 
+simulation_methods = discover_method_names()
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -31,6 +33,7 @@ debug_celery = False
 
 
 def create_new_simulation(simulation_data):
+
     new_simulation = Simulation(**simulation_data)
 
     try:
@@ -225,6 +228,13 @@ def start_solver_task(simulation_id):
                 "taskStatuses": task_statuses,
             }
         )
+
+    if simulation.simulationMethod not in simulation_methods:
+        logger.error(
+            f"Simulation method {simulation.simulationMethod} for the simulation id {str(simulation_id)} is not available!"
+        )
+        abort(400, message="Invalid simulation method")
+
     new_simulation_run = SimulationRun(
         sources=sources_tasks,
         receivers=simulation.receivers,
@@ -426,18 +436,20 @@ def run_solver(simulation_run_id: int, json_path: str):
                 # the idea is to have one shared pipeline across all
                 # methods. 
                 match simulation_method:
-                    case "DE":
-                        imp_tot, fs = auralization_calculation(
-                            None,
-                            json_path.replace(".json", "_pressure.csv"),
-                            json_path.replace(".json", ".wav"),
-                        )
                     case "DG":
                         imp_tot, fs = auralization_calculation_DG(
                             None,
                             json_path.replace(".json", "_pressure.csv"),
                             json_path.replace(".json", ".wav"),
-                        )       
+                        )
+                    # this should be the only thing getting executed
+                    case _:
+                        imp_tot, fs = auralization_calculation(
+                            None,
+                            json_path.replace(".json", "_pressure.csv"),
+                            json_path.replace(".json", ".wav"),
+                        )
+                         
 
                 # auralization: save the impulse response to xlsx
                 if not ExportHelper.write_data_to_xlsx_file(
