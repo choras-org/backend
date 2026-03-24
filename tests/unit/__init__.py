@@ -18,9 +18,10 @@ class BaseTestCase(unittest.TestCase):
 
             @event.listens_for(self.db.engine, "connect")  # execute the function when every connection is made
             def set_sqlite_pragma(dbapi_connection, connection_record):
-                cursor = dbapi_connection.cursor()
-                cursor.execute("PRAGMA foreign_keys=OFF")
-                cursor.close()
+                 if self.db.engine.dialect.name == "sqlite":
+                    cursor = dbapi_connection.cursor()
+                    cursor.execute("PRAGMA foreign_keys=OFF")
+                    cursor.close()
 
             self.db.create_all()
 

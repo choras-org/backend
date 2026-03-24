@@ -291,4 +291,38 @@ class RunSolverUnitTests(BaseTestCase):
         self.assertEqual(mock_simrun.status, Status.Completed,
             "❌ Non-zero container exit → should be Error, not Completed!")
         print("❌ container.wait()=1 → Completed anyway (BUG: exit code ignored)")
+    
+    @patch('app.services.simulation_service.scoped_session')
+    @patch('app.services.simulation_service.sessionmaker')
+    def test_json_path_nonexistent_sets_error_status(self, mock_sessionmaker, mock_scoped):
+        """EP-C3 — JSON_PATH points to a file that does not exist → FileNotFoundError caught → Error status."""
+        nonexistent_path = "/tmp/does_not_exist_at_all.json"
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_session = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_scoped.return_value.return_value = mock_session
+
+        simulation_service.run_solver(self.simulation_run_id, nonexistent_path)
+
+        self.assertEqual(mock_simrun.status, Status.Error,
+            "❌ Non-existent JSON path → SimulationRun status should be Error")
+        print("✅ Non-existent JSON path → Error status set correctly")
+
+    @patch('app.services.simulation_service.scoped_session')
+    @patch('app.services.simulation_service.sessionmaker')
+    def test_solver_settings_malformed_sets_error_status(self, mock_sessionmaker, mock_scoped):
+        """EP-C7 — solverSettings is not None but missing 'simulationSettings' key → KeyError → Error status."""
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_simulation.solverSettings = {"bad_key": "unexpected_structure"}
+        mock_session = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_scoped.return_value.return_value = mock_session
+
+        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.status, Status.Error,
+            "❌ Malformed solverSettings → SimulationRun status should be Error")
+        self.assertEqual(mock_simulation.status, Status.Error,
+            "❌ Malformed solverSettings → Simulation status should be Error")
+        print("✅ Malformed solverSettings → Error status set correctly")
 
