@@ -88,6 +88,7 @@ The following known gaps remain after our test suite:
   local simulation can be silently marked as Completed.
 - **DEF-004** — `raise "Error saving..."` in the export failure path is
   invalid Python — raises `TypeError` instead of a meaningful error message.
+  **DEF-005** - SSH failure mid-execute leaves remote sandbox unclean and does not remove it
 - **DEF-006** — New simulation methods beyond DE and DG silently skip
   auralization due to an incomplete `match` block.
   **DEF-007** - The functions in the cloud executor assume that the outputs made

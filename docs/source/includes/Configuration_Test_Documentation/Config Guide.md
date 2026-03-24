@@ -15,7 +15,7 @@ CHORAS/
 ├── docs engd 2026/              # Team documentation (YOUR docs!)
 │   ├── Config Guide.md          # This file
 │   └── Testing Strategy.md
-    
+|__ simulation-backend/           #simulation backend submodule   
 ├── example_geometries/           # Sample room geometries
 ├── .env.api                      # Backend API environment vars (NOT in git!)
 ├── .env.db                       # Database environment vars (NOT in git!)
