@@ -193,13 +193,14 @@ class CloudExecutor(SimulationExecutor):
                             "username": self.username,
                             "look_for_keys": True,
                             "allow_agent": True,
+                            "passphrase": "111"
                         }
             if self.key_path:
                 connect_kwargs["key_filename"] = self.key_path
                 connect_kwargs["allow_agent"] = False
                 connect_kwargs["look_for_keys"] = False
-            if self.password:
-                connect_kwargs["password"] = self.password
+            # #if self.password:
+            # connect_kwargs["passphrase"] = "111"
             try:
                 ssh.connect(**connect_kwargs)
             except paramiko.AuthenticationException:
