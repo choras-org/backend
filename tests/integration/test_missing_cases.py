@@ -21,7 +21,7 @@ def make_executor():
         hostname="test-host",
         username="test-user",
         remote_work_dir="/tmp/remote",
-        password="test-pass"
+        passphrase="test-pass"
     )
 
 
@@ -167,7 +167,7 @@ class TestCloudExecutorInit:
 
         Constructor signature:
             CloudExecutor(hostname, username, remote_work_dir,
-                          password=None, key_path=None, entry_file=None)
+                          passphrase=None, key_path=None, entry_file=None)
 
         Input:    keyword args for all six parameters
         Expected: each attribute matches the corresponding argument
@@ -177,14 +177,14 @@ class TestCloudExecutorInit:
             hostname="host",
             username="user",
             remote_work_dir="/work",
-            password="pass",
+            passphrase="pass",
             key_path="/key",
             entry_file="entry.py"
         )
         assert executor.hostname == "host"
         assert executor.username == "user"
         assert executor.remote_work_dir == "/work"
-        assert executor.password == "pass"
+        assert executor.passphrase == "pass"
         assert executor.key_path == "/key"
         assert executor.entry_file == "entry.py"
 
