@@ -22,7 +22,7 @@ def make_executor():
         hostname="test-host",
         username="test-user",
         remote_work_dir="/tmp/remote",
-        password="test-pass"
+        passphrase="test-pass"
     )
 
 
@@ -497,7 +497,7 @@ class TestExecuteSingularityImage:
             hostname="host",
             username="user",
             remote_work_dir="/tmp",
-            password="pass",
+            passphrase="pass",
             entry_file="DGinterface.py"
         )
         with patch.object(executor, "_run_remote_command", return_value="") as mock_cmd:
