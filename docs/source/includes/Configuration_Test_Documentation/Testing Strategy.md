@@ -97,7 +97,7 @@ The following known gaps remain after our test suite:
   sandbox. New simmulation methods that make other output files but dont have an extension of 
   .json or .csv will not be downloaded. Also .json and .csv files that may not be output files 
   will also be downloaded by the local machines from the remote machine
-  **DEF-008** - When making the key associated with your cloud account ensure that there is no passphrase made with it. CHORAS does not support cloud execution for accounts/keys that need a passphrase. However the backend of CHORAS supports accounts/keys with passphrase. This means that users whose cloud account/keys have passphrase associated with it need to devise a way to ensure that the CloudExecutor is initialized with the proper passphrase value.
+  **DEF-008** - When making the key associated with your cloud account ensure that there is no passphrase made with it. CHORAS Backend fully supports cloud accounts/keys that have passphrases associated with them. However a future development is to find a way to ensure that the passphrase assoicated with the cloud account/key is **passed** to the CHORAS backend
 
 
 All residual risks are documented in the Defect Log in `Test Results.md`
