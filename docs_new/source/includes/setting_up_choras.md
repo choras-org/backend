@@ -93,8 +93,10 @@ volumes:
   - /var/run/docker.sock:/var/run/docker.sock
   - ./uploads:/app/uploads
   - ./simulation-backend:/app/simulation-backend
-  - <absolute-path-ssh-directory>:/root/.ssh:ro # Add this line
+  - <absolute-path-to-where-ssh-directory-lives>:/root/.ssh:ro # Add this line
 ```
+
+> **Make sure to uncomment `<absolute-path-to-where-ssh-directory-lives>:/root/.ssh:ro` if using the cloud**. This is commented out by default, as the Docker container cannot build if the folder does not exist. Without this volume, cloud simulations will not work. 
 
 ### Cloud Configuration
 
