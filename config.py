@@ -200,7 +200,10 @@ class CloudConfig:
     
     CLOUD_EXECUTOR_USER = "kchanioglo"
     CLOUD_EXECUTOR_KEY_PATH = f"{Path.home()}/.ssh/id_ed25519"
-    CLOUD_EXECUTOR_DIRECTORY = f"/data/storage/{CLOUD_EXECUTOR_USER}"
+    CLOUD_STORAGE_PATH = "/data/storagesingularitydemo"
+    CLOUD_EXECUTOR_DIRECTORY = f"{CLOUD_STORAGE_PATH}/{CLOUD_EXECUTOR_USER}"
+    
+    
 
 
 class TestingConfigs(DefaultConfig):
