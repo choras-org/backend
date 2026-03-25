@@ -88,15 +88,16 @@ The following known gaps remain after our test suite:
   local simulation can be silently marked as Completed.
 - **DEF-004** — `raise "Error saving..."` in the export failure path is
   invalid Python — raises `TypeError` instead of a meaningful error message.
-  **DEF-005** - SSH failure mid-execute leaves remote sandbox unclean and does not remove it
+- **DEF-005** - SSH failure mid-execute leaves remote sandbox unclean and does not remove it
 - **DEF-006** — New simulation methods beyond DE and DG silently skip
   auralization due to an incomplete `match` block.
-  **DEF-007** - The functions in the cloud executor assume that the outputs made
+- **DEF-007** - The functions in the cloud executor assume that the outputs made
   by the simmulation methods will be .json and .csv files only. Thus the download 
   function will download all the .json and .csv files that are present in the remote 
   sandbox. New simmulation methods that make other output files but dont have an extension of 
   .json or .csv will not be downloaded. Also .json and .csv files that may not be output files 
   will also be downloaded by the local machines from the remote machine
+- **DEF-008** - When making the key associated with your cloud account ensure that there is no passphrase made with it. CHORAS Backend fully supports cloud accounts/keys that have passphrases associated with them. However a future development is to find a way to ensure that the passphrase assoicated with the cloud account/key is **passed** to the CHORAS backend
 
 
 All residual risks are documented in the Defect Log in `Test Results.md`
