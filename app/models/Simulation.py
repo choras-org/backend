@@ -3,19 +3,10 @@ from datetime import datetime
 from sqlalchemy import JSON
 
 from app.db import db
-from app.types import Setting, Status, TaskType, ResourceType
-from app.services.discovery_service import discover_method_names
-
-simulation_methods = discover_method_names()
+from app.types import Setting, Status, ResourceType
 
 class Simulation(db.Model):
     __tablename__ = "simulations"
-    __table_args__ = (
-        db.CheckConstraint(
-            db.literal_column('"simulationMethod"').in_(simulation_methods),
-            name="ck_simulation_method_valid"
-        ),
-    )
 
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
