@@ -34,8 +34,9 @@ def get_host_path_for_container_path(container_path: str) -> str:
         hostname = socket.gethostname()
         container = client.containers.get(hostname)
         for mount in container.attrs["Mounts"]:
+
             destination = mount.get("Destination", "")
-            if container_path.startswith(destination):
+            if destination == container_path:
                 host_source = mount["Source"]
                 relative = os.path.relpath(container_path, destination)
                 return os.path.join(host_source, relative).replace("\\", "/")
@@ -97,6 +98,7 @@ class LocalExecutor(SimulationExecutor):
         # so Docker can mount it into the child container
         container_json_path = env.get("JSON_PATH")
         container_uploads_dir = str(Path(container_json_path).parent)
+        print(f"Container uploads dir: {container_uploads_dir}")
         host_uploads_dir = get_host_path_for_container_path(container_uploads_dir)
 
         logger.info(f"Resolved host path: {host_uploads_dir} for container path: {container_uploads_dir}")
@@ -116,7 +118,7 @@ class LocalExecutor(SimulationExecutor):
                 working_dir=self.work_dir,
                 name=container_name,
                 # name=f"simjob_{job_id[:8]}",
-                remove = True,
+                # remove = True,
             )
             return container
 

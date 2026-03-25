@@ -132,7 +132,7 @@ class CloudExecutor(SimulationExecutor):
     Attributes:
         hostname (str): Hostname or IP address of the remote HPC node.
         username (str): SSH username used for authentication.
-        password (str | None): Password for password-based SSH auth.
+        passphrase (str | None): Passphrase for key-based SSH auth.
         key_path (str | None): Path to a private key file for key-based auth.
         entry_file (str | None): Python entry-point script executed inside
             the Singularity container.
@@ -142,7 +142,7 @@ class CloudExecutor(SimulationExecutor):
             whose existence signals that the polling loop should stop.
     """
     
-    def __init__(self, hostname, username, remote_work_dir, password=None, key_path=None, entry_file=None):
+    def __init__(self, hostname, username, remote_work_dir, passphrase=None, key_path=None, entry_file=None):
         """Initialise a CloudExecutor with SSH connection parameters.
 
         Args:
@@ -150,7 +150,7 @@ class CloudExecutor(SimulationExecutor):
             username (str): SSH username.
             remote_work_dir (str): Absolute path on the remote host used as
                 the root working directory for all jobs.
-            password (str, optional): SSH password. Defaults to ``None``.
+            passphrase (str, optional): SSH passphrase. Defaults to ``None``.
             key_path (str, optional): Path to an SSH private key file.
                 When provided, agent and ``look_for_keys`` are disabled.
                 Defaults to ``None``.
@@ -159,7 +159,7 @@ class CloudExecutor(SimulationExecutor):
         """
         self.hostname = hostname
         self.username = username
-        self.password = password
+        self.passphrase = passphrase
         self.key_path = key_path
         self.entry_file = entry_file
         self.remote_work_dir = remote_work_dir
@@ -174,7 +174,7 @@ class CloudExecutor(SimulationExecutor):
 
         1. Explicit private key (``key_path``) — disables agent and
            ``look_for_keys``.
-        2. Password (``password``).
+        2. passphrase (``passphrase``).
         3. SSH agent / default key search.
 
         Yields:
@@ -192,14 +192,14 @@ class CloudExecutor(SimulationExecutor):
                             "hostname": self.hostname,
                             "username": self.username,
                             "look_for_keys": True,
-                            "allow_agent": True,
+                            "allow_agent": True
                         }
             if self.key_path:
                 connect_kwargs["key_filename"] = self.key_path
                 connect_kwargs["allow_agent"] = False
                 connect_kwargs["look_for_keys"] = False
-            if self.password:
-                connect_kwargs["password"] = self.password
+            if self.passphrase:
+                connect_kwargs["passphrase"] = self.passphrase
             try:
                 ssh.connect(**connect_kwargs)
             except paramiko.AuthenticationException:
