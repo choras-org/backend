@@ -252,7 +252,7 @@
 | DEF-005 | 🟠 High | — | SSH failure mid-execute leaves remote sandbox unclean | Open |
 | DEF-006 | 🟡 Medium | — (commented out) | `match` block silently skips auralization for methods beyond DE/DG | Open |
 | DEF-007 | 🟡 Medium | — not tested | only .json and .csv files are considered as output files | Open |
-| DEF-008 | 🟠 High | - | end to end cloud execution for accounts with passphrase asscoiated with keys not accomplished | Open |
+| DEF-008 | 🟠 High | - | end to end cloud execution for accounts/keys with passphrase not accomplished | Open |
 ---
 
 ## 4. Coverage by Equivalence Partition
