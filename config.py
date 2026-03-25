@@ -198,11 +198,12 @@ class CloudConfig:
     """
 
     CLOUD_EXECUTOR_HOST = "145.38.205.131"   # "145.38.205.107"
+    CLOUD_EXECUTOR_USER = "kchanioglo"
     CLOUD_EXECUTOR_KEY_PATH = f"{Path.home()}/.ssh/id_ed25519"
-    
-    CLOUD_EXECUTOR_USER = "vpetre" # your username 
-    CLOUD_STORAGE_PATH = "/data/storagesingularitydemo" # your remote directory
+    CLOUD_STORAGE_PATH = "/data/storagesingularitydemo"
     CLOUD_EXECUTOR_DIRECTORY = f"{CLOUD_STORAGE_PATH}/{CLOUD_EXECUTOR_USER}"
+    
+    
 
 
 class TestingConfigs(DefaultConfig):
