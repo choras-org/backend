@@ -102,7 +102,7 @@ After SSH is configured and you receive your cloud access details (IP address, u
 
 0. Connect to the cloud directly via the terminal using SSH, using the following command:
    ```bash
-   ssh <username>@<cloud-ip>
+   ssh <your_username>@<cloud-ip>
    ```
    This is necessary to add the host to your list of known hosts; without this, CHORAS will not be able to connect to the cloud.
    When connecting for the first time, you will be prompted with something like:
@@ -111,7 +111,7 @@ After SSH is configured and you receive your cloud access details (IP address, u
       ED25519 key fingerprint is SHA256:abc123...
       Are you sure you want to continue connecting (yes/no/[fingerprint])?  
    ```
-   Type in "yes" to continue. Your computer might not have the ssh client installed by default; if this is the case, refer to this guide for how to install it: https://gist.github.com/bityob/419ca30a766817640e717800b63d6862 
+   Type in "yes" to continue. Your computer might not have the ssh client installed by default; if this is the case, refer to this guide for how to install it: [https://gist.github.com/bityob/419ca30a766817640e717800b63d6862](https://gist.github.com/bityob/419ca30a766817640e717800b63d6862)
 
 
 1. Go to the backend submodule:
