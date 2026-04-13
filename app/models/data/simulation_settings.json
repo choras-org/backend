@@ -22,5 +22,13 @@
         "simulationType": "DON",
         "repositoryURL": "https://github.com/dtu-act/deeponet-acoustic-wave-prop/",
         "documentationURL": "https://github.com/dtu-act/deeponet-acoustic-wave-prop/"
+    },
+    {
+        "description": "The Diffraction Enhanced Image Source Method.",
+        "label": "DEISM",
+        "name": "deism_setting.json",
+        "simulationType": "DEISM",
+        "repositoryURL": "https://github.com/audiolabs/DEISM/",
+        "documentationURL": "https://deism.readthedocs.io/en/latest/"
     }
 ]

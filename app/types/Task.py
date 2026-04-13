@@ -7,5 +7,6 @@ class TaskType(Enum):
     DE = "DE"
     DG = "DG"
     DON = "DON"
+    DEISM = "DEISM"
     MyNewMethod = "MyNewMethod"
     BOTH = "BOTH"

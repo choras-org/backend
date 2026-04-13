@@ -1,0 +1,83 @@
+{
+    "absorption_coefficients": {
+        "037fa4d1-c674-4040-8770-0716314f1125": "0.52, 0.68, 0.8, 0.84, 0.83",
+        "cdd912c3-644f-44e1-959a-2464e06cda72": "0.52, 0.68, 0.8, 0.84, 0.83",
+        "73166b3b-0435-4d7f-ad2d-618342366aa8": "0.52, 0.68, 0.8, 0.84, 0.83",
+        "1b11c8f0-31d3-47d0-8463-f57545525c6e": "0.52, 0.68, 0.8, 0.84, 0.83",
+        "5fb4949a-16ab-47b6-8ab3-c9f51c324f77": "0.52, 0.68, 0.8, 0.84, 0.83",
+        "34f916ff-e48e-4faf-a636-d50ba2196464": "0.52, 0.68, 0.8, 0.84, 0.83"
+    },
+    "msh_path": "MeasurementRoom.msh",
+    "geo_path": "MeasurementRoom_uuids.geo",
+    "simulationSettings": {
+        "soundSpeed": 343,
+        "airDensity": 1.2,
+        "RIRLength": 1.0,
+        "samplingRate": 44100,
+        "maxReflectionOrder": 10,
+        "sourceDirectivity": "monopole",
+        "receiverDirectivity": "monopole",
+        "sourceOrder": 0,
+        "receiverOrder": 0,
+        "sourceRadius": 0.4,
+        "receiverRadius": 0.5,
+        "sourceOrientation": [
+            0,
+            0,
+            0
+        ],
+        "receiverOrientation": [
+            180,
+            0,
+            0
+        ],
+        "ifRemoveDirect": 0,
+        "Method": "MIX",
+        "mixEarlyOrder": 2,
+        "numParaImages": 1000,
+        "ifReceiverNormalize": 1,
+        "QFlowStrength": 0.001,
+        "SilentMode": 0
+    },
+    "results": [
+        {
+            "label": "Source 1",
+            "orderNumber": 1,
+            "percentage": 0,
+            "sourcePointId": "source-1",
+            "sourceX": 2,
+            "sourceY": 2,
+            "sourceZ": 1.5,
+            "resultType": "DEISM",
+            "frequencies": [
+                125,
+                250,
+                500,
+                1000,
+                2000
+            ],
+            "responses": [
+                {
+                    "label": "Receiver 1",
+                    "orderNumber": 1,
+                    "x": 1,
+                    "y": 1,
+                    "z": 1.5,
+                    "pointId": "receiver-1",
+                    "parameters": {
+                        "edt": [],
+                        "t20": [],
+                        "t30": [],
+                        "c80": [],
+                        "d50": [],
+                        "ts": [],
+                        "spl_t0_freq": []
+                    },
+                    "receiverResults": []
+                }
+            ]
+        }
+    ],
+    "should_cancel": false,
+    "task_id": -1
+}
