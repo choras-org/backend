@@ -2,10 +2,10 @@ from marshmallow import Schema, ValidationError, fields
 
 
 class FileSchema(Schema):
-    id = fields.Number()
+    id = fields.Integer()
     fileName = fields.Str()
     slot = fields.Str()
-    size = fields.Number()
+    size = fields.Integer()
 
 
 class GetSlotSchema(Schema):
