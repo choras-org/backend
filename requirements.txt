@@ -153,3 +153,5 @@ matplotlib # Docs, required for plot directive
 docker
 pathlib
 paramiko
+
+acousticDE # Needed for generate_mesh function (should decouple at some point)

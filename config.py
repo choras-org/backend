@@ -71,13 +71,13 @@ class DefaultConfig:
     #SETTINGS_FILE_FOLDER = "/app/simulation-backend/example_settings"
     SETTINGS_FILE_FOLDER = os.environ.get(
     "SETTINGS_FILE_FOLDER",
-    "../simulation-backend/example_settings"
+    "/app/simulation-backend/example_settings"
 )
 
     # METHODS_CONFIG_PATH = "/app/simulation-backend/methods-config.json"
     METHODS_CONFIG_PATH = os.environ.get(
     "METHODS_CONFIG_PATH",
-    "../simulation-backend/methods-config.json"
+    "/app/simulation-backend/methods-config.json"
     )
 
     
