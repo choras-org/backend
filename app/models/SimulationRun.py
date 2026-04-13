@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON
 
 from app.db import db
-from app.types import Setting, Status, Task, TaskType
+from app.types import Setting, Status
 
 
 class SimulationRun(db.Model):
@@ -12,7 +12,7 @@ class SimulationRun(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     sources = db.Column(JSON, default=[])
     receivers = db.Column(JSON, default=[])
-    taskType = db.Column(db.Enum(TaskType), default=TaskType.BOTH)
+    simulationMethod = db.Column(db.String(), default="DE")
     percentage = db.Column(db.Integer, default=0)
     settingsPreset = db.Column(db.Enum(Setting), default=Setting.Default)
     layerIdByMaterialId = db.Column(JSON, default={})

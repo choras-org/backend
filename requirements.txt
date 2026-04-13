@@ -44,7 +44,7 @@ Flask-SQLAlchemy==3.0.3
 fonttools==4.53.1
 gmsh==4.13.1
 greenlet==2.0.2
-gunicorn==20.1.0
+gunicorn==21.2.0
 identify==2.6.0
 idna==3.7
 imagesize==1.4.1
@@ -150,9 +150,10 @@ sphinx-copybutton # Docs, required for copy buttons in code blocks
 sphinx-gallery # Docs, required for example gallery
 matplotlib # Docs, required for plot directive
 pyroomacoustics
-
--e ./simulation-backend
+docker
+pathlib
+paramiko
 git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@d32afb2498e27bd996fc7356d57dc4f1ed76aa44#egg=acousticDE
 # git+https://github.com/dtu-act/deeponet-acoustic-wave-prop.git@3d3fc5ee952756eedcd4fec3c3674ad829825c7e#egg=deeponet-acoustics
 git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@08cac98da98ed14ba1366741b1c0644001503b82#egg=edg-acoustics
--e ./MyNewMethod
+
