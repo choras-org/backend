@@ -18,7 +18,7 @@ on:
 jobs:
   backend-tests:
     runs-on: ubuntu-latest
-    #if: github.repository == 'Saptarshi666/backend'  # ← CHANGE THIS
+    #if: github.repository == 'choras-org/backend'
 
     services:
       postgres:
@@ -150,7 +150,7 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
-    #if: github.repository == 'Saptarshi666/backend'  # ← CHANGE THIS
+    #if: github.repository == 'choras-org/backend'
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
