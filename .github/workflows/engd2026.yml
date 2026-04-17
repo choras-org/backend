@@ -4,16 +4,7 @@ on:
     branches:
       - main
       - dev
-      - 'feature/*'
-      - 'bugfix/*'
-      - 'testing/*'
   pull_request:
-    branches:
-      - main
-      - dev
-      - 'feature/*'
-      - 'bugfix/*'
-      - 'testing/*'
 
 jobs:
   backend-tests:
