@@ -1,12 +1,21 @@
+from __future__ import annotations
+from typing import List, Dict, Any
+import numpy as np
 import logging
 import math
 import os
 import zipfile
-import math
+import json
 
+from shapely import LineString
 import rhino3dm
 from flask_smorest import abort
 
+from app.services.geometry_inspection_service import detect_boundary_edges, detect_degenerate_faces, detect_possible_holes_from_faces, detect_segment_facet_intersections_cdt, detect_t_junctions_from_facerecords_global_plc, inspect_face_planarity_issues
+from app.services.geometry_export_service import export_processed_topology_to_gmsh_geo, export_processed_topology_to_obj
+from app.services.geometry_diagnostic_log_service import append_repair_report, build_issue_detection_report, build_revalidation_report, build_topology_report, create_geometry_processing_report, log_topology, write_geometry_processing_report
+from app.services.geometry_parsing_service import extract_rhino_materials, process_and_instantiate_faces, parse_obj_file, deduplicate_vertices
+from app.services.geometry_repair_service import fix_t_junctions_iterative, flip_all_faces_if_majority_inward, remove_degenerate_faces, repair_plc_by_offset_iterative, repair_plc_single_splits_iterative, sort_vertices_deterministically, trim_segment_face_intersections_iterative
 import config
 from app.db import db
 from app.factory.geometry_converter_factory.GeometryConversionFactory import (
@@ -778,3 +787,379 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
     print(f"Wrote {geo_file}: {len(unique_vertices)} points, {next_line_id-1} lines, {len(face_line_loops)} surfaces.")
     return True
 
+def obj_to_gmsh_geo_precise_with_repair_pipeline(
+    obj_file,
+    geo_file,
+    rhino3dm_path,
+    volume_name="RoomVolume",
+    tol=1e-2,
+    conformize_tol=None,
+):
+    """
+    OBJ -> Gmsh .geo
+    This version:
+      1) Reads Rhino .3dm file to extract material names associated with mesh objects.
+      2) Parses OBJ file: extracts vertices (with Y-up to Z-up coordinate flip), faces, groups, and materials.
+      3) Deduplicates vertices within tolerance.
+      4) Maps faces to unique vertices, checks for degeneracy and planarity (no triangulation of ngons).
+      5) Detects T-junctions in the geometry.
+      6) Removes degenerate faces (fatal cases).
+      7) Sorts vertices deterministically for reproducibility.
+      8) Iteratively fixes T-junctions by splitting edges.
+      9) Orients faces consistently using adjacency.
+      10) Detects and repairs piecewise linear complex (PLC) violations (segment-facet intersections).
+      11) Builds edges, line loops, and surface loops.
+    Output:
+      - Writes Gmsh .geo file with Point, Line, Line Loop, Plane Surface entities.
+      - Creates Physical Volume, Physical Surfaces (by material), and Physical Lines.
+      - Generates processing report and processed OBJ export.
+    """
+
+    if conformize_tol is None:
+        conformize_tol = max(1e-7, tol)
+
+    # -----------------------------
+    # 1) Rhino materials
+    # -----------------------------
+    # Read the Rhino .3dm file and extract material names assigned to each mesh object.
+    # These material names are stored as user strings on the geometry and are mapped
+    # by object ID so they can later be associated with the corresponding OBJ faces.
+    material_id_array = extract_rhino_materials(rhino3dm_path)
+    
+    
+    # -----------------------------
+    # 2) Parse OBJ file
+    # -----------------------------
+    vertices, raw_faces, face_groups, face_group_materials = parse_obj_file(obj_file)
+    
+    logger.info("02. Parsed OBJ:")
+    logger.info(f"    vertices: {len(vertices)}")
+    logger.info(f"    raw_faces: {len(raw_faces)}")
+    logger.info(f"    unique groups: {len(set(face_groups))}")
+    logger.info(f"    unique group_materials: {len(set(face_group_materials))}")
+    
+    # -----------------------------
+    # 3) Deduplicate vertices
+    # -----------------------------
+    unique_vertices, orig_to_unique = deduplicate_vertices(vertices, tol)
+    
+    
+    # -------- 4) Map faces to unique vertices + planarirt check for every face + remove degenerate face + optional triangulation --------
+    faces = process_and_instantiate_faces(
+        raw_faces,
+        face_groups,
+        face_group_materials,
+        material_id_array,
+        orig_to_unique
+    )
+    
+    # TODO - Store problematic faces for reporting
+    problematic_faces = inspect_face_planarity_issues(faces, unique_vertices)
+    logger.info("NON COPLANAR. FACES")
+    logger.info(problematic_faces)
+    
+    tjs = detect_t_junctions_from_facerecords_global_plc(
+        faces,
+        unique_vertices,
+        tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
+        max_reports=2000,
+    )
+
+    if tjs:
+        logger.warning("[RAW FACES TJUNC] found %d (showing up to 20)", len(tjs))
+        for r in tjs[:20]:
+            logger.warning("[RAW FACES TJUNC] edge=%s split_v=%d t=%.6f edge_fids=%s v_fids=%s",
+                        r["edge"], r["split_vertex"], r["t_param"],
+                        r["edge_face_fids"], r["v_face_fids"])
+    else:
+        logger.info("[RAW FACES TJUNC] none")
+    
+    topology_before_repair = {}
+    topology_before_repair.update(build_topology_report(unique_vertices, faces))
+    issue_detection_report = {
+        "non_coplanar_faces": problematic_faces,
+        "T-junctions": tjs,
+        "possible_holes": detect_possible_holes_from_faces(faces, unique_vertices),
+        "boundary_edges": detect_boundary_edges(faces, unique_vertices),
+        "degenerate_faces": detect_degenerate_faces(faces, unique_vertices)
+    }
+    
+    log_topology(logger, "after_mapping", faces)
+
+    logger.info("4.1 Remove Degenerate Faces (area)")
+
+    faces, fatal_removed = remove_degenerate_faces(
+        faces,
+        unique_vertices,
+        fatal_area_tol=1e-18,
+        logger=logger,
+    )
+    
+    report_path = geo_file.replace(".geo", "_report.json")
+    repair_report: List[Dict[str, Any]] = []
+    append_repair_report(
+        repair_report,
+        repair_type="remove_degenerate_faces",
+        affected_count=fatal_removed,
+        before={"faces": len(faces) + fatal_removed},
+        after={"faces": len(faces)},
+    )
+    log_topology(logger, "after_mapping", faces)
+    
+    logger.info("4.2 T-junction detection after mapping (before sorting/conformize):")
+    tjs = detect_t_junctions_from_facerecords_global_plc(
+        faces,
+        unique_vertices,
+        tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
+        max_reports=2000,
+    )
+
+    if tjs:
+        logger.warning("[CLEAN FACES TJUNC] found %d (showing up to 20)", len(tjs))
+        for r in tjs[:20]:
+            logger.warning("[CLEAN FACES TJUNC] edge=%s split_v=%d t=%.6f edge_fids=%s v_fids=%s",
+                        r["edge"], r["split_vertex"], r["t_param"],
+                        r["edge_face_fids"], r["v_face_fids"])
+    else:
+        logger.info("[CLEAN FACES TJUNC] none")
+
+    # -----------------------------
+    # 5) Sort vertices deterministically
+    # -----------------------------
+    unique_vertices, faces = sort_vertices_deterministically(unique_vertices, faces)
+
+    faces, changed = fix_t_junctions_iterative(
+        faces,
+        unique_vertices,
+        tol=conformize_tol,
+        max_iters=100,
+        logger=logger,
+    )
+    
+    
+    
+    logger.info("[TJUNC FIX] optionA changed=%s faces=%d", changed, len(faces))
+    tjs = detect_t_junctions_from_facerecords_global_plc(
+        faces,
+        unique_vertices,
+        tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
+        max_reports=2000,
+    )
+    append_repair_report(
+        repair_report,
+        repair_type="fix_t_junctions_iterative",
+        affected_count=len(tjs),
+        before={"tjunctions": len(tjs)},
+        after=None,
+        details={"changed": changed, "faces_after": len(faces)},
+    )
+    
+    log_topology(logger, "after_fix_tjunctions", faces)
+
+
+    if tjs:
+        logger.warning("[AFTER FIX TJUNC FACES TJUNC] found %d (showing up to 20)", len(tjs))
+        for r in tjs[:20]:
+            logger.warning("[AFTER FIX TJUNC FACES TJUNC] edge=%s split_v=%d t=%.6f edge_fids=%s v_fids=%s",
+                        r["edge"], r["split_vertex"], r["t_param"],
+                        r["edge_face_fids"], r["v_face_fids"])
+    else:
+        logger.info("[AFTER FIX TJUNC FACES TJUNC] none")
+   
+    # 8) GLOBAL ORIENTATION (adjacency) + optional outward flip
+    # -----------------------------
+    room_center = tuple(
+        sum(v[i] for v in unique_vertices) / len(unique_vertices)
+        for i in range(3)
+    )
+
+    # diag = orient_faces_consistently_by_adjacency(faces, logger=logger)
+    # append_repair_report(
+    #     repair_report,
+    #     repair_type="orient_faces_consistently",
+    #     details=diag,
+    # )
+    # logger.info("[ORIENT] diag=%s", diag)
+
+    logger.info("8.2 Flip all faces if majority are inward facing")
+    flip_all_faces_if_majority_inward(faces, unique_vertices, room_center, logger=logger)
+    
+    # Check for segment-facet intersections (PLC violations) after orientation fix
+    plc_hits = detect_segment_facet_intersections_cdt(
+        faces,
+        unique_vertices,
+        warn_planar_tol_m=1e-4,
+        fatal_planar_tol_m=1e-3,
+        eps=1e-10,
+        bbox_pad=1e-9,
+        max_reports=2000,
+        skip_warped_faces=True,
+        logger=logger,
+    )
+    issue_detection_report["segment_facet_intersections"] = {
+        "count": len(plc_hits),
+        "plc_hits": plc_hits,
+    }
+    
+     # Export issue_detection_report to JSON
+    # with open("issue_report.json", "w") as f:
+    #     json.dump(issue_detection_report, f, indent=4)
+    logger.info("Exported issue_detection_report to issue_report.json")
+    
+
+    # ---------------------------------------------------------
+    # 8.1) PLC detection after orientation fix
+    # ---------------------------------------------------------
+    if plc_hits:
+        logger.error("[PLC] segment–facet intersections found: %d (showing up to 20)", len(plc_hits))
+        for r in plc_hits[:20]:
+            x,y,z = r["point"]
+            logger.error(
+                "[PLC] type=%s edge=%s edge_fids=%s intersects facet_fid=%d tri=%s "
+                "at P=(%.6f,%.6f,%.6f) t=%.6f bary=(%.6f,%.6f,%.6f) planar=%s",
+                r["hit_type"],
+                r["edge"],
+                r["edge_fids"],
+                r["facet_fid"],
+                r["facet_tri"],
+                r["point"][0], r["point"][1], r["point"][2],
+                r["t_param"],
+                r["bary_u"], r["bary_v"], r["bary_w"],
+                r["facet_planarity_flag"],
+            )
+    else:
+        logger.info("[PLC] segment–facet intersections: none")
+    
+    # issue_detection_report["intersections"] = {
+    #     "count": len(plc_hits),
+    #     "by_type": dict(Counter(hit.get("hit_type", "unknown") for hit in plc_hits)),
+    #     "samples": plc_hits[:20],
+    # }
+    # ---------------------------------------------------------
+    # 8.2) Iterative PLC repair
+    # ---------------------------------------------------------
+    # faces, unique_vertices, plc_repair_changed, plc_repair_summary = repair_plc_single_splits_iterative(
+    #     faces,
+    #     unique_vertices,
+    #     room_center,
+    #     logger=logger,
+    #     max_iters=20,
+    #     planarity_tol_m=1e-6,
+    # )
+    
+    # append_repair_report(
+    #     repair_report,
+    #     repair_type="repair_plc_single_splits_iterative",
+    #     affected_count=len(plc_hits),
+    #     before={"intersections": len(plc_hits)},
+    #     after=None,
+    #     details=plc_repair_summary,
+    # )
+    
+    # logger.info("[PLC REPAIR SUMMARY] %s", plc_repair_summary)
+
+    # optional final PLC report after all attempted repairs
+    plc_hits = detect_segment_facet_intersections_cdt(
+        faces,
+        unique_vertices,
+        warn_planar_tol_m=1e-4,
+        fatal_planar_tol_m=1e-3,
+        eps=1e-10,
+        bbox_pad=1e-9,
+        max_reports=2000,
+        skip_warped_faces=True,
+        logger=logger,
+    )
+
+    if plc_hits:
+        faces, unique_vertices, trim_changed, trim_summary = trim_segment_face_intersections_iterative(
+            faces,
+            unique_vertices,
+            room_center,
+            max_iters=20,
+            tol=1e-9,
+            logger=logger,
+        )
+        if trim_changed:
+            logger.info("[PLC TRIM SUMMARY] %s", trim_summary)
+            plc_hits = detect_segment_facet_intersections_cdt(
+                faces,
+                unique_vertices,
+                warn_planar_tol_m=1e-4,
+                fatal_planar_tol_m=1e-3,
+                eps=1e-10,
+                bbox_pad=1e-9,
+                max_reports=2000,
+                skip_warped_faces=True,
+                logger=logger,
+            )
+
+    if plc_hits:
+        logger.error("[PLC FINAL] remaining intersections: %d (showing up to 20)", len(plc_hits))
+        for r in plc_hits[:20]:
+            logger.error(
+                "[PLC FINAL] type=%s edge=%s edge_fids=%s intersects facet_fid=%d tri=%s "
+                "at P=(%.6f,%.6f,%.6f) t=%.6f bary=(%.6f,%.6f,%.6f) planar=%s",
+                r["hit_type"],
+                r["edge"],
+                r["edge_fids"],
+                r["facet_fid"],
+                r["facet_tri"],
+                r["point"][0], r["point"][1], r["point"][2],
+                r["t_param"],
+                r["bary_u"], r["bary_v"], r["bary_w"],
+                r["facet_planarity_flag"],
+            )
+    else:
+        logger.info("[PLC FINAL] none")
+    
+    faces, unique_vertices, plc_repair_changed, plc_repair_summary = repair_plc_single_splits_iterative(
+        faces,
+        unique_vertices,
+        room_center,
+        logger=logger,
+        max_iters=20,
+        planarity_tol_m=1e-6,
+    )
+    # unique_vertices, offset_changed, offset_summary = repair_plc_by_offset_iterative(
+    #     faces,
+    #     unique_vertices,
+    #     logger=logger,
+    #     max_iters=20,
+    #     offset_m=0.1,   # 10 cm
+    # )
+    
+
+    # 9.2) Export processed topology to OBJ
+    obj_output_path = geo_file.replace(".geo", "_processed.obj")
+    export_processed_topology_to_obj(obj_output_path, unique_vertices, faces)
+
+    num_lines, num_surfaces = export_processed_topology_to_gmsh_geo(faces, unique_vertices, geo_file, volume_name)
+
+    tjs_final = detect_t_junctions_from_facerecords_global_plc(
+        faces,
+        unique_vertices,
+        tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
+        max_reports=2000,
+    )
+    revalidation_report = build_revalidation_report(
+        unique_vertices,
+        faces,
+        tjunctions=tjs_final,
+        intersections=plc_hits,
+    )
+    report = create_geometry_processing_report(
+        obj_file=obj_file,
+        geo_file=geo_file,
+        topology_before_repair=topology_before_repair,
+        issue_detection_report={},
+        repair_report=repair_report,
+        revalidation_report=revalidation_report,
+    )
+    write_geometry_processing_report(report, report_path)
+
+    print(
+        f"Wrote {geo_file}: {len(unique_vertices)} points, "
+        f"{num_lines} lines, {num_surfaces} surfaces."
+    )
+    return True
