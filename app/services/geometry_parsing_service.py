@@ -1,6 +1,6 @@
 import rhino3dm
 import logging
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict
 from app.utils.geometry_utils import FaceRecord
 import logging
 logger = logging.getLogger(__name__)
