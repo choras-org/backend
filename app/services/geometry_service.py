@@ -127,7 +127,7 @@ def map_to_3dm_and_geo(geometry_id):
 
     if config.FeatureToggle.is_enabled("enable_geo_conversion"):
         try:
-            if not obj_to_gmsh_geo_precise(obj_path, geo_path, rhino3dm_path):
+            if not obj_to_gmsh_geo_precise_with_repair_pipeline(obj_path, geo_path, rhino3dm_path):
                 logger.error("Can not generate a geo file")
                 return False
 
