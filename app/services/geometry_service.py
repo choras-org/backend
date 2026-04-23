@@ -777,3 +777,4 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
 
     print(f"Wrote {geo_file}: {len(unique_vertices)} points, {next_line_id-1} lines, {len(face_line_loops)} surfaces.")
     return True
+
