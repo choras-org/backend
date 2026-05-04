@@ -463,12 +463,19 @@ def run_solver(simulation_run_id: int, json_path: str):
                         )
                     # this should be the only thing getting executed
                     case _:
-                        imp_tot, fs = auralization_calculation(
-                            None,
-                            json_path.replace(".json", "_pressure.csv"),
-                            json_path.replace(".json", ".wav"),
-                        )
-                         
+                        # TODO: instead of reading the rir from the _pressure.csv file, read it from the json file directly 
+                        import numpy as np
+                        imp_tot = np.loadtxt(json_path.replace(".json", "_pressure.csv"), delimiter=",")
+                        with open(json_path, "r") as json_file:
+                            input_data = json.load(json_file)
+                            fs = input_data["simulationSettings"]["sampling_rate"]
+                        rir_wav_file_name = json_path.replace(".json", ".wav")
+
+                        import pyfar as pf
+                        rir = pf.Signal(imp_tot, fs)
+                        pf.io.write_audio(rir, rir_wav_file_name)
+                        logger.info(f"Impulse response shape: {imp_tot.shape}, sampling rate: {fs}")
+
 
                 # auralization: save the impulse response to xlsx
                 if not ExportHelper.write_data_to_xlsx_file(
