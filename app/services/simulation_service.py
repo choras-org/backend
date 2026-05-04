@@ -414,15 +414,22 @@ def run_solver(simulation_run_id: int, json_path: str):
                 "task_id": result_container["task_id"]
             }
             
-            logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
-            container = executor.execute(method_config, sim_config)
-            container.wait()
-            logger.info(f"{simulation_method} Simulation_service:...container has finished.")
+            logger.info(f"{simulation_method} Simulation_service:...container has been spun up.")
 
-            cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
+            try:
+                container = executor.execute(method_config, sim_config)
+                container.wait()
+                logger.info(f"{simulation_method} Simulation_service:...container has finished.")
+                container.remove() # Clean up the container after execution
+            except Exception as ex:
+                logger.error(f"Error during container execution: {ex}")
+                container.remove() # Ensure container is removed even if execution fails
+                raise Exception(f"Error during container execution: {ex}")
             
             # logs = container.logs().decode("utf-8")
             # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
+
+            cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
 
             if os.path.exists(cancel_flag_path):
                 logger.info("Cancelled: do not save to xlsx")
