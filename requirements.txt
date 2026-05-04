@@ -64,7 +64,7 @@ kombu
 Mako
 markdown-it-py
 MarkupSafe
-marshmallow
+marshmallow>=3.13.0
 mccabe
 mdurl
 meshio
