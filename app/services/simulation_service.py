@@ -448,6 +448,13 @@ def run_solver(simulation_run_id: int, json_path: str):
                 # the idea is to have one shared pipeline across all
                 # methods. 
                 match simulation_method:
+                    case "DE":
+                        # TODO: This function is not a general auralization function and should be renamed
+                        imp_tot, fs = auralization_calculation(
+                            None,
+                            json_path.replace(".json", "_pressure.csv"),
+                            json_path.replace(".json", ".wav"),
+                        )
                     case "DG":
                         imp_tot, fs = auralization_calculation_DG(
                             None,
