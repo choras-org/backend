@@ -288,15 +288,25 @@ def run_auralization(auralizationId: int) -> None:
 
         logger.debug("run auralization calculation")
 
-        #TODO: fix behavior for DG auralization, DG method output format 
-        # should be changed. We want a single universal auralization method,
-        # without having to switch logic between them for each simulation method. 
         match simulation.simulationMethod:
             case "DE":
                  _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
             case "DG":
                  _, _ = auralization_calculation_DG(signal_file_name, pressure_file_name, wav_output_file_name)
-                         
+            case _:
+                #TODO: We want a single universal auralization method,
+                # without having to switch logic between them for each simulation method. 
+                # This will be implemented in the function mono_aural_auralization, which will be a 
+                # general convolution-based auralization method using the RIR.
+                # This method does not rely on the pressure.csv file, but the wav file directly
+                pressure_file_name_wav = os.path.join(
+                    DefaultConfig.UPLOAD_FOLDER_NAME, export.name.replace(".xlsx", ".wav")
+                )
+                mono_aural_auralization(
+                    signal_file_name, 
+                    pressure_file_name_wav, 
+                    wav_output_file_name
+                )
 
         auralization.status = Status.Completed
 
@@ -308,6 +318,34 @@ def run_auralization(auralizationId: int) -> None:
         db.session.commit()
         logger.error(f"Error running this auralization {auralization.id}: {e}")
         abort(400, "Error running this auralization")
+
+
+def mono_aural_auralization(
+        signal_file_name: str, 
+        impulse_response_file_name_wav: str,
+        wav_output_file_name: str,
+    ) -> None:
+    """Create a mono-aural auralization by convolution.
+
+    If the sampling rates do not match, the impulse response is resampled to
+    match the sampling rate of the dry input signal.
+
+    Parameters
+    ----------
+    signal_file_name : str
+        The dry input signal file name (wav format).
+    impulse_response_file_name_wav : str
+        The impulse response file name (wav format).
+    wav_output_file_name : str
+        The convolved output signal file name (wav format).
+    """
+
+    import pyfar as pf
+    dry_signal = pf.io.read_audio(signal_file_name)
+    rir = pf.io.read_audio(impulse_response_file_name_wav)
+    rir_resampled = pf.dsp.resample(rir, dry_signal.sampling_rate)
+    convolved_signal = pf.dsp.convolve(rir_resampled, dry_signal)
+    pf.io.write_audio(convolved_signal, wav_output_file_name)
 
 
 # TODO: too long code, refactor this function
