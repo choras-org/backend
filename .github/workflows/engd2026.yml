@@ -4,21 +4,11 @@ on:
     branches:
       - main
       - dev
-      - 'feature/*'
-      - 'bugfix/*'
-      - 'testing/*'
   pull_request:
-    branches:
-      - main
-      - dev
-      - 'feature/*'
-      - 'bugfix/*'
-      - 'testing/*'
 
 jobs:
   backend-tests:
     runs-on: ubuntu-latest
-    #if: github.repository == 'Saptarshi666/backend'  # ← CHANGE THIS
 
     services:
       postgres:
@@ -38,16 +28,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Check branch naming
-        run: |
-          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          if [[ ! "$BRANCH_NAME" =~ ^(main|dev|feature/.*|bugfix/.*|testing/.*)$ ]]; then
-            echo "⚠️ Warning: Branch '$BRANCH_NAME' does not follow the naming strategy."
-            echo "Recommended: main, dev, feature/*, bugfix/*"
-          else
-            echo "✅ Branch name '$BRANCH_NAME' follows naming strategy."
-          fi
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -150,10 +130,9 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
-    #if: github.repository == 'Saptarshi666/backend'  # ← CHANGE THIS
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
