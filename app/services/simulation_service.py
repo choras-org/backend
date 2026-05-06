@@ -431,6 +431,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                     try:
                         remove_method()  # Clean up local containers after execution
                     except Exception as cleanup_ex:
+                        # If cancelled, the container is already removed, so this exception will be thrown.
                         logger.warning(f"Failed to remove execution container: {cleanup_ex}")
             
             # auralization: generate impulse response wav file
