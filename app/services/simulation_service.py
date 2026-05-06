@@ -534,6 +534,14 @@ def run_solver(simulation_run_id: int, json_path: str):
                     simulation.status = Status.Completed
                     simulation.completedAt = datetime.now()
 
+            if os.path.exists(cancel_flag_path):
+                # Clean up cancel flag after handling cancellation
+                try:
+                    cancel_flag_path.unlink()
+                    logger.info(f"Removed cancel flag file: {cancel_flag_path}")
+                except Exception as ex:
+                    logger.warning(f"Failed to remove cancel flag file {cancel_flag_path}: {ex}")
+
             simulation_run.updatedAt = datetime.now()
             simulation.updatedAt = datetime.now()
 
