@@ -483,12 +483,8 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             if os.path.exists(cancel_flag_path):
                 logger.info("Cancelled: do not save to xlsx")
-                # Remove the cancel flag file after checking
-                try:
-                    cancel_flag_path.unlink()
-                    logger.info(f"Removed cancel flag file: {cancel_flag_path}")
-                except Exception as ex:
-                    logger.warning(f"Failed to remove cancel flag file {cancel_flag_path}: {ex}")
+                # Keep the cancel flag in place so later status checks in this
+                # function can still detect that the simulation was cancelled.
             else:
                 try:
                     logger.info("Saving to xlsx...")
