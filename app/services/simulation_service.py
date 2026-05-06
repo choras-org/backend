@@ -423,9 +423,9 @@ def run_solver(simulation_run_id: int, json_path: str):
             cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
             
             # auralization: generate impulse response wav file
-            # TODO: fix DG method such that this auralization works,
-            # the idea is to have one shared pipeline across all
-            # methods. 
+            # TODO: move the auralization calculation to DE and write that
+            # to the JSON so that everything can be handled by the current
+            # default case and we can get rid of the match case.
             match simulation_method:
                 case "DE":
                     # TODO: This function is not a general auralization function and should be renamed
