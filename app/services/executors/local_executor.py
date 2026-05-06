@@ -11,9 +11,16 @@ from app.services import model_service, file_service
 
 logger = logging.getLogger(__name__)
 
-
+# 
 def _is_running_in_container() -> bool:
-    """Return True when the current process appears to be running inside a container."""
+    """
+    Used to check if we're running in a container or locally for development, 
+    to determine how to resolve paths for Docker mounts.
+    
+    Returns:
+        True when the current process appears to be running inside a container.
+    """
+    
     if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
         return True
 
@@ -65,6 +72,8 @@ def get_host_path_for_container_path(container_path: str) -> str:
         RuntimeError: If no mount is found covering the given container path (in container only).
         Exception: If there is an error communicating with Docker or resolving the path (in container only).
     """
+
+    # For local debugging, we assume the container_path is directly accessible on the host
     if not _is_running_in_container():
         logger.warning(
             f"Running locally (not in container). Returning container_path as-is: {container_path}"
