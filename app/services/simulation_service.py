@@ -417,15 +417,21 @@ def run_solver(simulation_run_id: int, json_path: str):
             
             logger.info(f"{simulation_method} Simulation_service:...container has been spun up.")
 
+            container = None
             try:
                 container = executor.execute(method_config, sim_config)
                 container.wait()
                 logger.info(f"{simulation_method} Simulation_service:...container has finished.")
-                container.remove() # Clean up the container after execution
             except Exception as ex:
                 logger.error(f"Error during container execution: {ex}")
-                container.remove() # Ensure container is removed even if execution fails
                 raise Exception(f"Error during container execution: {ex}")
+            finally:
+                remove_method = getattr(container, "remove", None) if container is not None else None
+                if callable(remove_method):
+                    try:
+                        remove_method()  # Clean up local containers after execution
+                    except Exception as cleanup_ex:
+                        logger.warning(f"Failed to remove execution container: {cleanup_ex}")
             
             # auralization: generate impulse response wav file
             # TODO: fix DG method such that this auralization works,
