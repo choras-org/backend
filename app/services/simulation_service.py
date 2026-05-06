@@ -457,9 +457,10 @@ def run_solver(simulation_run_id: int, json_path: str):
                     if imp_tot is None or len(imp_tot) == 0:
                         logger.warning("Impulse response data is empty or missing")
                         imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
-                        norm_rir = pf.Signal(imp_tot, fs)
+                        norm_rir = pf.Signal(imp_tot, fs) # don't use the pf.dsp.normalize function on an empty signal, as it returns NaN values.
                     else:
                         rir = pf.Signal(imp_tot, fs)
+                        # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
                         norm_rir = pf.dsp.normalize(rir)
 
                     pf.io.write_audio(norm_rir, rir_wav_file_name)
