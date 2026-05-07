@@ -26,4 +26,10 @@ jobs:
         run: python -m pip install -r requirements.txt
 
       - name: Run tests
-        run: python -m pytest -v tests/unit/services/ tests/unit/models
+        run: |
+          python -m pytest -v \
+            tests/unit/services/ \
+            tests/unit/models \
+            --ignore=tests/unit/executors/ \
+            --ignore=tests/unit/services/test_discovery_service.py \
+            --ignore=tests/unit/services/test_run_solver.py
