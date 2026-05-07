@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict
+from dataclasses import asdict, is_dataclass
 import json
 import math
 from typing import Any, Dict, List, Tuple
@@ -107,7 +108,6 @@ def append_repair_report(
     repair_report: List[Dict[str, Any]],
     *,
     repair_type: str,
-    affected_entities: Any = None,
     affected_count: int = 0,
     before: Any = None,
     after: Any = None,
@@ -122,8 +122,6 @@ def append_repair_report(
         Mutable list storing all repair events.
     repair_type : str
         Name of the repair operation.
-    affected_entities : Any, optional
-        Geometry entities affected by the repair.
     affected_count : int, optional
         Number of affected entities.
     before : Any, optional
@@ -135,7 +133,6 @@ def append_repair_report(
     """
     repair_report.append({
         "repair_type": repair_type,
-        "affected_entities": affected_entities,
         "affected_count": affected_count,
         "before": before,
         "after": after,
@@ -223,8 +220,33 @@ def write_geometry_processing_report(report: Dict[str, Any], report_path: str) -
     report_path : str
         Output JSON path.
     """
+    def _json_safe(value: Any) -> Any:
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+
+        if isinstance(value, FaceRecord):
+            return {
+                "fid": value.fid,
+                "verts": value.verts,
+                "group": value.group,
+                "group_material": value.group_material,
+                "material": value.material,
+            }
+
+        if is_dataclass(value):
+            return _json_safe(asdict(value))
+
+        if isinstance(value, dict):
+            return {str(k): _json_safe(v) for k, v in value.items()}
+
+        if isinstance(value, (list, tuple, set)):
+            return [_json_safe(v) for v in value]
+
+        return str(value)
+
+    safe_report = _json_safe(report)
     with open(report_path, "w") as fp:
-        json.dump(report, fp, indent=2)
+        json.dump(safe_report, fp, indent=2)
 
 def find_free_edge_loops(faces):
     """

@@ -478,14 +478,15 @@ def detect_t_junctions_from_facerecords_global_plc(
             edge_face_fids = [faces[fi].fid for fi in face_idxs_using_edge]
             v_face_fids = [faces[fi].fid for fi in vert_to_face_idxs.get(w, [])]
 
-            reports.append({
-                "edge": (u, v),
-                "split_vertex": w,
-                "t_param": t,
-                "edge_face_fids": edge_face_fids,
-                "culprit_face_fid": culprit_fid,
-                "v_face_fids": v_face_fids,
-            })
+            if len(v_face_fids) > 0 :
+                reports.append({
+                    "edge": (u, v),
+                    "split_vertex": w,
+                    "t_param": t,
+                    "edge_face_fids": edge_face_fids,
+                    "culprit_face_fid": culprit_fid,
+                    "v_face_fids": v_face_fids,
+                })
 
             if len(reports) >= max_reports:
                 return reports

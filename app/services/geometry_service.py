@@ -33,12 +33,13 @@ def get_geometry_by_id(geometry_id):
     return results
 
 
-def start_geometry_check_task(file_upload_id):
+def start_geometry_check_task(file_upload_id, use_geometry_pipeline):
     """
     This function is a wrapper over 3dm mapper. It creates a task and geometry given a file upload id.
     Then calls the map_to_3dm function to map the given geometry file format to a rhino model.
 
     :param file_upload_id: represents an id related to the uploaded file
+    :param use_geometry_pipeline: boolean indicating whether to use the geometry pipeline for the conversion
     :return: Geometry: returns an object of Geometry model corresponding to the uploaded file
     """
     try:
@@ -50,7 +51,7 @@ def start_geometry_check_task(file_upload_id):
         db.session.add(geometry)
         db.session.commit()
 
-        result = map_to_3dm_and_geo(geometry.id)
+        result = map_to_3dm_and_geo(geometry.id, use_geometry_pipeline)
         if not result:
             task.status = Status.Error
             task.message = "An error is encountered during the geometry processing!"
@@ -76,7 +77,7 @@ def get_geometry_result(task_id):
     return Geometry.query.filter_by(taskId=task_id).first()
 
 
-def map_to_3dm_and_geo(geometry_id):
+def map_to_3dm_and_geo(geometry_id, use_geometry_pipeline):
     geometry = Geometry.query.filter_by(id=geometry_id).first()
     file = File.query.filter_by(id=geometry.inputModelUploadId).first()
     task = Task.query.filter_by(id=geometry.taskId).first()
@@ -127,9 +128,14 @@ def map_to_3dm_and_geo(geometry_id):
 
     if config.FeatureToggle.is_enabled("enable_geo_conversion"):
         try:
-            if not obj_to_gmsh_geo_precise_with_repair_pipeline(obj_path, geo_path, rhino3dm_path):
-                logger.error("Can not generate a geo file")
-                return False
+            if use_geometry_pipeline:
+                if not obj_to_gmsh_geo_precise_with_repair_pipeline(obj_path, geo_path, rhino3dm_path):
+                    logger.error("Can not generate a geo file")
+                    return False
+            else:
+                if not obj_to_gmsh_geo_precise(obj_path, geo_path, rhino3dm_path):
+                    logger.error("Can not generate a geo file")
+                    return False
 
             file_geo = File(fileName=f"{file_name}.geo")
             db.session.add(file_geo)
@@ -832,12 +838,6 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
     # -----------------------------
     vertices, raw_faces, face_groups, face_group_materials = parse_obj_file(obj_file)
     
-    logger.info("02. Parsed OBJ:")
-    logger.info(f"    vertices: {len(vertices)}")
-    logger.info(f"    raw_faces: {len(raw_faces)}")
-    logger.info(f"    unique groups: {len(set(face_groups))}")
-    logger.info(f"    unique group_materials: {len(set(face_group_materials))}")
-    
     # -----------------------------
     # 3) Deduplicate vertices
     # -----------------------------
@@ -853,11 +853,8 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         orig_to_unique
     )
     
-    # TODO - Store problematic faces for reporting
     problematic_faces = inspect_face_planarity_issues(faces, unique_vertices)
-    logger.info("NON COPLANAR. FACES")
-    logger.info(problematic_faces)
-    
+
     tjs = detect_t_junctions_from_facerecords_global_plc(
         faces,
         unique_vertices,
@@ -871,9 +868,7 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
             logger.warning("[RAW FACES TJUNC] edge=%s split_v=%d t=%.6f edge_fids=%s v_fids=%s",
                         r["edge"], r["split_vertex"], r["t_param"],
                         r["edge_face_fids"], r["v_face_fids"])
-    else:
-        logger.info("[RAW FACES TJUNC] none")
-    
+
     topology_before_repair = {}
     topology_before_repair.update(build_topology_report(unique_vertices, faces))
     issue_detection_report = {
@@ -883,10 +878,9 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         "boundary_edges": detect_boundary_edges(faces, unique_vertices),
         "degenerate_faces": detect_degenerate_faces(faces, unique_vertices)
     }
+
     
     log_topology(logger, "after_mapping", faces)
-
-    logger.info("4.1 Remove Degenerate Faces (area)")
 
     faces, fatal_removed = remove_degenerate_faces(
         faces,
@@ -894,7 +888,7 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         fatal_area_tol=1e-18,
         logger=logger,
     )
-    
+
     report_path = geo_file.replace(".geo", "_report.json")
     repair_report: List[Dict[str, Any]] = []
     append_repair_report(
@@ -905,8 +899,7 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         after={"faces": len(faces)},
     )
     log_topology(logger, "after_mapping", faces)
-    
-    logger.info("4.2 T-junction detection after mapping (before sorting/conformize):")
+
     tjs = detect_t_junctions_from_facerecords_global_plc(
         faces,
         unique_vertices,
@@ -920,52 +913,43 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
             logger.warning("[CLEAN FACES TJUNC] edge=%s split_v=%d t=%.6f edge_fids=%s v_fids=%s",
                         r["edge"], r["split_vertex"], r["t_param"],
                         r["edge_face_fids"], r["v_face_fids"])
-    else:
-        logger.info("[CLEAN FACES TJUNC] none")
+    
 
+    before_repair_tjs = tjs
     # -----------------------------
     # 5) Sort vertices deterministically
     # -----------------------------
     unique_vertices, faces = sort_vertices_deterministically(unique_vertices, faces)
 
-    faces, changed = fix_t_junctions_iterative(
-        faces,
-        unique_vertices,
-        tol=conformize_tol,
-        max_iters=100,
-        logger=logger,
-    )
+    # 6) Iteratively fix T-junctions by splitting edges
+    if len(tjs) > 0:
+        faces, changed = fix_t_junctions_iterative(
+            faces,
+            unique_vertices,
+            tol=conformize_tol,
+            max_iters=100,
+            logger=logger,
+        )
+        tjs = detect_t_junctions_from_facerecords_global_plc(
+            faces,
+            unique_vertices,
+            tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
+            max_reports=2000,
+        )
+        append_repair_report(
+            repair_report,
+            repair_type="fix_t_junctions_iterative",
+            after=len(tjs),
+            before=len(before_repair_tjs),
+            affected_count=len(before_repair_tjs) - len(tjs),
+        )
+        if tjs:
+            logger.warning("[AFTER FIX TJUNC FACES TJUNC] found %d (showing up to 20)", len(tjs))
+            for r in tjs[:20]:
+                logger.warning("[AFTER FIX TJUNC FACES TJUNC] edge=%s split_v=%d t=%.6f edge_fids=%s v_fids=%s",
+                            r["edge"], r["split_vertex"], r["t_param"],
+                            r["edge_face_fids"], r["v_face_fids"])
     
-    
-    
-    logger.info("[TJUNC FIX] optionA changed=%s faces=%d", changed, len(faces))
-    tjs = detect_t_junctions_from_facerecords_global_plc(
-        faces,
-        unique_vertices,
-        tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
-        max_reports=2000,
-    )
-    append_repair_report(
-        repair_report,
-        repair_type="fix_t_junctions_iterative",
-        affected_count=len(tjs),
-        before={"tjunctions": len(tjs)},
-        after=None,
-        details={"changed": changed, "faces_after": len(faces)},
-    )
-    
-    log_topology(logger, "after_fix_tjunctions", faces)
-
-
-    if tjs:
-        logger.warning("[AFTER FIX TJUNC FACES TJUNC] found %d (showing up to 20)", len(tjs))
-        for r in tjs[:20]:
-            logger.warning("[AFTER FIX TJUNC FACES TJUNC] edge=%s split_v=%d t=%.6f edge_fids=%s v_fids=%s",
-                        r["edge"], r["split_vertex"], r["t_param"],
-                        r["edge_face_fids"], r["v_face_fids"])
-    else:
-        logger.info("[AFTER FIX TJUNC FACES TJUNC] none")
-   
     # 8) GLOBAL ORIENTATION (adjacency) + optional outward flip
     # -----------------------------
     room_center = tuple(
@@ -981,7 +965,6 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
     # )
     # logger.info("[ORIENT] diag=%s", diag)
 
-    logger.info("8.2 Flip all faces if majority are inward facing")
     flip_all_faces_if_majority_inward(faces, unique_vertices, room_center, logger=logger)
     
     # Check for segment-facet intersections (PLC violations) after orientation fix
@@ -996,20 +979,16 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         skip_warped_faces=True,
         logger=logger,
     )
-    issue_detection_report["segment_facet_intersections"] = {
+    issue_detection_report["intersections"] = {
         "count": len(plc_hits),
-        "plc_hits": plc_hits,
+        "intersections_hits": plc_hits,
     }
-    
-     # Export issue_detection_report to JSON
-    # with open("issue_report.json", "w") as f:
-    #     json.dump(issue_detection_report, f, indent=4)
-    logger.info("Exported issue_detection_report to issue_report.json")
-    
+       
 
     # ---------------------------------------------------------
     # 8.1) PLC detection after orientation fix
     # ---------------------------------------------------------
+
     if plc_hits:
         logger.error("[PLC] segment–facet intersections found: %d (showing up to 20)", len(plc_hits))
         for r in plc_hits[:20]:
@@ -1027,8 +1006,6 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
                 r["bary_u"], r["bary_v"], r["bary_w"],
                 r["facet_planarity_flag"],
             )
-    else:
-        logger.info("[PLC] segment–facet intersections: none")
     
     # issue_detection_report["intersections"] = {
     #     "count": len(plc_hits),
@@ -1081,7 +1058,6 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
             logger=logger,
         )
         if trim_changed:
-            logger.info("[PLC TRIM SUMMARY] %s", trim_summary)
             plc_hits = detect_segment_facet_intersections_cdt(
                 faces,
                 unique_vertices,
@@ -1110,8 +1086,6 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
                 r["bary_u"], r["bary_v"], r["bary_w"],
                 r["facet_planarity_flag"],
             )
-    else:
-        logger.info("[PLC FINAL] none")
     
     faces, unique_vertices, plc_repair_changed, plc_repair_summary = repair_plc_single_splits_iterative(
         faces,
@@ -1120,6 +1094,14 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         logger=logger,
         max_iters=20,
         planarity_tol_m=1e-6,
+    )
+
+    append_repair_report(
+        repair_report,
+        repair_type="repair_plc_single_splits_iterative",
+        affected_count=len(plc_hits) - plc_repair_summary["remaining_plc_hits"],
+        before={"intersections": len(plc_hits)},
+        after={"intersections": plc_repair_summary["remaining_plc_hits"]},
     )
     # unique_vertices, offset_changed, offset_summary = repair_plc_by_offset_iterative(
     #     faces,
@@ -1142,17 +1124,36 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
         max_reports=2000,
     )
-    revalidation_report = build_revalidation_report(
-        unique_vertices,
+    
+    plc_hits_final = detect_segment_facet_intersections_cdt(
         faces,
-        tjunctions=tjs_final,
-        intersections=plc_hits,
+        unique_vertices,
+        warn_planar_tol_m=1e-4,
+        fatal_planar_tol_m=1e-3,
+        eps=1e-10,
+        bbox_pad=1e-9,
+        max_reports=2000,
+        skip_warped_faces=True,
+        logger=logger,
     )
+
+    revalidation_report = {
+        "non_coplanar_faces": inspect_face_planarity_issues(faces, unique_vertices),
+        "T-junctions": tjs_final,
+        "intersections": {
+            "count": len(plc_hits_final),
+            "intersection_hits": plc_hits_final
+        },
+        "possible_holes": detect_possible_holes_from_faces(faces, unique_vertices),
+        "boundary_edges": detect_boundary_edges(faces, unique_vertices),
+        "degenerate_faces": detect_degenerate_faces(faces, unique_vertices)
+    }
+    
     report = create_geometry_processing_report(
         obj_file=obj_file,
         geo_file=geo_file,
         topology_before_repair=topology_before_repair,
-        issue_detection_report={},
+        issue_detection_report=issue_detection_report,
         repair_report=repair_report,
         revalidation_report=revalidation_report,
     )
