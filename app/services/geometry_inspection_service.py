@@ -228,8 +228,12 @@ def detect_possible_holes_from_faces(
     """
     Detect possible holes in a model using only face topology.
 
-    A "possible hole" here means a closed loop of boundary edges.
-    Boundary edges are edges that belong to exactly one face.
+    A "possible hole" here means a closed loop of boundary edges that is
+    supported by more than one adjacent face overall.
+
+    Boundary edges are edges that belong to exactly one face. Loops that are
+    contributed by only a single face are usually just open face perimeters,
+    not real hole candidates, so they are filtered out.
 
     This implementation finds all connected components of boundary edges
     and identifies those that form simple cycles (each vertex has degree 2).
@@ -249,6 +253,7 @@ def detect_possible_holes_from_faces(
         - "vertex_loop": list[tuple[float, float, float]]
         - "edge_loop": list[tuple[tuple[float, float, float], tuple[float, float, float]]]
         - "num_edges": int
+        - "adjacent_face_fids": list[int]
 
     Notes
     -----
@@ -299,6 +304,15 @@ def detect_possible_holes_from_faces(
     for comp in components:
         # Check if component is a cycle: all vertices have degree 2
         if all(len(adj[v]) == 2 for v in comp):
+            comp_boundary_edges = [e for e in boundary_edges if e[0] in comp and e[1] in comp]
+            adjacent_face_fids = sorted({fid for e in comp_boundary_edges for fid in edge_to_faces[e]})
+
+            # Real hole candidates should be bounded by more than one face.
+            # A loop formed entirely from one face is typically just an open
+            # perimeter of that face, not a hole in the surface.
+            if len(adjacent_face_fids) < 2:
+                continue
+
             # Traverse the cycle
             start_v = min(comp)
             vertex_loop = [unique_vertices[start_v - 1]]
@@ -319,6 +333,7 @@ def detect_possible_holes_from_faces(
                 "vertex_loop": vertex_loop,
                 "edge_loop": edge_loop,
                 "num_edges": len(edge_loop),
+                "adjacent_face_fids": adjacent_face_fids,
             })
 
     return loops
