@@ -73,10 +73,7 @@ def parse_obj_file(obj_file: str) -> Tuple[List[Tuple[float, float, float]], Lis
                 parts = line.split()
                 x, y, z = map(float, parts[1:4])
                 # SketchUp (Y-up, left-handed) -> Gmsh (right-handed), flip Z
-                if created_by_sketchup:
-                    vertices.append((x, -z, y))
-                else:
-                    vertices.append((x, y, z))
+                vertices.append((x, -z, y))
             elif line.startswith("g "):
                 parts = line.split()[1:]
                 parts = [p for p in parts if not p.startswith("Mesh") and not p.startswith("Model")]
