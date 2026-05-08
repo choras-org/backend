@@ -147,7 +147,6 @@ pydata-sphinx-theme # Docs theme
 myst_parser # Docs, required for markdown support
 sphinx-design # Docs, required for tabs and other design elements
 sphinx-copybutton # Docs, required for copy buttons in code blocks
-sphinx-gallery # Docs, required for example gallery
 matplotlib # Docs, required for plot directive
 pyroomacoustics
 docker
