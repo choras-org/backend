@@ -837,6 +837,8 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
     # 2) Parse OBJ file
     # -----------------------------
     vertices, raw_faces, face_groups, face_group_materials = parse_obj_file(obj_file)
+    logger.warning(face_groups)
+    logger.warning(face_group_materials)
     
     # -----------------------------
     # 3) Deduplicate vertices
@@ -852,7 +854,7 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         material_id_array,
         orig_to_unique
     )
-    
+    logger.warning(faces[:5])
     problematic_faces = inspect_face_planarity_issues(faces, unique_vertices)
 
     tjs = detect_t_junctions_from_facerecords_global_plc(

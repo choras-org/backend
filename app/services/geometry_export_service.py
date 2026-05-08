@@ -83,7 +83,7 @@ def export_processed_topology_to_gmsh_geo(
         for sid, (loop, face) in enumerate(zip(face_line_loops, faces), start=1):
             loop_str = ", ".join(str(x) for x in loop)
 
-            g.write(f"// fid={face.fid} group={face.group} material={face.material}\n")
+            # g.write(f"// fid={face.fid} group={face.group} material={face.material}\n")
             g.write(f"Line Loop({sid}) = {{ {loop_str} }};\n")
         g.write("\n")
 
@@ -129,10 +129,10 @@ def export_processed_topology_to_obj(
         faces           : list of FaceRecord (each carries verts, group, material)
     """
     try:
-        # Group faces by material for tidy output
-        faces_by_material: dict = defaultdict(list)
+        # Group faces by group first, then by group_material
+        faces_by_group_and_material: dict = defaultdict(lambda: defaultdict(list))
         for face in faces:
-            faces_by_material[face.material].append(face)
+            faces_by_group_and_material[face.group][face.group_material].append(face)
 
         with open(obj_output_path, "w") as f:
             f.write("# Processed topology from geometry conversion\n\n")
@@ -143,16 +143,17 @@ def export_processed_topology_to_obj(
 
             f.write("\n")
 
-            # Faces grouped by material
-            for material in sorted(faces_by_material.keys()):
-                f.write(f"\nusemtl {material}\n")
-                f.write(f"g {material}\n")
-                for face in faces_by_material[material]:
-                    f.write("f " + " ".join(str(v) for v in face.verts) + "\n")
+            # Faces grouped by group, then by group_material
+            for group in sorted(faces_by_group_and_material.keys()):
+                f.write(f"\ng {group}\n")
+                for group_material in sorted(faces_by_group_and_material[group].keys()):
+                    f.write(f"usemtl {group_material}\n")
+                    for face in faces_by_group_and_material[group][group_material]:
+                        f.write("f " + " ".join(str(v) for v in face.verts) + "\n")
 
         logger.info("Exported processed topology to: %s", obj_output_path)
-        logger.info("  - Vertices: %d, Faces: %d, Materials: %d",
-                    len(unique_vertices), len(faces), len(faces_by_material))
+        logger.info("  - Vertices: %d, Faces: %d, Groups: %d",
+                    len(unique_vertices), len(faces), len(faces_by_group_and_material))
         return True
 
     except Exception as ex:
