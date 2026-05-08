@@ -62,15 +62,22 @@ def parse_obj_file(obj_file: str) -> Tuple[List[Tuple[float, float, float]], Lis
     current_group_material = "default"
 
     with open(obj_file, "r") as f:
+        created_by_sketchup = False
         for raw in f:
             line = raw.strip()
             if not line:
                 continue
+            if (line.startswith("#") and "SketchUp" in line):
+                created_by_sketchup = True
             if line.startswith("v "):
                 parts = line.split()
                 x, y, z = map(float, parts[1:4])
                 # SketchUp (Y-up, left-handed) -> Gmsh (right-handed), flip Z
-                vertices.append((x, y, z))
+                if created_by_sketchup:
+                    z = -z
+                    vertices.append((x, z, y))
+                else:
+                    vertices.append((x, y, z))
             elif line.startswith("g "):
                 parts = line.split()[1:]
                 parts = [p for p in parts if not p.startswith("Mesh") and not p.startswith("Model")]
