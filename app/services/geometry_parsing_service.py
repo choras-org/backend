@@ -74,8 +74,7 @@ def parse_obj_file(obj_file: str) -> Tuple[List[Tuple[float, float, float]], Lis
                 x, y, z = map(float, parts[1:4])
                 # SketchUp (Y-up, left-handed) -> Gmsh (right-handed), flip Z
                 if created_by_sketchup:
-                    z = -z
-                    vertices.append((x, z, y))
+                    vertices.append((x, -z, y))
                 else:
                     vertices.append((x, y, z))
             elif line.startswith("g "):
