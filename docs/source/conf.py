@@ -22,7 +22,6 @@ extensions = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
-    "sphinx_gallery.gen_gallery",
 ]
 source_suffix = [".rst", ".md"]
 
@@ -58,10 +57,4 @@ html_theme_options = {
 
 html_context = {
    "default_mode": "light"
-}
-
-sphinx_gallery_conf = {
-    "examples_dirs": "../../simulation-backend/examples",   # path to your example scripts
-    "gallery_dirs": "auto_examples",  # path to where to save gallery generated output
-    "image_scrapers": ("matplotlib",),
 }
