@@ -1,6 +1,6 @@
 import rhino3dm
 import logging
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 from app.utils.geometry_utils import FaceRecord
 import logging
 logger = logging.getLogger(__name__)
@@ -161,7 +161,7 @@ def process_and_instantiate_faces(
     face_groups: List[str],
     face_group_materials: List[str],
     material_id_array: List[str],
-    orig_to_unique: Dict[int, int],
+    orig_to_unique: Optional[Dict[int, int]] = None,
 ) -> List[FaceRecord]:
     """
     Process raw faces by mapping vertex indices to unique indices, cleaning face loops,
@@ -177,8 +177,10 @@ def process_and_instantiate_faces(
         List of material names for each face.
     material_id_array : List[str]
         List of material IDs corresponding to each face.
-    orig_to_unique : Dict[int, int]
+    orig_to_unique : Dict[int, int], optional
         Mapping from original vertex indices to unique vertex indices.
+        If omitted, original vertex indices are assumed to already match
+        the unique vertex indices.
 
     Returns
     -------
@@ -189,6 +191,10 @@ def process_and_instantiate_faces(
 
     faces = []
     face_id = 0
+
+    if orig_to_unique is None:
+        max_vertex_id = max((vid for face in raw_faces for vid in face), default=0)
+        orig_to_unique = {i: i for i in range(1, max_vertex_id + 1)}
 
     for raw_face, grp, grp_mat, mat in zip(raw_faces, face_groups, face_group_materials, material_id_array):
         mapped = [orig_to_unique[i] for i in raw_face]

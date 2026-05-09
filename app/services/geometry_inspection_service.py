@@ -527,6 +527,43 @@ def detect_segment_facet_intersections_cdt(
     Reports intersections where a boundary segment (edge) intersects a triangle
     from a non-incident face.
 
+    Parameters
+    ----------
+    faces : list[FaceRecord]
+        List of FaceRecord objects (each must provide `.fid` and `.verts`,
+        with `.verts` being an ordered 1-based vertex id loop).
+    points : list[tuple[float, float, float]]
+        Global unique vertex coordinates (0-based list; vertex id i -> points[i-1]).
+    warn_planar_tol_m : float, optional
+        Warning tolerance for planarity checks in meters (default 1e-4).
+    fatal_planar_tol_m : float, optional
+        Fatal tolerance for planarity checks in meters (default 1e-3).
+    eps : float, optional
+        Numerical epsilon used by the segment-triangle intersection test.
+    bbox_pad : float, optional
+        Padding applied to AABB overlap checks to avoid missing near-boundary hits.
+    max_reports : int, optional
+        Maximum number of intersection reports to collect before returning.
+    skip_warped_faces : bool, optional
+        If True, faces flagged as non-planar ("fatal") are skipped from
+        triangulation and intersection tests.
+    logger : logging.Logger or None, optional
+        Logger used for informational messages.
+
+    Returns
+    -------
+    list[dict]
+        A list of intersection report dictionaries. Each report contains keys
+        such as:
+        - "edge": (u, v)  -- vertex ids defining the tested segment
+        - "edge_fids": list[int]  -- face ids adjacent to that edge
+        - "facet_fid": int  -- the face id of the triangle that was hit
+        - "facet_tri": (a, b, c)  -- triangle vertex ids
+        - "point": (x, y, z)  -- intersection point coordinates
+        - "t_param", "bary_u", "bary_v", "bary_w" -- intersection params
+        - "hit_type" -- classification string (vertex/edge/interior touch)
+        - "facet_planarity_flag" -- planarity status of the triangle's originating face
+
     Notes:
     - Uses CDT triangulation internally for faces with n>3 (good for concave).
     - If skip_warped_faces=True and planarity_fn provided:

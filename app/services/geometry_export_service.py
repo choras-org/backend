@@ -139,7 +139,8 @@ def export_processed_topology_to_obj(
 
             # Vertices
             for x, y, z in unique_vertices:
-                f.write(f"v {x} {y} {z}\n")
+                # previously we flipped z, now flip back for OBJ export
+                f.write(f"v {x} {z} {-y}\n")
 
             f.write("\n")
 
@@ -149,11 +150,7 @@ def export_processed_topology_to_obj(
                 for group_material in sorted(faces_by_group_and_material[group].keys()):
                     f.write(f"usemtl {group_material}\n")
                     for face in faces_by_group_and_material[group][group_material]:
-                        f.write("f " + " ".join(str(v) for v in face.verts) + "\n")
-
-        logger.info("Exported processed topology to: %s", obj_output_path)
-        logger.info("  - Vertices: %d, Faces: %d, Groups: %d",
-                    len(unique_vertices), len(faces), len(faces_by_group_and_material))
+                        f.write("f " + " ".join(f"{v}//1" for v in face.verts) + "\n")
         return True
 
     except Exception as ex:

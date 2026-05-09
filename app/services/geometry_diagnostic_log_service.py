@@ -186,7 +186,7 @@ def build_revalidation_report(
 def create_geometry_processing_report(
     *,
     obj_file: str,
-    geo_file: str,
+    repaired_obj: str,
     topology_before_repair: Dict[str, Any],
     issue_detection_report: Dict[str, Any],
     repair_report: List[Dict[str, Any]],
@@ -202,7 +202,7 @@ def create_geometry_processing_report(
     """
     return {
         "input_obj": obj_file,
-        "output_geo": geo_file,
+        "output_repaired_obj": repaired_obj,
         "topology_before_repair": topology_before_repair,
         "issue_detection_report": issue_detection_report,
         "repair_report": repair_report,
@@ -721,13 +721,6 @@ def log_topology(logger, label, faces):
     logger.info(f"[TOPO] {label}: "
                 f"faces={rep['n_faces']} edges={rep['n_unique_edges']} "
                 f"boundary_edges={rep['n_boundary_edges']} nonmanifold_edges={rep['n_nonmanifold_edges']} "
-                # f"nonmanifold_boundary={rep['has_nonmanifold_boundary']} "
-                # f"bdeg_hist={rep['boundary_degree_hist']} "
-                # f"bcomp={rep['boundary_component_kind_hist']}")
     )
-    # if rep["n_nonmanifold_edges"] > 0:
-    #     logger.info(f"[TOPO] {label}: nonmanifold_edges_sample={rep['nonmanifold_edges_sample']}")
-    # if rep["n_boundary_edges"] > 0:
-    #     logger.info(f"[TOPO] {label}: boundary_endpoints_sample={rep['boundary_endpoints_sample']} "
-    #                 f"boundary_branch_vertices_sample={rep['boundary_branch_vertices_sample']}")
+
     return rep
