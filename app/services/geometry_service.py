@@ -1281,10 +1281,8 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
             before={"intersections": len(plc_hits)},
             after={"intersections": plc_repair_summary["remaining_plc_hits"]},
         )
-    logger.warning("IM HERE BOY")
     obj_output_path = obj_file.replace(".obj", "_repaired.obj")
     export_processed_topology_to_obj(obj_output_path, unique_vertices, faces)
-    logger.warning("IM HERE BOY 2")
     tjs_final = detect_t_junctions_from_facerecords_global_plc(
         faces,
         unique_vertices,
@@ -1324,9 +1322,7 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
         repair_report=repair_report,
         revalidation_report=revalidation_report,
     )
-    logger.warning("IM HERE BOY 3")
     write_geometry_processing_report(report, report_path)
-    logger.warning("IM HERE BOY 4")
     return obj_output_path, report_path
 
 def convert_repaired_obj_to_gmsh_geo(repaired_obj_path, geo_file, rhino3dm_path, volume_name="RoomVolume"):
