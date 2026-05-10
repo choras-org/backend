@@ -118,7 +118,7 @@ class LocalExecutor(SimulationExecutor):
                 working_dir=self.work_dir,
                 name=container_name,
                 # name=f"simjob_{job_id[:8]}",
-                # remove = True,
+                remove = True,
             )
             return container
 
