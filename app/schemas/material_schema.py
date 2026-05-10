@@ -14,7 +14,7 @@ class MaterialUpdateSchema(Schema):
     absorptionCoefficients = fields.List(fields.Float())
 
 class MaterialSchema(MaterialCreateSchema):
-    id = fields.Number()
+    id = fields.Integer()
     origin = fields.String()
     createdAt = fields.String()
     updatedAt = fields.String()
