@@ -290,6 +290,7 @@ def start_solver_task(simulation_id):
                     "geo_path": geo_path,
                     "results": results_container,
                     "task_id": -1,
+                    "fs_auralization": 44100
                 },
                 indent=4,
             )
@@ -421,59 +422,86 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
             
+            # auralization: generate impulse response wav file
+            # TODO: move the auralization calculation to DE and write that
+            # to the JSON so that everything can be handled by the current
+            # default case and we can get rid of the match case.
+            match simulation_method:
+                case "DE":
+                    # TODO: This function is not a general auralization function and should be renamed
+                    imp_tot, fs = auralization_calculation(
+                        None,
+                        json_path.replace(".json", "_pressure.csv"),
+                        json_path.replace(".json", ".wav"),
+                    )
+
+                # this should be the only thing getting executed
+                case _:
+                    import numpy as np
+
+                    with open(json_path, "r") as json_file:
+                        result_container = json.load(json_file)
+
+                    imp_tot = np.array(result_container["results"][0]["responses"][0]["receiverResults"])
+                        
+                    with open(json_path, "r") as json_file:
+                        input_data = json.load(json_file)
+                        if "sampling_rate" in input_data["simulationSettings"]:
+                            fs = input_data["simulationSettings"]["sampling_rate"]
+                        else:
+                            fs = input_data["fs_auralization"] # 44100 by default
+
+                    rir_wav_file_name = json_path.replace(".json", ".wav")
+
+                    import pyfar as pf
+                    if imp_tot is None or len(imp_tot) == 0:
+                        logger.warning("Impulse response data is empty or missing")
+                        imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
+                        norm_rir = pf.Signal(imp_tot, fs) # don't use the pf.dsp.normalize function on an empty signal, as it returns NaN values.
+                    else:
+                        rir = pf.Signal(imp_tot, fs)
+                        # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
+                        norm_rir = pf.dsp.normalize(rir)
+
+                    pf.io.write_audio(norm_rir, rir_wav_file_name)
+                    logger.info(f"Impulse response shape: {imp_tot.shape}, sampling rate: {fs}")
+
             # logs = container.logs().decode("utf-8")
             # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
 
             if os.path.exists(cancel_flag_path):
-                logger.info("Cancelled: do not save to xlsx")
+                logger.info("Cancelled: Not saving to xlsx")
             else:
-                logger.info("Saving to xlsx...")
+                try:
+                    logger.info("Saving to xlsx...")
 
-                # save the simulation result json to xlsx
-                if not ExportHelper.parse_json_file_to_xlsx_file(
-                    json_path, json_path.replace(".json", ".xlsx")
-                ):
-                    logger.error("Error saving the result to xlsx")
-                    raise "Error saving the result to xlsx"
+                    # save the simulation result json to xlsx
+                    if not ExportHelper.parse_json_file_to_xlsx_file(
+                        json_path, json_path.replace(".json", ".xlsx")
+                    ):
+                        logger.error("Error saving the result to xlsx")
+                        raise RuntimeError("Error saving the result to xlsx")
 
-                # db - save the xlsx file path
-                export = Export(
-                    name=Path(json_path).name.replace(".json", ".xlsx"),
-                    simulationId=simulation.id,
-                )
-                session.add(export)
-
-                # auralization: generate impulse response wav file
-                # TODO: fix DG method such that this auralization works,
-                # the idea is to have one shared pipeline across all
-                # methods. 
-                match simulation_method:
-                    case "DG":
-                        imp_tot, fs = auralization_calculation_DG(
-                            None,
-                            json_path.replace(".json", "_pressure.csv"),
-                            json_path.replace(".json", ".wav"),
-                        )
-                    # this should be the only thing getting executed
-                    case _:
-                        imp_tot, fs = auralization_calculation(
-                            None,
-                            json_path.replace(".json", "_pressure.csv"),
-                            json_path.replace(".json", ".wav"),
-                        )
-                         
-
-                # auralization: save the impulse response to xlsx
-                if not ExportHelper.write_data_to_xlsx_file(
-                    json_path.replace(".json", ".xlsx"),
-                    CustomExportParametersConfig.impulse_response,
-                    {f"{fs}Hz": imp_tot},
-                ):
-                    logger.error(
-                        "Error saving the impulse response to xlsx"
+                    # db - save the xlsx file path
+                    export = Export(
+                        name=Path(json_path).name.replace(".json", ".xlsx"),
+                        simulationId=simulation.id,
                     )
-                    raise "Error saving the impulse response to xlsx"
-                            
+                    session.add(export)
+
+                    # auralization: save the impulse response to xlsx
+                    if not ExportHelper.write_data_to_xlsx_file(
+                        json_path.replace(".json", ".xlsx"),
+                        CustomExportParametersConfig.impulse_response,
+                        {f"{fs}Hz": imp_tot},
+                    ):
+                        logger.error(
+                            "Error saving the impulse response to xlsx"
+                        )
+                        raise RuntimeError("Error saving the impulse response to xlsx")
+                except Exception as ex:
+                    logger.error(f"Error during saving results: {ex}")
+                    raise RuntimeError(f"Error during saving results: {ex}")
                         
             result_container = {}
             if json_path is not None:
