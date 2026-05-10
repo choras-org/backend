@@ -23,7 +23,7 @@ from app.models.Auralization import Auralization
 from app.models.Export import Export
 from app.models.Model import Model
 from app.models.Simulation import Simulation
-from app.types import Status, TaskType
+from app.types import Status
 from config import AuralizationParametersConfig as AuralizationParameters
 from config import CustomExportParametersConfig, DefaultConfig, app_dir
 
@@ -244,9 +244,9 @@ def create_new_auralization(simulation_id: int, audiofile_id: int) -> Optional[A
         logger.info(f"Start running auralization task for auralization id: {auralization.id}")
 
         if debug_celery:
-            run_auralization(auralizationId=auralization.id, taskType=simulation.taskType.value)
+            run_auralization(auralizationId=auralization.id)
         else:
-            run_auralization.delay(auralizationId=auralization.id, taskType=simulation.taskType.value)
+            run_auralization.delay(auralizationId=auralization.id)
 
         logger.info(f"Auralization task for auralization id: {auralization.id} is running")
 
@@ -259,7 +259,7 @@ def create_new_auralization(simulation_id: int, audiofile_id: int) -> Optional[A
 
 
 @shared_task
-def run_auralization(auralizationId: int, taskType) -> None:
+def run_auralization(auralizationId: int) -> None:
     try:
         auralization: Auralization = get_auralization_by_id(auralizationId)
         auralization.status = Status.InProgress
@@ -286,13 +286,27 @@ def run_auralization(auralizationId: int, taskType) -> None:
         logger.debug("pressure_file_name: %s", pressure_file_name)
         logger.debug("wav_output_file_name: %s", wav_output_file_name)
 
-        logger.debug("match case Tasktype")
-        match taskType:
-            case TaskType.DE.value:
-                 _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
-            case TaskType.DG.value:
-                 _, _ = auralization_calculation_DG(signal_file_name, pressure_file_name, wav_output_file_name)
+        logger.debug("run auralization calculation")
 
+        match simulation.simulationMethod:
+            case "DE":
+                 _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
+            case "DG":
+                 _, _ = auralization_calculation_DG(signal_file_name, pressure_file_name, wav_output_file_name)
+            case _:
+                #TODO: We want a single universal auralization method,
+                # without having to switch logic between them for each simulation method. 
+                # This will be implemented in the function mono_aural_auralization, which will be a 
+                # general convolution-based auralization method using the RIR.
+                # This method does not rely on the pressure.csv file, but the wav file directly
+                pressure_file_name_wav = os.path.join(
+                    DefaultConfig.UPLOAD_FOLDER_NAME, export.name.replace(".xlsx", ".wav")
+                )
+                mono_aural_auralization(
+                    signal_file_name, 
+                    pressure_file_name_wav, 
+                    wav_output_file_name
+                )
 
         auralization.status = Status.Completed
 
@@ -304,6 +318,34 @@ def run_auralization(auralizationId: int, taskType) -> None:
         db.session.commit()
         logger.error(f"Error running this auralization {auralization.id}: {e}")
         abort(400, "Error running this auralization")
+
+
+def mono_aural_auralization(
+        signal_file_name: str, 
+        impulse_response_file_name_wav: str,
+        wav_output_file_name: str,
+    ) -> None:
+    """Create a mono-aural auralization by convolution.
+
+    If the sampling rates do not match, the impulse response is resampled to
+    match the sampling rate of the dry input signal.
+
+    Parameters
+    ----------
+    signal_file_name : str
+        The dry input signal file name (wav format).
+    impulse_response_file_name_wav : str
+        The impulse response file name (wav format).
+    wav_output_file_name : str
+        The convolved output signal file name (wav format).
+    """
+
+    import pyfar as pf
+    dry_signal = pf.io.read_audio(signal_file_name)
+    rir = pf.io.read_audio(impulse_response_file_name_wav)
+    rir_resampled = pf.dsp.resample(rir, dry_signal.sampling_rate)
+    convolved_signal = pf.dsp.convolve(rir_resampled, dry_signal)
+    pf.io.write_audio(convolved_signal, wav_output_file_name)
 
 
 # TODO: too long code, refactor this function

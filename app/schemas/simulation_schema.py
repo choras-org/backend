@@ -1,7 +1,7 @@
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
 from app.schemas.model_schema import ModelInfoBasicSchema
-from app.types import Setting, Status, TaskType
+from app.types import Setting, Status, TaskType, ResourceType
 
 
 class SolverSettingsSchema(Schema):
@@ -16,8 +16,9 @@ class SimulationCreateBodySchema(Schema):
     solverSettings = fields.Nested(SolverSettingsSchema)
     sources = fields.List(fields.Dict(), required=False)
     receivers = fields.List(fields.Dict(), required=False)
-    taskType = fields.Enum(TaskType, required=False)
+    simulationMethod = fields.String(required=False)
     settingsPreset = fields.Enum(Setting, required=False)
+    resourceType = fields.Enum(ResourceType, required=False)
 
 
 class SimulationSchema(SimulationCreateBodySchema):
@@ -59,7 +60,7 @@ class SimulationRunSchema(Schema):
     id = fields.Integer()
     sources = fields.List(fields.Dict())
     receivers = fields.List(fields.Dict())
-    taskType = fields.Enum(TaskType, required=True)
+    simulationMethod = fields.String(required=True)
     settingsPreset = fields.Enum(Setting, required=True)
     status = fields.Enum(Status, required=True)
     percentage = fields.Integer(required=False)

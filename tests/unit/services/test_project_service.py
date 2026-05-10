@@ -75,10 +75,11 @@ class ProjectServiceTests(BaseTestCase):
         """
         Test updating an existing project.
         """
-        updated_data = {"name": "Updated Project", "description": "Updated Description"}
+        updated_data = {"name": "Updated Project", "description": "Updated Description", "group": "Test Group"}
         updated_project = project_service.update_project(self.test_project.id, updated_data)
         self.assertEqual(updated_project.name, "Updated Project")
         self.assertEqual(updated_project.description, "Updated Description")
+        self.assertEqual(updated_project.group, "Test Group")
 
     def test_delete_project(self):
         """
