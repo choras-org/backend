@@ -480,7 +480,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                         json_path, json_path.replace(".json", ".xlsx")
                     ):
                         logger.error("Error saving the result to xlsx")
-                        raise "Error saving the result to xlsx"
+                        raise RuntimeError("Error saving the result to xlsx")
 
                     # db - save the xlsx file path
                     export = Export(
@@ -498,10 +498,10 @@ def run_solver(simulation_run_id: int, json_path: str):
                         logger.error(
                             "Error saving the impulse response to xlsx"
                         )
-                        raise "Error saving the impulse response to xlsx"
+                        raise RuntimeError("Error saving the impulse response to xlsx")
                 except Exception as ex:
                     logger.error(f"Error during saving results: {ex}")
-                    raise Exception(f"Error during saving results: {ex}")
+                    raise RuntimeError(f"Error during saving results: {ex}")
                         
             result_container = {}
             if json_path is not None:
