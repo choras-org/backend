@@ -1,0 +1,14 @@
+[
+    {
+        "simulationType": "DG",
+        "containerImage": "dg_image:latest",
+        "entryFile": "DGinterface.py",
+        "label": "DG"
+    },
+    {
+        "simulationType": "DE",
+        "containerImage": "de_image:latest",
+        "entryFile": "DEinterface.py",
+        "label": "DE"
+    }
+]

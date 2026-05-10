@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Dict, Any
 import logging
+import json
 import math
 import os
 import zipfile
@@ -991,6 +992,10 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         "count": len(plc_hits),
         "intersections_hits": plc_hits,
     }
+    try:
+        logger.warning("[PLC SAMPLE] first 5 hits: %s", json.dumps(plc_hits[:5], default=str))
+    except Exception:
+        logger.exception("Failed to log PLC sample hits")
        
 
     # ---------------------------------------------------------
@@ -1252,7 +1257,8 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
         skip_warped_faces=True,
         logger=logger,
     )
-    
+    for r in plc_hits[:5]:
+        logger.warning("[PLC] Intersection found: %s", r)
     if plc_hits:
         issue_detection_report["intersections"] = {
             "count": len(plc_hits),
@@ -1266,6 +1272,7 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
             tol=1e-9,
             logger=logger,
         )
+
         faces, unique_vertices, plc_repair_changed, plc_repair_summary = repair_plc_single_splits_iterative(
             faces,
             unique_vertices,

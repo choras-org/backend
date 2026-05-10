@@ -647,7 +647,11 @@ def trim_segment_face_intersections_iterative(
             logger=logger,
         )
 
-        seg_face_hits = [r for r in plc_hits if r.get("hit_type") == "segment_face_interior_intersection"]
+        seg_face_hits = [
+            r
+            for r in plc_hits
+            if r.get("hit_type") in ("segment_face_interior_intersection", "segment_edge_intersection")
+        ]
         if not seg_face_hits:
             diag = {
                 "status": "ok" if changed_any else "no_supported_hits",
@@ -1004,10 +1008,11 @@ def repair_plc_single_splits_iterative(
             if logger:
                 logger.info("[PLC REPAIR] stable after %d iterations: no PLC hits", it - 1)
             return faces, points, changed_any, summary
-
+        
         endpoint_face_hits = [
-            r for r in plc_hits
-            if r.get("hit_type") == "endpoint_face_interior_touch"
+            r
+            for r in plc_hits
+            if r.get("hit_type") in ("endpoint_face_interior_touch", "endpoint_edge_touch")
         ]
         summary["remaining_endpoint_face_hits"] = len(endpoint_face_hits)
 
