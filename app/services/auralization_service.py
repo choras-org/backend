@@ -345,8 +345,8 @@ def mono_aural_auralization(
     rir = pf.io.read_audio(impulse_response_file_name_wav)
     rir_resampled = pf.dsp.resample(rir, dry_signal.sampling_rate)
     convolved_signal = pf.dsp.convolve(rir_resampled, dry_signal)
-    pf.io.write_audio(convolved_signal, wav_output_file_name)
-
+    normalized_convolved_signal = pf.dsp.normalize(convolved_signal)
+    pf.io.write_audio(normalized_convolved_signal, wav_output_file_name)
 
 # TODO: too long code, refactor this function
 def auralization_calculation_DG(
