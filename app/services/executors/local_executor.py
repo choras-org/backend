@@ -103,32 +103,64 @@ class LocalExecutor(SimulationExecutor):
 
         logger.info(f"Resolved host path: {host_uploads_dir} for container path: {container_uploads_dir}")
 
+        # Common kwargs shared by the GPU-on and GPU-off run() calls.
+        _run_kwargs = dict(
+            image=image,
+            environment=env,  # JSON_PATH is the container path, valid in child too
+            volumes={
+                host_uploads_dir: {
+                    "bind": container_uploads_dir,  # same path in child container
+                    "mode": "rw",
+                }
+            },
+            detach=True,
+            working_dir=self.work_dir,
+            name=container_name,
+            # name=f"simjob_{job_id[:8]}",
+            remove=True,
+        )
+
         try:
             client = docker.from_env()
-            container = client.containers.run(
-                image=image,
-                environment=env,  # JSON_PATH is the container path, valid in child too
-                volumes={
-                    host_uploads_dir: {
-                        "bind": container_uploads_dir,  # same path in child container
-                        "mode": "rw",
-                    }
-                },
-                detach=True,
-                working_dir=self.work_dir,
-                name=container_name,
-                # name=f"simjob_{job_id[:8]}",
-                remove = True,
-                # Backend stays CPU; solver method containers get the GPU.
-                # count=-1 means "all visible GPUs". On hosts without
-                # nvidia-container-toolkit the request is silently ignored and
-                # the container runs CPU-only -- which is fine for CPU-only
-                # methods like pyroomacoustics.
-                device_requests=[
-                    docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])
-                ],
-            )
-            return container
+            # Try to pass the host GPU through to the spawned method container.
+            # `count=-1` means "all visible GPUs". This succeeds on Linux + Windows
+            # hosts that have nvidia-container-toolkit / a CUDA driver installed.
+            # On macOS, on Linux hosts without the nvidia runtime, and on any
+            # other host with no GPU, the Docker daemon rejects the request with
+            # a 500 "could not select device driver '' with capabilities: [[gpu]]".
+            # We catch that specific failure and transparently retry without the
+            # device request -- so CPU-only methods (pyroomacoustics, DE on a
+            # laptop without an NVIDIA GPU, etc.) keep working unchanged.
+            try:
+                container = client.containers.run(
+                    **_run_kwargs,
+                    device_requests=[
+                        docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])
+                    ],
+                )
+                logger.info(f"Container {container_name} started with GPU passthrough")
+                return container
+            except docker.errors.APIError as gpu_err:
+                # APIError covers the 500 from the daemon. Only fall back if
+                # the failure is specifically about the [[gpu]] capability;
+                # any other 500 (port conflict, OOM, etc.) is a real error
+                # and should propagate.
+                msg = str(gpu_err)
+                if "[[gpu]]" not in msg and "could not select device driver" not in msg:
+                    raise
+                logger.warning(
+                    f"GPU passthrough rejected by Docker daemon "
+                    f"({type(gpu_err).__name__}: {msg.splitlines()[0]}). "
+                    f"Retrying CPU-only for image {image}."
+                )
+                # Defensive: clean up any half-created container with the same name.
+                try:
+                    client.containers.get(container_name).remove(force=True)
+                except Exception:
+                    pass
+                container = client.containers.run(**_run_kwargs)
+                logger.info(f"Container {container_name} started CPU-only")
+                return container
 
         except Exception as e:
             logger.error(f"Failed to start Docker container: {e}")
