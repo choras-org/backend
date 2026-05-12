@@ -119,6 +119,14 @@ class LocalExecutor(SimulationExecutor):
                 name=container_name,
                 # name=f"simjob_{job_id[:8]}",
                 remove = True,
+                # Backend stays CPU; solver method containers get the GPU.
+                # count=-1 means "all visible GPUs". On hosts without
+                # nvidia-container-toolkit the request is silently ignored and
+                # the container runs CPU-only -- which is fine for CPU-only
+                # methods like pyroomacoustics.
+                device_requests=[
+                    docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])
+                ],
             )
             return container
 
