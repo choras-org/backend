@@ -242,11 +242,6 @@ def fix_t_junctions_by_edge_splitting_facerecords(
             break
 
         changed_any = True
-
-        # Re-run detector each pass so we only apply what still exists
-        # (You provide your detector; call it outside if you prefer)
-        # Here we stop early and let caller re-run if desired.
-        # If you want automatic multi-pass with detection, see the wrapper below.
         break
 
     return faces, changed_any

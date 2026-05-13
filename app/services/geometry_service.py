@@ -9,9 +9,9 @@ import zipfile
 import rhino3dm
 from flask_smorest import abort
 
-from app.services.geometry_inspection_service import detect_boundary_edges, detect_degenerate_faces, detect_possible_holes_from_faces, detect_segment_facet_intersections_cdt, detect_t_junctions_from_facerecords_global_plc, inspect_face_planarity_issues
+from app.services.geometry_inspection_service import detect_boundary_edges, detect_degenerate_faces, detect_duplicate_vertices, detect_possible_holes_from_faces, detect_segment_facet_intersections_cdt, detect_t_junctions_from_facerecords_global_plc, inspect_face_planarity_issues
 from app.services.geometry_export_service import export_processed_topology_to_gmsh_geo, export_processed_topology_to_obj
-from app.services.geometry_diagnostic_log_service import append_repair_report, build_issue_detection_report, build_revalidation_report, build_topology_report, create_geometry_processing_report, log_topology, write_geometry_processing_report
+from app.services.geometry_diagnostic_log_service import append_repair_report, build_issue_detection_report, build_revalidation_report, build_topology_report, convert_intersections_to_standard_format, convert_tjunctions_to_standard_format, create_geometry_processing_report, log_topology, write_geometry_processing_report
 from app.services.geometry_parsing_service import extract_rhino_materials, process_and_instantiate_faces, parse_obj_file, deduplicate_vertices
 from app.services.geometry_repair_service import fix_t_junctions_iterative, flip_all_faces_if_majority_inward, remove_degenerate_faces, repair_plc_by_offset_iterative, repair_plc_single_splits_iterative, sort_vertices_deterministically, trim_segment_face_intersections_iterative
 import config
@@ -868,7 +868,7 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         faces,
         unique_vertices,
         tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
-        max_reports=2000,
+        max_reports=200,
     )
 
     if tjs:
@@ -913,7 +913,7 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         faces,
         unique_vertices,
         tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
-        max_reports=2000,
+        max_reports=200,
     )
 
     if tjs:
@@ -943,7 +943,7 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
             faces,
             unique_vertices,
             tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
-            max_reports=2000,
+            max_reports=200,
         )
         append_repair_report(
             repair_report,
@@ -984,9 +984,8 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         fatal_planar_tol_m=1e-3,
         eps=1e-10,
         bbox_pad=1e-9,
-        max_reports=2000,
+        max_reports=200,
         skip_warped_faces=True,
-        logger=logger,
     )
     issue_detection_report["intersections"] = {
         "count": len(plc_hits),
@@ -1056,9 +1055,8 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         fatal_planar_tol_m=1e-3,
         eps=1e-10,
         bbox_pad=1e-9,
-        max_reports=2000,
+        max_reports=200,
         skip_warped_faces=True,
-        logger=logger,
     )
 
     if plc_hits:
@@ -1116,7 +1114,7 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         faces,
         unique_vertices,
         tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
-        max_reports=2000,
+        max_reports=200,
     )
     
     plc_hits_final = detect_segment_facet_intersections_cdt(
@@ -1126,9 +1124,8 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
         fatal_planar_tol_m=1e-3,
         eps=1e-10,
         bbox_pad=1e-9,
-        max_reports=2000,
+        max_reports=200,
         skip_warped_faces=True,
-        logger=logger,
     )
 
     revalidation_report = {
@@ -1155,7 +1152,70 @@ def obj_to_gmsh_geo_precise_with_repair_pipeline(
 
     return True
 
-def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, conformize_tol=None):
+def detect_geometry_issues(obj_file, rhino3dm_path, tol=1e-2, conformize_tol=None):
+    if conformize_tol is None:
+        conformize_tol = max(1e-7, tol)
+    
+    material_id_array = extract_rhino_materials(rhino3dm_path)
+
+    vertices, raw_faces, face_groups, face_group_materials = parse_obj_file(obj_file)
+
+    duplicate_reports = detect_duplicate_vertices(vertices, tol)
+    
+    # deduplication is needed to avoid false positives in downstream checks
+    unique_vertices, orig_to_unique = deduplicate_vertices(vertices, tol)
+
+    faces = process_and_instantiate_faces(
+        raw_faces,
+        face_groups,
+        face_group_materials,
+        material_id_array,
+        orig_to_unique
+    )
+    
+    problematic_faces = inspect_face_planarity_issues(faces, unique_vertices)
+    topology_before_repair = {}
+    topology_before_repair.update(build_topology_report(unique_vertices, faces))
+    
+    tjs = detect_t_junctions_from_facerecords_global_plc(
+        faces,
+        unique_vertices,
+        tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
+        max_reports=200,
+    )
+    
+    tjs_report = convert_tjunctions_to_standard_format(tjs)
+    
+    
+    unique_vertices, faces = sort_vertices_deterministically(unique_vertices, faces)
+    room_center = tuple(
+        sum(v[i] for v in unique_vertices) / len(unique_vertices)
+        for i in range(3)
+    )
+
+    flip_all_faces_if_majority_inward(faces, unique_vertices, room_center, logger=logger)
+    plc_hits = detect_segment_facet_intersections_cdt(
+        faces,
+        unique_vertices,
+        warn_planar_tol_m=1e-4,
+        fatal_planar_tol_m=1e-3,
+        eps=1e-10,
+        bbox_pad=1e-9,
+        max_reports=200,
+        skip_warped_faces=True,
+    )
+    intersection_report = convert_intersections_to_standard_format(plc_hits)
+    issue_detection_report = {
+        "non_coplanar_faces": problematic_faces,
+        "T-junctions": tjs_report,
+        "possible_holes": detect_possible_holes_from_faces(faces, unique_vertices),
+        "boundary_edges": detect_boundary_edges(faces, unique_vertices),
+        "degenerate_faces": detect_degenerate_faces(faces, unique_vertices),
+        "intersections": intersection_report,
+    }
+    return issue_detection_report
+
+def generate_repaired_obj_and_issue_report(obj_file, rhino3dm_path, tol=1e-2, conformize_tol=None):
     if conformize_tol is None:
         conformize_tol = max(1e-7, tol)
     
@@ -1175,7 +1235,7 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
         faces,
         unique_vertices,
         tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
-        max_reports=2000,
+        max_reports=200,
     )
     before_repair_tjs = tjs
     unique_vertices, faces = sort_vertices_deterministically(unique_vertices, faces)
@@ -1220,7 +1280,7 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
             faces,
             unique_vertices,
             tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
-            max_reports=2000,
+            max_reports=200,
         )
         append_repair_report(
             repair_report,
@@ -1253,9 +1313,8 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
         fatal_planar_tol_m=1e-3,
         eps=1e-10,
         bbox_pad=1e-9,
-        max_reports=2000,
+        max_reports=200,
         skip_warped_faces=True,
-        logger=logger,
     )
     for r in plc_hits[:5]:
         logger.warning("[PLC] Intersection found: %s", r)
@@ -1294,7 +1353,7 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
         faces,
         unique_vertices,
         tol=conformize_tol if conformize_tol is not None else max(1e-7, tol),
-        max_reports=2000,
+        max_reports=200,
     )
     
     plc_hits_final = detect_segment_facet_intersections_cdt(
@@ -1304,9 +1363,8 @@ def generate_repaired_obj_and_issue_report(obj_file,rhino3dm_path, tol=1e-2, con
         fatal_planar_tol_m=1e-3,
         eps=1e-10,
         bbox_pad=1e-9,
-        max_reports=2000,
+        max_reports=200,
         skip_warped_faces=True,
-        logger=logger,
     )
 
     revalidation_report = {

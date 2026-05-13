@@ -33,12 +33,12 @@ def inspect_face_planarity_issues(
     Returns
     -------
     List[Dict[str, Any]]
-        List of dictionaries containing problematic faces with their details:
-        - face: FaceRecord object
-        - status: "warning" or "fatal"
-        - max_dist_m: maximum distance from plane in meters
-        - rms_dist_m: RMS distance from plane in meters
-        - coordinates: list of (x, y, z) coordinates for the face vertices
+        List of dictionaries containing problematic faces:
+        - "type": str - always "face"
+        - "points": list[list[float]] - list of [x, y, z] coordinates for the face vertices
+        - "severity": str - "medium" for warning, "high" for fatal
+        - "worst_vertex_deviation": float - maximum distance from plane in meters
+        - "overall_spread_deviation": float - RMS distance from plane in meters
     """
     problematic_faces = []
 
@@ -54,16 +54,17 @@ def inspect_face_planarity_issues(
             # Get coordinates for the face vertices
             coordinates = [unique_vertices[vid - 1] for vid in face.verts]
 
+            severity = "medium" if status == "warning" else "high"
+
             face_info = {
-                "face": face,
-                "status": status,
-                "max_dist_m": max_dist_m,
-                "rms_dist_m": rms_dist_m,
-                "coordinates": coordinates,
+                "type": "face",
+                "points": [[coord[0], coord[1], coord[2]] for coord in coordinates],
+                "severity": severity,
+                "worst_vertex_deviation": max_dist_m,
+                "overall_spread_deviation": rms_dist_m,
             }
             problematic_faces.append(face_info)
 
-    logger.info(f"Found {len(problematic_faces)} faces with planarity issues")
     return problematic_faces
 
 def detect_boundary_edges(
@@ -88,10 +89,10 @@ def detect_boundary_edges(
     Returns
     -------
     list[dict]
-        One entry per boundary edge with:
-        - "edge": tuple[tuple[float, float, float], tuple[float, float, float]]
-        - "face_fids": list[int]
-        - "count": int
+        Standardized list of boundary edges. Each entry is a dict with:
+        - "type": str - always "edge"
+        - "points": list[list[float]] - list of two [x, y, z] coordinates for the edge endpoints
+        - "severity": str - always "medium"
 
     Notes
     -----
@@ -117,8 +118,9 @@ def detect_boundary_edges(
             coord_a = unique_vertices[a - 1]
             coord_b = unique_vertices[b - 1]
             boundary_edges.append({
-                "edge": (coord_a, coord_b),
-                "face_fids": face_fids[:],
+                "type": "edge",
+                "points": [[coord_a[0], coord_a[1], coord_a[2]], [coord_b[0], coord_b[1], coord_b[2]]],
+                "severity": "medium"
             })
 
     return boundary_edges
@@ -132,7 +134,7 @@ def detect_degenerate_faces(
     """
     Detect degenerate faces in a face set.
 
-    A degenerate face is one classified as "fatal" or "warning" by classify_face_degeneracy.
+    A degenerate face is one classified as "fatal" by classify_face_degeneracy.
 
     Parameters
     ----------
@@ -142,19 +144,17 @@ def detect_degenerate_faces(
         List of unique vertex coordinates in meters, 0-based indexed.
     fatal_area2_tol : float, optional
         Tolerance for fatal degeneracy (area squared proxy).
-    warn_area2_tol : float, optional
-        Tolerance for warning degeneracy (area squared proxy).
 
     Returns
     -------
     list[dict]
-        One entry per degenerate face:
-        - "fid": int
-        - "verts": list[int]
-        - "status": str ("fatal" or "warning")
-        - "area2": float (area squared proxy)
-        - "fatal_tol": float
-        - "warn_tol": float
+        Standardized list of degenerate faces. Each entry is a dict with:
+        - "type": str - always "face"
+        - "points": list[list[float]] - list of [x, y, z] coordinates for the face vertices
+        - "severity": str - always "high"
+        - "fid": int - face id
+        - "area2": float - area squared proxy
+        - "fatal_tol": float - tolerance used
 
     Notes
     -----
@@ -170,12 +170,14 @@ def detect_degenerate_faces(
         )
 
         if status == "fatal":
+            coordinates = [unique_vertices[vid - 1] for vid in f.verts]
             degenerate_faces.append({
-                "fid": f.fid,
-                "verts": f.verts[:],
-                "status": status,
-                "area2": area2,
-                "fatal_tol": fatal_area2_tol,
+                "type": "face",
+                "points": [[coord[0], coord[1], coord[2]] for coord in coordinates],
+                "severity": "high",
+                # "fid": f.fid,
+                # "area2": area2,
+                # "fatal_tol": fatal_area2_tol,
             })
 
     return degenerate_faces
@@ -248,12 +250,10 @@ def detect_possible_holes_from_faces(
     Returns
     -------
     list[dict]
-        One entry per detected boundary loop. Each entry contains:
-        - "loop_index": int
-        - "vertex_loop": list[tuple[float, float, float]]
-        - "edge_loop": list[tuple[tuple[float, float, float], tuple[float, float, float]]]
-        - "num_edges": int
-        - "adjacent_face_fids": list[int]
+        Standardized list of detected boundary loops. Each entry is a dict with:
+        - "type": str - always "edge_loop"
+        - "points": list[dict] - list of edge dicts, each with "type": "edge" and "points": list of two [x, y, z] coordinates
+        - "severity": str - always "high"
 
     Notes
     -----
@@ -328,12 +328,18 @@ def detect_possible_holes_from_faces(
                 cur_v = next_v
             # Close the loop
             edge_loop.append((unique_vertices[prev_v - 1], unique_vertices[cur_v - 1]))
+            
+            points = []
+            for edge in edge_loop:
+                points.append({
+                    "type": "edge",
+                    "points": [list(edge[0]), list(edge[1])]
+                })
+            
             loops.append({
-                "loop_index": len(loops),
-                "vertex_loop": vertex_loop,
-                "edge_loop": edge_loop,
-                "num_edges": len(edge_loop),
-                "adjacent_face_fids": adjacent_face_fids,
+                "type": "edge_loop",
+                "points": points,
+                "severity": "high"
             })
 
     return loops
@@ -404,7 +410,9 @@ def detect_t_junctions_from_facerecords_global_plc(
     Returns dicts like:
       {
         "edge": (u, v),
+        "edge_coordinates": [[x1, y1, z1], [x2, y2, z2]],
         "split_vertex": w,
+        "split_vertex_coordinates": [xw, yw, zw],
         "t_param": t,
         "edge_face_fids": [ ...faces that use (u,v)... ],
         "culprit_face_fid": <the face that uses (u,v) but doesn't include w>,
@@ -496,7 +504,9 @@ def detect_t_junctions_from_facerecords_global_plc(
             if len(v_face_fids) > 0 :
                 reports.append({
                     "edge": (u, v),
+                    "edge_coordinates": [[A[0], A[1], A[2]], [B[0], B[1], B[2]]],
                     "split_vertex": w,
+                    "split_vertex_coordinates": [P[0], P[1], P[2]],
                     "t_param": t,
                     "edge_face_fids": edge_face_fids,
                     "culprit_face_fid": culprit_fid,
@@ -507,6 +517,64 @@ def detect_t_junctions_from_facerecords_global_plc(
                 return reports
 
     return reports
+
+def detect_duplicate_vertices(vertices: List[Tuple[float, float, float]], tol: float = 1e-2) -> List[Dict[str, Any]]:
+    """
+    Detect duplicate vertices within a tolerance.
+
+    Parameters
+    ----------
+    vertices : list[tuple[float, float, float]]
+        List of vertex coordinates.
+    tol : float
+        Tolerance for considering vertices as duplicates.
+
+    Returns
+    -------
+    list[dict]
+        List of dictionaries containing duplicate vertices:
+        - "type": str - always "vertex"
+        - "points": list[list[float]] - list containing one sublist [x, y, z] of the vertex coordinates
+        - "severity": str - always "high"
+    """
+    unique_vertices = []
+    orig_to_unique = {}
+
+    for i, v in enumerate(vertices, start=1):
+        found = None
+        
+        for j, uv in enumerate(unique_vertices, start=1):
+            if (abs(uv[0] - v[0]) < tol and
+                abs(uv[1] - v[1]) < tol and
+                abs(uv[2] - v[2]) < tol):
+                found = j
+                break
+        if found is None:
+            unique_vertices.append(v)
+            orig_to_unique[i] = len(unique_vertices)
+        else:
+            orig_to_unique[i] = found
+
+    # Build duplicate groups
+    unique_to_originals = {}
+    for orig, uniq in orig_to_unique.items():
+        if uniq not in unique_to_originals:
+            unique_to_originals[uniq] = []
+        unique_to_originals[uniq].append(orig)
+
+    duplicate_reports = []
+    for uniq_idx, origs in unique_to_originals.items():
+        if len(origs) > 1:
+            # All originals in this group are duplicates
+            for orig in sorted(origs):
+                coord = vertices[orig - 1]
+                duplicate_reports.append({
+                    "type": "vertex",
+                    "points": [[coord[0], coord[1], coord[2]]],
+                    "severity": "medium"
+                })
+
+    return duplicate_reports
 
 # -----------------------------
 # PLC check: segment-facet intersections using CDT triangulation
@@ -519,9 +587,8 @@ def detect_segment_facet_intersections_cdt(
     fatal_planar_tol_m=1e-3,
     eps=1e-10,
     bbox_pad=1e-9,
-    max_reports=2000,
+    max_reports=200,
     skip_warped_faces=True,
-    logger=None,
 ) -> List[Dict[str,Any]]:
     """
     Reports intersections where a boundary segment (edge) intersects a triangle
@@ -547,8 +614,6 @@ def detect_segment_facet_intersections_cdt(
     skip_warped_faces : bool, optional
         If True, faces flagged as non-planar ("fatal") are skipped from
         triangulation and intersection tests.
-    logger : logging.Logger or None, optional
-        Logger used for informational messages.
 
     Returns
     -------
@@ -556,8 +621,10 @@ def detect_segment_facet_intersections_cdt(
         A list of intersection report dictionaries. Each report contains keys
         such as:
         - "edge": (u, v)  -- vertex ids defining the tested segment
+        - "edge_coordinates": list[tuple[float, float, float]]  -- coordinates of the edge endpoints
         - "edge_fids": list[int]  -- face ids adjacent to that edge
         - "facet_fid": int  -- the face id of the triangle that was hit
+        - "facet_fid_coordinates": list[tuple[float, float, float]]  -- coordinates of the original face vertices before triangulation
         - "facet_tri": (a, b, c)  -- triangle vertex ids
         - "point": (x, y, z)  -- intersection point coordinates
         - "t_param", "bary_u", "bary_v", "bary_w" -- intersection params
@@ -615,10 +682,6 @@ def detect_segment_facet_intersections_cdt(
                 "planar_flag": planar_flag,
             })
 
-    if logger is not None:
-        logger.info("[PLC] tri_soup=%d skipped_nonplanar_faces=%d tri_fail_faces=%d",
-                    len(tri_list), skipped_nonplanar, tri_fail)
-
     # 2) Unique edges + incident face ids
     edge_to_faces = defaultdict(set)
     edge_set = set()
@@ -667,10 +730,16 @@ def detect_segment_facet_intersections_cdt(
 
             I = vadd(P0, vmul(sub(P1, P0), t))
 
+            # Get original face coordinates before triangulation
+            original_face = next(f for f in faces if f.fid == tinfo["fid"])
+            facet_fid_coordinates = [points[vid - 1] for vid in original_face.verts]
+
             reports.append({
                 "edge": (u, v),
+                "edge_coordinates": [P0, P1],
                 "edge_fids": sorted(edge_to_faces[(u, v) if u < v else (v, u)]),
                 "facet_fid": tinfo["fid"],
+                "facet_fid_coordinates": facet_fid_coordinates,
                 "facet_tri": (a, b, c),
                 "point": I,
                 "t_param": float(t),

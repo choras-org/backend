@@ -183,6 +183,83 @@ def build_revalidation_report(
         "topology_after_repair": build_topology_report(vertices, faces),
     }
 
+def convert_tjunctions_to_standard_format(tjunctions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Convert T-junction detection output to a standardized format for diagnostic logging.
+
+    Parameters
+    ----------
+    tjunctions : list[dict]
+        Raw T-junction reports from detect_t_junctions_from_facerecords_global_plc.
+
+    Returns
+    -------
+    list[dict]
+        Standardized reports with "points" and "severity" keys.
+        Each report contains:
+        - "points": list of dicts with "type" ("edge" or "vertex") and "points" (coordinates).
+        - "severity": str, always "high".
+    """
+    standardized = []
+    for tj in tjunctions:
+        points = [
+            {
+                "type": "edge",
+                "points": tj["edge_coordinates"]
+            },
+            {
+                "type": "vertex",
+                "points": tj["split_vertex_coordinates"]
+            }
+        ]
+        standardized.append({
+            "type": "vertex_on_edge",
+            "points": points,
+            "severity": "high"
+        })
+    return standardized
+
+def convert_intersections_to_standard_format(intersections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Convert segment-facet intersection detection output to a standardized format for diagnostic logging.
+
+    Parameters
+    ----------
+    intersections : list[dict]
+        Raw intersection reports from detect_segment_facet_intersections_cdt.
+
+    Returns
+    -------
+    list[dict]
+        Standardized reports with "type", "points", and "severity" keys.
+        Each report contains:
+        - "type": str, always "edge_on_face".
+        - "points": list of dicts with "type" ("edge", "face", or "vertex") and "points" (coordinates).
+        - "severity": str, always "high".
+    """
+    standardized = []
+    for inter in intersections:
+        points = [
+            {
+                "type": "edge",
+                "points": inter["edge_coordinates"]
+            },
+            {
+                "type": "face",
+                "points": inter["facet_fid_coordinates"]
+            },
+            {
+                "type": "vertex",
+                "points": [inter["point"]]
+            }
+        ]
+        standardized.append({
+            "type": "edge_on_face",
+            "points": points,
+            "severity": "high"
+        })
+    return standardized
+
 def create_geometry_processing_report(
     *,
     obj_file: str,

@@ -62,13 +62,10 @@ def parse_obj_file(obj_file: str) -> Tuple[List[Tuple[float, float, float]], Lis
     current_group_material = "default"
 
     with open(obj_file, "r") as f:
-        created_by_sketchup = False
         for raw in f:
             line = raw.strip()
             if not line:
                 continue
-            if (line.startswith("#") and "SketchUp" in line):
-                created_by_sketchup = True
             if line.startswith("v "):
                 parts = line.split()
                 x, y, z = map(float, parts[1:4])
@@ -80,7 +77,6 @@ def parse_obj_file(obj_file: str) -> Tuple[List[Tuple[float, float, float]], Lis
                 current_group = parts[0] if parts else "default"
             elif line.startswith("usemtl "):
                 parts = line.split()[1:]
-                logger.info(f"Material directive: {parts[0]}")
                 current_group_material = parts[0] if parts else "default"
             elif line.startswith("f "):
                 parts = line.split()[1:]
@@ -126,10 +122,6 @@ def deduplicate_vertices(vertices: List[Tuple[float, float, float]], tol: float 
             orig_to_unique[i] = len(unique_vertices)
         else:
             orig_to_unique[i] = found
-
-    logger.info("03. Deduplicated vertices:")
-    logger.info(f"    unique_vertices: {len(unique_vertices)}")
-    
     return unique_vertices, orig_to_unique
 
 def clean_face_loop(verts: List[int]) -> List[int]:
