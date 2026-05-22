@@ -1,9 +1,8 @@
-name: Build and Push Docker Image (Linux only)
+name: Publish Docker Image on Main
 
 on:
   push:
-    branches: [ test/docker ]
-  workflow_dispatch:  # Allow manual trigger
+    branches: [ main ]
 
 env:
   IMAGE_NAME: silvinwillemsen/choras-backend
@@ -31,6 +30,19 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Get short git SHA
+        id: gitvars
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=stable-${{ steps.gitvars.outputs.short_sha }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -38,9 +50,8 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64  # Add linux/arm64 if you want multi-arch
           push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Show pushed images
-        run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ env.TAG }}
- 
+        run: docker buildx imagetools inspect ${IMAGE_NAME}:stable-${{ steps.gitvars.outputs.short_sha }}
