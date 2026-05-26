@@ -7,8 +7,8 @@ API_ENTRYPOINT=app:app
 APP_SETTINGS_MODULE=config.ProductionConfig
 
 # API service configuration
-API_HOST=0.0.0.0
-API_PORT=5000
+API_HOST=localhost
+API_PORT=5001
 
 # Secret key
 SECRET_KEY=<your-secret-key>
@@ -19,3 +19,7 @@ DATABASE_URL=sqlite:///production.db
 
 # Deployment platform
 PLATFORM_DEPLOY=AWS
+
+POSTGRES_DB=db_dev
+POSTGRES_USER=db_user
+POSTGRES_PASSWORD=db_password # Ensure this is set

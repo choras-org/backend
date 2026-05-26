@@ -8,7 +8,6 @@ from tests.unit import BaseTestCase
 
 
 class MaterialModelUnitTests(BaseTestCase):
-
     def test_create_material_success(self):
         """
         Test creating a material with valid data is successful.

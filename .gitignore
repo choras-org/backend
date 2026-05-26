@@ -1,3 +1,9 @@
+# vscode settings
+.vscode/
+
+.DS_Store
+results.pkl
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -6,12 +12,17 @@ __pycache__/
 # C extensions
 *.so
 
+*.npz
+*.h5
+*.hdf5
+
 # Distribution / packaging
 .Python
 build/
 develop-eggs/
 dist/
 downloads/
+tmp/
 eggs/
 .eggs/
 lib/
@@ -211,3 +222,12 @@ migrations/
 *.db
 
 uploads
+
+celerydb.sqlite
+
+# Results
+*result.mat
+results_on_the_run.mat
+MeasurementRoomTmp.json
+results*.json
+*MeasurementRoomTmp_pressure.csv

@@ -1,0 +1,80 @@
+{
+    "type": "simulationSettings",
+    "options": [
+        {
+            "name": "Freq. upper limit",
+            "id": "dg_freq_upper_limit",
+            "type": "integer",
+            "display": "text",
+            "min": 20,
+            "max": 4000,
+            "default": 200,
+            "step": 1,
+            "endAdornment": "Hz"
+        },
+        {
+            "name": "Speed of sound",
+            "id": "dg_c0",
+            "type": "float",
+            "display": "text",
+            "min": 100,
+            "max": 500,
+            "default": 343,
+            "step": 1,
+            "endAdornment": "m/s"
+        },
+        {
+            "name": "Air density",
+            "id": "dg_rho0",
+            "type": "float",
+            "display": "text",
+            "min": 0.001,
+            "max": 3,
+            "default": 1.213,
+            "step": 0.001,
+            "endAdornment": "kg/m^3"
+        },
+        {
+            "name": "Impulse Response length",
+            "id": "dg_ir_length",
+            "type": "float",
+            "display": "text",
+            "min": 0.01,
+            "max": 5,
+            "default": 0.1,
+            "step": 0.01,
+            "endAdornment": "s"
+        },
+        {
+            "name": "Poly order",
+            "id": "dg_poly_order",
+            "type": "integer",
+            "display": "text",
+            "min": 2,
+            "max": 10,
+            "default": 4,
+            "step": 1
+        },
+        {
+            "name": "Points per wavelength",
+            "id": "dg_ppw",
+            "type": "integer",
+            "display": "text",
+            "min": 2,
+            "max": 10,
+            "default": 2,
+            "step": 1
+        },
+        {
+            "name": "CFL",
+            "id": "dg_cfl",
+            "type": "float",
+            "display": "text",
+            "min": 0.001,
+            "max": 1,
+            "default": 1,
+            "step": 0.001
+        }
+
+    ]
+}

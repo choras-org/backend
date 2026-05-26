@@ -5,8 +5,7 @@ from app.types import Setting, Status, TaskType
 
 
 class SolverSettingsSchema(Schema):
-    dgSettings = fields.Dict()
-    deSettings = fields.Dict()
+    simulationSettings = fields.Dict()
 
 
 class SimulationCreateBodySchema(Schema):
@@ -70,6 +69,10 @@ class SimulationRunSchema(Schema):
     updatedAt = fields.String()
     completedAt = fields.String()
     simulation = fields.Nested(SimulationWithModelInfoSchema)
+
+
+class SimulationCancelSchema(Schema):
+    simulationId = fields.Integer()
 
 
 class SimulationWithRunSchema(SimulationSchema):

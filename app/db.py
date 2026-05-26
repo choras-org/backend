@@ -1,3 +1,4 @@
+import sqlalchemy
 from alembic import op
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
@@ -12,9 +13,7 @@ naming_convention = {
 
 
 def upgrade():
-    with op.batch_alter_table(
-        "test", schema=None, naming_convention=naming_convention
-    ) as batch_op:
+    with op.batch_alter_table("test", schema=None, naming_convention=naming_convention) as batch_op:
         batch_op.drop_constraint("fk_test_user_id_user", type_="foreignkey")
         batch_op.create_foreign_key(
             batch_op.f("fk_test_user_id_user"),
@@ -27,4 +26,4 @@ def upgrade():
 
 metadata = MetaData(naming_convention=naming_convention)
 
-db = SQLAlchemy()
+db: sqlalchemy = SQLAlchemy()

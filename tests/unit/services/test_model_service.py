@@ -10,7 +10,6 @@ from tests.unit import BaseTestCase
 
 
 class ModelServiceUnitTests(BaseTestCase):
-
     def setUp(self):
         """
         Set up test variables and initialize a new app context.
@@ -22,9 +21,7 @@ class ModelServiceUnitTests(BaseTestCase):
         self.ctx.push()
 
         # Create a dummy project to be used in the tests
-        self.project = Project(
-            name="Test Project", description="A test project", group="Test Group"
-        )
+        self.project = Project(name="Test Project", description="A test project", group="Test Group")
         self.db.session.add(self.project)
         self.db.session.commit()
 
@@ -144,9 +141,7 @@ class ModelServiceUnitTests(BaseTestCase):
         with self.app.app_context():
             # When/Then: Expect BadRequest error
             with self.assertRaises(BadRequest) as context:
-                model_service.update_model(
-                    999, {"name": "Updated Model Name"}
-                )  # Non-existent ID
+                model_service.update_model(999, {"name": "Updated Model Name"})  # Non-existent ID
 
             # Ensure the logger was called with the expected message
             self.assertIn("400 Bad Request", str(context.exception))

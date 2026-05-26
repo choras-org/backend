@@ -8,7 +8,6 @@ from tests.unit import BaseTestCase
 
 
 class ProjectServiceTests(BaseTestCase):
-
     def setUp(self):
         """
         Set up test variables and initialize a new app context.
@@ -20,9 +19,7 @@ class ProjectServiceTests(BaseTestCase):
         self.ctx.push()
 
         # Create a test database entry
-        self.test_project = Project(
-            name="Test Project", group="Test Group", description="Test Description"
-        )
+        self.test_project = Project(name="Test Project", group="Test Group", description="Test Description")
         db.session.add(self.test_project)
         db.session.commit()
 
@@ -44,9 +41,7 @@ class ProjectServiceTests(BaseTestCase):
         self.assertGreaterEqual(len(projects), 1)
         self.assertEqual(projects[0].name, "Test Project")
 
-    @patch(
-        "app.services.simulation_service.get_simulation_by_model_id", return_value=[]
-    )
+    @patch("app.services.simulation_service.get_simulation_by_model_id", return_value=[])
     def test_get_all_projects_simulations(self, mock_get_simulation_by_model_id):
         """
         Test retrieving all projects with simulations.
@@ -81,9 +76,7 @@ class ProjectServiceTests(BaseTestCase):
         Test updating an existing project.
         """
         updated_data = {"name": "Updated Project", "description": "Updated Description"}
-        updated_project = project_service.update_project(
-            self.test_project.id, updated_data
-        )
+        updated_project = project_service.update_project(self.test_project.id, updated_data)
         self.assertEqual(updated_project.name, "Updated Project")
         self.assertEqual(updated_project.description, "Updated Description")
 

@@ -1,0 +1,26 @@
+{
+    "type": "simulationSettings",
+    "options": [
+        {
+            "name": "MyNewMethod parameter 1",
+            "id": "mnm_1",
+            "type": "float",
+            "display": "text",
+            "min": 0,
+            "max": 1,
+            "default": 0.5,
+            "step": 0.01,
+            "endAdornment": ""
+        },
+        {
+            "name": "MyNewMethod parameter 2",
+            "id": "mnm_2",
+            "type": "float",
+            "display": "slider",
+            "min": 0,
+            "max": 100,
+            "step": 0.1,
+            "default": null
+        }
+    ]
+}

@@ -18,11 +18,7 @@ def allowed_file(filename):
     :param filename:
     :return:
     """
-    return (
-        "." in filename
-        and filename.rsplit(".", 1)[1].lower()
-        in config.DefaultConfig.ALLOWED_EXTENSIONS
-    )
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in config.DefaultConfig.ALLOWED_EXTENSIONS
 
 
 def get_slot():
@@ -56,14 +52,10 @@ def create_file(query_data, body_data):
         if upload_file and allowed_file(upload_file.filename):
             filename = secure_filename(upload_file.filename)
             file_ext = filename.rsplit(".", 1)[1].lower()
-            unique_filename = (
-                f"{filename.rsplit('.', 1)[0]}_{uuid.uuid4().hex}.{file_ext}"
-            )
+            unique_filename = f"{filename.rsplit('.', 1)[0]}_{uuid.uuid4().hex}.{file_ext}"
 
             file.fileName = unique_filename
-            upload_file.save(
-                os.path.join(config.DefaultConfig.UPLOAD_FOLDER, unique_filename)
-            )
+            upload_file.save(os.path.join(config.DefaultConfig.UPLOAD_FOLDER, unique_filename))
 
             db.session.commit()
     except Exception as ex:
@@ -96,8 +88,8 @@ def get_file_by_id(file_id):
     file = File.query.filter_by(id=file_id).first()
 
     if not file:
-        logger.error("File with id " + str(file_id) + "does not exists!")
-        abort(400, message="File doesn't exists!")
+        logger.error("File with id " + str(file_id) + "does not exist!")
+        abort(400, message="File doesn't exist!")
     return file
 
 

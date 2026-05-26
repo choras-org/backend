@@ -1,16 +1,16 @@
 import unittest
+from pathlib import Path
 
 import click
 import coverage
 from passlib.hash import pbkdf2_sha256
 
 from app.db import db
-from app.services import material_service
+from app.services import auralization_service, material_service, setting_service
+from config import DefaultConfig
 
 
-@click.option(
-    "--pattern", default="test*.py", help="Test search pattern", required=False
-)
+@click.option("--pattern", default="test*.py", help="Test search pattern", required=False)
 def cov(pattern):
     """
     Run the unit tests with coverage
@@ -20,9 +20,7 @@ def cov(pattern):
 
     # Discover tests in both the unit and integration directories
     unit_tests = unittest.TestLoader().discover("tests/unit", pattern=pattern)
-    integration_tests = unittest.TestLoader().discover(
-        "tests/integration", pattern=pattern
-    )
+    integration_tests = unittest.TestLoader().discover("tests/integration", pattern=pattern)
     all_tests = unittest.TestSuite([unit_tests, integration_tests])
 
     result = unittest.TextTestRunner(verbosity=2).run(all_tests)
@@ -36,9 +34,7 @@ def cov(pattern):
     return 1
 
 
-@click.option(
-    "--pattern", default="test*.py", help="Test search pattern", required=False
-)
+@click.option("--pattern", default="test*.py", help="Test search pattern", required=False)
 def cov_html(pattern):
     """
     Run the unit tests with coverage and generate an HTML report.
@@ -48,9 +44,7 @@ def cov_html(pattern):
 
     # Discover tests in both the unit and integration directories
     unit_tests = unittest.TestLoader().discover("tests/unit", pattern=pattern)
-    integration_tests = unittest.TestLoader().discover(
-        "tests/integration", pattern=pattern
-    )
+    integration_tests = unittest.TestLoader().discover("tests/integration", pattern=pattern)
     all_tests = unittest.TestSuite([unit_tests, integration_tests])
 
     result = unittest.TextTestRunner(verbosity=2).run(all_tests)
@@ -74,9 +68,7 @@ def tests(pattern):
     """
     # Discover tests in both the unit and integration directories
     unit_tests = unittest.TestLoader().discover("tests/unit", pattern=pattern)
-    integration_tests = unittest.TestLoader().discover(
-        "tests/integration", pattern=pattern
-    )
+    integration_tests = unittest.TestLoader().discover("tests/integration", pattern=pattern)
     all_tests = unittest.TestSuite([unit_tests, integration_tests])
 
     result = unittest.TextTestRunner(verbosity=2).run(all_tests)
@@ -91,6 +83,8 @@ def create_db():
     """
     db.create_all()
     material_service.insert_initial_materials()
+    auralization_service.insert_initial_audios_examples()
+    setting_service.insert_initial_settings()
     db.session.commit()
 
 
@@ -101,6 +95,8 @@ def reset_db():
     db.drop_all()
     db.create_all()
     material_service.insert_initial_materials()
+    auralization_service.insert_initial_audios_examples()
+    setting_service.insert_initial_settings()
     db.session.commit()
 
 
@@ -112,14 +108,49 @@ def drop_db():
     db.session.commit()
 
 
+def clean_cache():
+    """
+    Clean cache in the folder.
+    """
+
+    def remove_file(directory: Path):
+        for item in directory.iterdir():
+            if item.is_file():
+                item.unlink()
+            else:
+                remove_file(item)
+                item.rmdir()
+
+    cache_folder = Path(DefaultConfig.UPLOAD_FOLDER_NAME)
+    if cache_folder.exists() and cache_folder.is_dir():
+        remove_file(cache_folder)
+
+
+def update_audio():
+    """
+    Update audio files based on Json file.
+    """
+    auralization_service.update_audios_examples()
+
+
+def update_setting():
+    """
+    Update setting files based on Json file.
+    """
+    setting_service.update_settings()
+
+
 def init_app(app):
     if app.config["APP_ENV"] == "production":
-        commands = [create_db, reset_db, drop_db]
+        commands = [create_db, reset_db, drop_db, clean_cache, update_audio, update_setting]
     else:
         commands = [
             create_db,
             reset_db,
             drop_db,
+            clean_cache,
+            update_audio,
+            update_setting,
             tests,
             cov_html,
             cov,

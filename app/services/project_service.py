@@ -70,6 +70,7 @@ def update_project(project_id, project_data):
     try:
         project.name = project_data["name"]
         project.description = project_data["description"]
+        project.group = project_data["group"].strip()
         db.session.commit()
     except Exception as ex:
         db.session.rollback()

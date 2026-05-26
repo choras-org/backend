@@ -1,12 +1,7 @@
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
-from app.schemas.model_schema import (
-    ModelCreateSchema,
-    ModelInfoSchema,
-    ModelSchema,
-    ModelUpdateSchema,
-)
+from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelSchema, ModelUpdateSchema
 from app.services import model_service
 
 blp = Blueprint("Model", __name__, description="Model API")

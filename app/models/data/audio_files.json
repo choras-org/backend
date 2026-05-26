@@ -1,0 +1,15 @@
+[
+    {
+      "name": "english_speaker.wav",
+      "filename": "english_speaker.wav",
+      "description": "An English speaker reading a short dialogue.",
+      "fileExtension": "wav"
+    },
+    {
+      "name": "jazz_song.wav",
+      "filename": "jazz_song.wav",
+      "description": "I made this Jazz by Suno, the lyrics are the mantra from my colleague, Rezene.",
+      "fileExtension": "wav"
+    }
+  ]
+  

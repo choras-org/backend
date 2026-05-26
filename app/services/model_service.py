@@ -1,10 +1,10 @@
 import logging
 
-from flask import abort
 from flask_smorest import abort
 
 from app.db import db
 from app.models import Model
+from config import FeatureToggle
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -17,6 +17,9 @@ def create_new_model(model_data):
         sourceFileId=model_data["sourceFileId"],
         outputFileId=model_data["sourceFileId"],
     )
+
+    if FeatureToggle.is_enabled("enable_geo_conversion"):
+        new_model.hasGeo = True
 
     try:
         db.session.add(new_model)

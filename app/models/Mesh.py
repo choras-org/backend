@@ -9,9 +9,7 @@ class Mesh(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
     taskId = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=False)
-    task = db.relationship(
-        "Task", backref="mesh", cascade="all, delete", foreign_keys=[taskId]
-    )
+    task = db.relationship("Task", backref="mesh", cascade="all, delete", foreign_keys=[taskId])
 
     createdAt = db.Column(db.String(), default=datetime.now())
     updatedAt = db.Column(db.String(), default=datetime.now())

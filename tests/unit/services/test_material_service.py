@@ -29,16 +29,14 @@ class UsersUnitTests(BaseTestCase):
         # Ensure that materials are inserted correctly
         self.assertTrue(len(materials) > 0)
 
-    @patch(
-        "app.services.material_service.open", side_effect=Exception("File read error")
-    )
+    @patch("app.services.material_service.open", side_effect=Exception("File read error"))
     def test_insert_initial_materials_file_error(self, mock_open):
         """
         Test that `insert_initial_materials` logs and aborts when the JSON file cannot be read.
         """
         with self.app.app_context():
             # When: File reading raises an exception
-            with self.assertRaises(Exception) as context:
+            with self.assertRaises(Exception):
                 material_service.insert_initial_materials()
 
             # Then: Assert logger.error was called
@@ -160,24 +158,7 @@ class UsersUnitTests(BaseTestCase):
                 material_service.get_material_by_id(9999)
 
             # Then: Assert logger.error was called with the expected message
-            mock_logger.error.assert_called_with(
-                "Material with id 9999 does not exists!"
-            )
-
-    @patch(
-        "app.services.material_service.open", side_effect=Exception("File read error")
-    )
-    def test_insert_initial_materials_file_error(self, mock_open):
-        """
-        Test that `insert_initial_materials` logs and aborts when the JSON file cannot be read.
-        """
-        with self.app.app_context():
-            # When: File reading raises an exception
-            with self.assertRaises(Exception) as context:
-                material_service.insert_initial_materials()
-
-            # Then: Assert logger.error was called
-            mock_open.assert_called_once()
+            mock_logger.error.assert_called_with("Material with id 9999 does not exists!")
 
 
 if __name__ == "__main__":

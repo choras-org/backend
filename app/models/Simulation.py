@@ -16,15 +16,13 @@ class Simulation(db.Model):
     hasBeenEdited = db.Column(db.Boolean, nullable=False, default=False)
     sources = db.Column(JSON, default=[])
     receivers = db.Column(JSON, default=[])
-    taskType = db.Column(db.Enum(TaskType), default=TaskType.BOTH)
+    taskType = db.Column(db.Enum(TaskType), default=TaskType.DE)
     layerIdByMaterialId = db.Column(JSON, default={})
     settingsPreset = db.Column(db.Enum(Setting), default=Setting.Default)
     solverSettings = db.Column(JSON, nullable=False)
     status = db.Column(db.Enum(Status), default=Status.Created)
 
-    modelId = db.Column(
-        db.Integer, db.ForeignKey("models.id", ondelete="CASCADE"), nullable=False
-    )
+    modelId = db.Column(db.Integer, db.ForeignKey("models.id", ondelete="CASCADE"), nullable=False)
 
     simulationRunId = db.Column(
         db.Integer,

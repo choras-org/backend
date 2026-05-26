@@ -1,23 +1,35 @@
-Welcome to Room Acoustics Backend's documentation
+Welcome to the CHORAS backend documentation
 =================================================
 ----
 
-This is the backend implementation documentation for room acoustics software for research, education and industry in acoustics.
+This is the backend implementation documentation for the Community Hub for Open-source Room Acoustics Software (CHORAS).
 
-The software is using the `Acoustics Diffusion Equation (DE) Method <https://github.com/Building-acoustics-TU-Eindhoven/Diffusion>`_ and `Wave-based Room Acoustics (DG) Method <https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics>`_ as sub-modules for modeling of sound behaviour in complex geometrical spaces.
+CHORAS is a platform that intends to connect developers, researchers and users in the room acoustics community. We believe that a community platform like CHORAS will increase the impact of our collective work, by bridging the gap between powerful room acoustics simulators on the one hand, and other researchers and end users on the other.
 
-The software has been implemented in Python using the Flask framework. Currently, it has been tested only in the development environment. Future plans include support for Docker and deployment in production environments. The application supports SQLite3 as the default database, with provisions for PostgreSQL as an alternative.
+The software currently uses the `Acoustic Diffusion Equation (DE) Method <https://github.com/Building-acoustics-TU-Eindhoven/Diffusion>`_ and `Discontinuous Galerkin (DG) Method <https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics>`_ as sub-modules for modeling of sound behaviour in complex geometrical spaces. In the near future, we intend to couple other simulation methods to the CHORAS backend, creating a platform that makes various room acoustics simulation methods easily accessible and allows for effortless comparison between these.
 
-
-.. toctree::
-   :maxdepth: 3
-   :caption: 🚀 Overview
-
-   includes/overview.md
-   includes/getting_started.md
+Please follow the steps provided here to setup the CHORAS backend.
 
 .. toctree::
-   :maxdepth: 3
-   :caption: 📚 Guide
+   :maxdepth: 1
+   :caption: Setup Instructions
 
-   includes/development.md
+   includes/setup.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contribution Guidelines
+
+   includes/contributing.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API Reference
+
+   includes/api_documentation.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Example Gallery
+
+   auto_examples/index

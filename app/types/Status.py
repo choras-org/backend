@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class Status(Enum):
+    Uncreated = "Uncreated"
     Created = "Created"
     Queued = "Queued"
     InProgress = "InProgress"
