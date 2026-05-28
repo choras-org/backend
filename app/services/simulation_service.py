@@ -434,6 +434,13 @@ def run_solver(simulation_run_id: int, json_path: str):
                         json_path.replace(".json", "_pressure.csv"),
                         json_path.replace(".json", ".wav"),
                     )
+                case  "sparrowpy":
+                    # TODO: This function is not a general auralization function and should be renamed
+                    imp_tot, fs = auralization_calculation(
+                        None,
+                        json_path.replace(".json", "_pressure.csv"),
+                        json_path.replace(".json", ".wav"),
+                    )
 
                 # this should be the only thing getting executed
                 case _:
@@ -501,8 +508,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                         raise RuntimeError("Error saving the impulse response to xlsx")
                 except Exception as ex:
                     logger.error(f"Error during saving results: {ex}")
-                    raise RuntimeError(f"Error during saving results: {ex}")
-                        
+
             result_container = {}
             if json_path is not None:
                 with open(json_path, "r") as json_file:
