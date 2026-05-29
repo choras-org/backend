@@ -110,6 +110,7 @@ rhino3dm==8.6.1
 rich==13.7.1
 rpds-py==0.18.1
 scipy==1.14.0
+shapely==2.1.2
 six==1.16.0
 snowballstemmer==2.2.0
 soundfile==0.13.1
