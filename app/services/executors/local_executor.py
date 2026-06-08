@@ -87,7 +87,7 @@ class LocalExecutor(SimulationExecutor):
             sim_config (Dict[str, Any]): Dictionary containing simulation-specific configuration, including environment variables.
 
         Returns:
-            tuple: The Docker container object representing the running simulation.
+            container: The Docker container object representing the running simulation.
 
         Raises:
             Exception: If the Docker container fails to start.
