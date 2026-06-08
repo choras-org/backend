@@ -130,16 +130,17 @@ class LocalExecutor(SimulationExecutor):
             def _stream_docker_container_logs() -> None:
                 """Helper function to write the Docker container logs in a separate thread.
                 """
+                prefix = f"[LocalExecutor - SimulationMethod: {simulation_method}]"
                 try:
                     for chunk in container.logs(stream=True, follow=True):
                         log_line = chunk.decode("utf-8", errors="replace").rstrip("\r\n")
                         if log_line:
                             logger.info(
-                                f"[LocalExecutor - SimulationMethod {simulation_method}] {log_line}"
+                                f"{prefix} {log_line}"
                             )
                 except Exception:
                     logger.exception(
-                        f"[LocalExecutor - SimulationMethod ({simulation_method})] Failed to stream container logs"
+                        f"{prefix} Failed to stream container logs"
                     )
 
             threading.Thread(
