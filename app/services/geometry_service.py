@@ -457,7 +457,7 @@ def convert_3dm_to_geo(
 
 def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="RoomVolume", tol=1e-8):
     """
-    Parse OBJ preserving groups, deduplicate vertices, merge triangle pairs into quads,
+    Parse OBJ preserving groups, deduplicate vertices,
     create Lines with consistent orientation and Line Loops with signed line indices,
     and write a Gmsh .geo with Physical Surface groups.
     """
