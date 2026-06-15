@@ -7,12 +7,13 @@ from flask_smorest import abort
 from werkzeug.utils import secure_filename
 
 from app.db import db
-from app.models import Model, File
+from app.models import Model, File, ModelIssue
+from app.types import DetectionStage
 from config import FeatureToggle, DefaultConfig
 from datetime import datetime
 from app.services.geometry_service import (
     run_inspect_for_file_upload,
-    run_inspect_pipeline_for_obj
+    run_repair_pipeline
 )
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -40,7 +41,6 @@ def create_new_model(model_data):
                 file_name, _ = os.path.splitext(os.path.basename(file.fileName))
                 issue_path = os.path.join(directory, f"{file_name}_issue.json")
                 obj_path = os.path.join(directory, f"{file_name}.obj")
-                rhino3dm_path = os.path.join(directory, f"{file_name}.3dm")
                 geo_path = os.path.join(directory, f"{file_name}.geo")
                 try:
                     # Run the inspect pipeline to generate an issue report for the uploaded file
@@ -48,10 +48,16 @@ def create_new_model(model_data):
                     logger.warning(
                         f"Inspect report for file upload {model_data['sourceFileId']} generated at: {issue_path} with {issue_count} issues found"
                     )
-                    run_inspect_pipeline_for_obj(
+                    model_issue = ModelIssue(
+                        modelId=new_model.id,
+                        fileName=issue_path,
+                        issueCount=issue_count,
+                        detectionStage=DetectionStage.AfterUpload,
+                    )
+                    db.session.add(model_issue)
+                    run_repair_pipeline(
                         obj_path,
                         geo_path,
-                        rhino3dm_path,
                         volume_name="RoomVolume",
                     )
                 except Exception as ex:
