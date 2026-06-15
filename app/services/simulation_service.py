@@ -135,6 +135,7 @@ def delete_simulation_run(simulation_run_id):
 
 
 def get_simulation_by_id(simulation_id):
+    db.session.expire_all()
     simulation = Simulation.query.filter_by(id=simulation_id).first()
     if not simulation:
         logger.error("Simulation with id " + str(simulation_id) + " does not exist!")
