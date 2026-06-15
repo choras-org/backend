@@ -12,6 +12,7 @@ from config import FeatureToggle, DefaultConfig
 from datetime import datetime
 from app.services.geometry_service import (
     run_inspect_for_file_upload,
+    run_inspect_pipeline_for_obj
 )
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -38,11 +39,20 @@ def create_new_model(model_data):
             if file:
                 file_name, _ = os.path.splitext(os.path.basename(file.fileName))
                 issue_path = os.path.join(directory, f"{file_name}_issue.json")
+                obj_path = os.path.join(directory, f"{file_name}.obj")
+                rhino3dm_path = os.path.join(directory, f"{file_name}.3dm")
+                geo_path = os.path.join(directory, f"{file_name}.geo")
                 try:
                     # Run the inspect pipeline to generate an issue report for the uploaded file
                     _, issue_count = run_inspect_for_file_upload(file_name, issue_path)
                     logger.warning(
                         f"Inspect report for file upload {model_data['sourceFileId']} generated at: {issue_path} with {issue_count} issues found"
+                    )
+                    run_inspect_pipeline_for_obj(
+                        obj_path,
+                        geo_path,
+                        rhino3dm_path,
+                        volume_name="RoomVolume",
                     )
                 except Exception as ex:
                     # don't abort creation for pipeline failures; log and continue

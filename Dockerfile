@@ -54,8 +54,8 @@ RUN apt-get update && \
 
 # Copy repository and run the native build script for geom_pipeline
 COPY . /src
-# Note: the submodule repo is named 'geom_pipeline' but the Python package is 'geometry-pipeline'.
-WORKDIR /src/geometry-pipeline/src/geometry-pipeline/volume/_native
+# Note: the submodule folder is 'geometry-pipeline' but the Python package dir is 'geometry_pipeline'.
+WORKDIR /src/geometry-pipeline/src/geometry_pipeline/volume/_native
 # Normalize potential Windows CRLF line endings so the shebang works on Linux.
 RUN sed -i 's/\r$//' build.sh
 RUN chmod +x build.sh || true

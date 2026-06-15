@@ -1,12 +1,10 @@
 import logging
-import math
 import os
 import zipfile
-import math
 
 import rhino3dm
 from flask_smorest import abort
-from geometry_pipeline import inspect_geometry
+from geometry_pipeline import inspect_geometry, repair_geometry
 
 import config
 from app.db import db
@@ -700,6 +698,24 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
     print(f"Wrote {geo_file}: {len(unique_vertices)} points, {next_line_id-1} lines, {len(face_line_loops)} surfaces.")
     return True
 
+def run_repair_pipeline(
+    obj_dir: str,
+    output_dir: str,
+    volume_name: str,
+) -> bool:
+    from pathlib import Path as _Path
+
+    out_dir = _Path(output_dir)
+
+    try:
+        repair_geometry(obj_dir, out_dir, volume_name=volume_name)
+    except Exception as exc:
+        logger = logging.getLogger(__name__)
+        logger.exception("repair pipeline failed: %s", exc)
+        return False
+
+    return True
+
 def run_inspect_for_file_upload(file_name: str, issue_path: str) -> tuple[str, int]:
     """Resolve the OBJ for a File row, run the inspect pipeline and return
     a tuple `(report_path, issue_count)`.
@@ -718,21 +734,20 @@ def run_inspect_for_file_upload(file_name: str, issue_path: str) -> tuple[str, i
 
 def _run_inspect_pipeline_for_obj(
     obj_file: str,
-    report_file: str,
+    output_path: str,
 ) -> str:
     """Run the inspect-only profile and write the API-shaped JSON report.
 
     Returns the report path. Does NOT emit OBJ/GEO — the inspect profile
     has no geometry exporters.
     """
-    import json as _json
     from pathlib import Path as _Path
 
-    report_path = _Path(report_file)
-    out_dir = report_path.parent
+    output_path = _Path(output_path)
+    out_dir = output_path.parent
     # ask the geometry package to write its reports into the requested folder
     res = inspect_geometry(obj_file, output_dir=out_dir)
 
     # The reporting exporter writes `<stem>_issue.json` next to the base
-    issue_path = out_dir / f"{report_path.name}_issue.json"
+    issue_path = out_dir / f"{output_path.stem}_issue.json"
     return str(issue_path), res.issue_count
