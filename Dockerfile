@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source code (context is the repo root, so scope to backend/)
 COPY backend /app
 # Copy the geometry_pipeline submodule so the final stage can install it
-COPY geom_pipeline /app/geom_pipeline
+COPY geometry_pipeline /app/geometry_pipeline
 
 # Make entrypoint executable
 RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
@@ -54,16 +54,17 @@ RUN apt-get update && \
 
 # Copy repository and run the native build script for geom_pipeline
 COPY . /src
-WORKDIR /src/geom_pipeline/src/geometry_pipeline/volume/_native
+# Note: the submodule repo is named 'geom_pipeline' but the Python package is 'geometry_pipeline'.
+WORKDIR /src/geometry_pipeline/src/geometry_pipeline/volume/_native
 # Normalize potential Windows CRLF line endings so the shebang works on Linux.
 RUN sed -i 's/\r$//' build.sh
 RUN chmod +x build.sh || true
 RUN ./build.sh
 # Ensure the built binary is available at /src/bin/volume_detector so the final
 # stage can reliably copy it. The package's build script places the binary in
-# /src/geom_pipeline/bin; copy it to the shared /src/bin path used below.
+# /src/geometry_pipeline/bin; copy it to the shared /src/bin path used below.
 RUN mkdir -p /src/bin \
-    && cp /src/geom_pipeline/bin/volume_detector /src/bin/volume_detector || true
+    && cp /src/geometry_pipeline/bin/volume_detector /src/bin/volume_detector || true
 
 FROM base AS final
 WORKDIR /app
@@ -84,7 +85,7 @@ ENV VOLUME_DETECTOR_BIN=/app/bin/volume_detector
 # Install the geom_pipeline package from the submodule present in the
 # build context. The repository root is copied into the image at /app in the
 # base stage, so install from that location (idempotent when unchanged).
-RUN if [ -d "/app/geom_pipeline" ]; then pip install --no-cache-dir /app/geom_pipeline; fi
+RUN if [ -d "/app/geometry_pipeline" ]; then pip install --no-cache-dir /app/geometry_pipeline; fi
 
 EXPOSE 5001
 CMD ["/app/entrypoint.sh"]
