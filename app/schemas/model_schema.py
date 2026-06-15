@@ -1,5 +1,6 @@
 from marshmallow import Schema, fields, post_load
 
+from app.schemas.model_issue_schema import ModelIssueSchema
 from app.services import file_service
 
 
@@ -31,6 +32,7 @@ class ModelInfoSchema(ModelInfoBasicSchema):
     modelUrl = fields.Method("get_model_url", dump_only=True)
     meshId = fields.String(data_key="meshId", attribute="mesh.id")
     simulationCount = fields.Function(lambda obj: obj.simulation_count)
+    issues = fields.Nested(ModelIssueSchema, many=True, dump_only=True)
 
     def get_model_url(self, obj):
         # obj here is the object being serialized
