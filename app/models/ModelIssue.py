@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.db import db
-from app.types import DetectionStage
+from app.types.DetectionStage import DetectionStage
 
 
 class ModelIssue(db.Model):
