@@ -6,6 +6,7 @@ import math
 
 import rhino3dm
 from flask_smorest import abort
+from geometry_pipeline import inspect_geometry
 
 import config
 from app.db import db
@@ -698,3 +699,40 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
 
     print(f"Wrote {geo_file}: {len(unique_vertices)} points, {next_line_id-1} lines, {len(face_line_loops)} surfaces.")
     return True
+
+def run_inspect_for_file_upload(file_name: str, issue_path: str) -> tuple[str, int]:
+    """Resolve the OBJ for a File row, run the inspect pipeline and return
+    a tuple `(report_path, issue_count)`.
+    """
+    from config import DefaultConfig
+
+    directory = DefaultConfig.UPLOAD_FOLDER
+    obj_path = os.path.join(directory, f"{file_name}.obj")
+
+    if not os.path.exists(obj_path):
+        abort(400, message=f"OBJ not found for file {file_name} at {obj_path}")
+
+    _, payload_issue_count = _run_inspect_pipeline_for_obj(obj_path, issue_path)
+
+    return issue_path, payload_issue_count
+
+def _run_inspect_pipeline_for_obj(
+    obj_file: str,
+    report_file: str,
+) -> str:
+    """Run the inspect-only profile and write the API-shaped JSON report.
+
+    Returns the report path. Does NOT emit OBJ/GEO — the inspect profile
+    has no geometry exporters.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    report_path = _Path(report_file)
+    out_dir = report_path.parent
+    # ask the geometry package to write its reports into the requested folder
+    res = inspect_geometry(obj_file, output_dir=out_dir)
+
+    # The reporting exporter writes `<stem>_issue.json` next to the base
+    issue_path = out_dir / f"{report_path.name}_issue.json"
+    return str(issue_path), res.issue_count

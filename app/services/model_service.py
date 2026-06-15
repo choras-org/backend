@@ -7,15 +7,17 @@ from flask_smorest import abort
 from werkzeug.utils import secure_filename
 
 from app.db import db
-from app.models import Model
+from app.models import Model, File
 from config import FeatureToggle, DefaultConfig
 from datetime import datetime
-
+from app.services.geometry_service import (
+    run_inspect_for_file_upload,
+)
 # Create logger for this module
 logger = logging.getLogger(__name__)
 
-
 def create_new_model(model_data):
+    logger.warning(f"Creating new model with data: {model_data}")
     new_model = Model(
         name=model_data["name"],
         projectId=model_data["projectId"],
@@ -24,20 +26,39 @@ def create_new_model(model_data):
         imagePath=model_data["imagePath"] if "imagePath" in model_data else None,
     )
 
-    if FeatureToggle.is_enabled("enable_geo_conversion"):
-        new_model.hasGeo = True
-
+    db.session.add(new_model)
     try:
-        db.session.add(new_model)
-        db.session.commit()
+        db.session.flush()
 
+        if FeatureToggle.is_enabled("enable_geo_conversion"):
+            new_model.hasGeo = True
+
+            directory = DefaultConfig.UPLOAD_FOLDER
+            file = File.query.filter_by(id=model_data["sourceFileId"]).first()
+            if file:
+                file_name, _ = os.path.splitext(os.path.basename(file.fileName))
+                issue_path = os.path.join(directory, f"{file_name}_issue.json")
+                try:
+                    # Run the inspect pipeline to generate an issue report for the uploaded file
+                    _, issue_count = run_inspect_for_file_upload(file_name, issue_path)
+                    logger.warning(
+                        f"Inspect report for file upload {model_data['sourceFileId']} generated at: {issue_path} with {issue_count} issues found"
+                    )
+                except Exception as ex:
+                    # don't abort creation for pipeline failures; log and continue
+                    db.session.rollback()
+                    logger.warning(
+                        f"Failed to run geometry repair pipeline for source file {file.fileName}: {ex}"
+                    )
+
+        # commit the model (and any model_issue) together
+        db.session.commit()
     except Exception as ex:
         db.session.rollback()
         logger.error(f"Can not create a new model: {ex}")
         abort(400, f"Can not create a new model: {ex}")
 
     return new_model
-
 
 def get_model(model_id):
     model = Model.query.filter_by(id=model_id).first()
