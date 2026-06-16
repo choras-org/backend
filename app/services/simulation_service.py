@@ -3,26 +3,24 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-import docker
-import uuid
 
-import gmsh
 from celery import shared_task  # , current_task
+from config import CustomExportParametersConfig
 from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
 from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
-from app.models import Export, File, Simulation, SimulationRun, Task
-from app.services import file_service, material_service, mesh_service, model_service
-from app.services.auralization_service import auralization_calculation, auralization_calculation_DG
-from app.types import Status, TaskType, ResourceType
-from config import CustomExportParametersConfig, CloudConfig
-from app.services.executors.local_executor import LocalExecutor
-from app.services.executors.cloud_executor import CloudExecutor
+from app.models import Export, Simulation, SimulationRun, Task
+from app.services import file_service, material_service, model_service
+from app.services.auralization_service import auralization_calculation
+from app.services.discovery_service import (
+    discover_container_image,
+    discover_entry_file,
+    discover_method_names,
+)
 from app.services.executors.factory import executor_factory
-from app.services.discovery_service import discover_container_image, discover_entry_file
-from app.services.discovery_service import discover_method_names
+from app.types import Status, TaskType
 
 simulation_methods = discover_method_names()
 
@@ -35,8 +33,10 @@ debug_celery = False
 def create_new_simulation(simulation_data):
 
     new_simulation = Simulation(**simulation_data)
-    if new_simulation.simulationMethod not in simulation_methods and \
-            new_simulation.simulationMethod != None:
+    if (
+        new_simulation.simulationMethod not in simulation_methods
+        and new_simulation.simulationMethod is not None
+    ):
         logger.error(
             f"Simulation method {new_simulation.simulationMethod} is not available!"
         )
@@ -62,11 +62,11 @@ def update_simulation_by_id(simulation_data, simulation_id):
             logger.error(
                 f"Simulation method {value} is not available!"
             )
-            abort(400, message="Invalid simulation method")   
+            abort(400, message="Invalid simulation method")
         setattr(simulation, key, value)
 
     simulation.updatedAt = datetime.now()
-    
+
     try:
         db.session.commit()
 
@@ -223,7 +223,6 @@ def start_solver_task(simulation_id):
     results_container = []
 
     for source in simulation.sources:
-
         task_statuses = [create_source_task(source["id"])]
         results_container.append(
             create_result_source_object(
@@ -290,7 +289,7 @@ def start_solver_task(simulation_id):
                     "geo_path": geo_path,
                     "results": results_container,
                     "task_id": -1,
-                    "fs_auralization": 44100
+                    "fs_auralization": 44100,
                 },
                 indent=4,
             )
@@ -371,7 +370,7 @@ def run_solver(simulation_run_id: int, json_path: str):
             simulation.status = Status.InProgress
             session.commit()
             logger.info(f"SimulationRun status updated to {simulation_run.status}")
-            
+
             result_container = {}
             if json_path is not None:
                 with open(json_path, "r") as json_file:
@@ -389,10 +388,10 @@ def run_solver(simulation_run_id: int, json_path: str):
             except Exception as ex:
                 logger.error(f"Error saving the simulation solver settings: {ex}")
                 raise Exception(f"Error saving the simulation solver settings {ex}")
-            
+
             sim_config = {
-             "env": {
-                "JSON_PATH": json_path,  # e.g. /app/uploads/MeasurementRoom_....json
+                "env": {
+                    "JSON_PATH": json_path,  # e.g. /app/uploads/MeasurementRoom_....json
                 },
             }
 
@@ -404,9 +403,9 @@ def run_solver(simulation_run_id: int, json_path: str):
             print(f"Resource type: {resource_type.value}")
 
             entry_file = discover_entry_file(simulation_method)
-            
+
             executor = executor_factory(resource_type, entry_file)
-            
+
             #Relevant method container would be started dynamically based on the container_image
             method_config = {
                 "container_image": container_image,
@@ -414,14 +413,14 @@ def run_solver(simulation_run_id: int, json_path: str):
                 "simulation_id":  str(simulation.id),
                 "task_id": result_container["task_id"]
             }
-            
+
             logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
             container = executor.execute(method_config, sim_config)
             container.wait()
             logger.info(f"{simulation_method} Simulation_service:...container has finished.")
 
             cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
-            
+
             # auralization: generate impulse response wav file
             # TODO: move the auralization calculation to DE and write that
             # to the JSON so that everything can be handled by the current
@@ -443,17 +442,18 @@ def run_solver(simulation_run_id: int, json_path: str):
                         result_container = json.load(json_file)
 
                     imp_tot = np.array(result_container["results"][0]["responses"][0]["receiverResults"])
-                        
+
                     with open(json_path, "r") as json_file:
                         input_data = json.load(json_file)
                         if "sampling_rate" in input_data["simulationSettings"]:
                             fs = input_data["simulationSettings"]["sampling_rate"]
                         else:
-                            fs = input_data["fs_auralization"] # 44100 by default
+                            fs = input_data["fs_auralization"]  # 44100 by default
 
                     rir_wav_file_name = json_path.replace(".json", ".wav")
 
                     import pyfar as pf
+
                     if imp_tot is None or len(imp_tot) == 0:
                         logger.warning("Impulse response data is empty or missing")
                         imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
@@ -502,7 +502,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                 except Exception as ex:
                     logger.error(f"Error during saving results: {ex}")
                     raise RuntimeError(f"Error during saving results: {ex}")
-                        
+
             result_container = {}
             if json_path is not None:
                 with open(json_path, "r") as json_file:
@@ -550,9 +550,9 @@ def get_simulation_result_by_id(simulation_id):
     try:
         with open(json_path, "r") as json_file:
             result_container = json.load(json_file)
-    except Exception as ex:
-        logger.warning(msg=f"No result available")
-        abort(400, message=f"No result available")
+    except Exception:
+        logger.warning(msg="No result available")
+        abort(400, message="No result available")
 
     return result_container["results"]
 
@@ -591,6 +591,7 @@ def update_simulation_run_status(simulation_run, simulation):
         logger.warning(f"Can not update percentage of the simulation run: {ex}")
         abort(400, message=f"Can not update percentage of the simulation run: {ex}")
 
+
 def cancel_solver_task(simulation_id: int) -> dict:
     """Cancel a running job by its ID."""
     simulation = get_simulation_by_id(simulation_id)
@@ -600,7 +601,7 @@ def cancel_solver_task(simulation_id: int) -> dict:
             f"Simulation for the simulation id {str(simulation_id)} does not exist!"
         )
         abort(400, message="Simulation doesn't exist!")
-    
+
     # package info needed for canceling
     simulation_method = simulation.simulationMethod
     container_image = discover_container_image(simulation_method)
@@ -622,7 +623,7 @@ def cancel_solver_task(simulation_id: int) -> dict:
         "simulation_id": str(simulation.id),
         "simulation_method": simulation_method.lower(),
         "container_image": container_image,
-        "task_id": taskID
+        "task_id": taskID,
     }
 
     cancel_flag_path = Path(json_path).parent / f"{taskID}.cancel"
@@ -643,8 +644,9 @@ def cancel_solver_task(simulation_id: int) -> dict:
 
     executor = executor_factory(simulation.resourceType)
     executor.cancel(cancelation_info)
-    
+
     return {"message": f"Cancellation request sent for task {taskID}"}
+
 
 def get_simulation_run_status_by_id(simulation_run_id):
     simulation = Simulation.query.filter_by(simulationRunId=simulation_run_id).first()
@@ -661,6 +663,3 @@ def get_simulation_run_status_by_id(simulation_run_id):
     update_simulation_run_status(simulation_run, simulation)
 
     return simulation_run
-
-
-
