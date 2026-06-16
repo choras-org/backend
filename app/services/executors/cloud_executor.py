@@ -103,22 +103,31 @@ class _CompletedJob:
     Since CloudExecutor.execute() already blocks until the job is fully done
     (via poll_until_complete), wait() is a no-op here.
     """
+    def __init__(self, exit_code: int = 0, logs_output: str = "Cloud job submitted."):
+        """Initialize the completed job.
+
+        Args:
+            exit_code: The exit code of the remote job (0 for success, non-zero for failure)
+            logs_output: Log message to return
+        """
+        self._exit_code = exit_code
+        self._logs_output = logs_output
+
     def wait(self):
         """Block until the job finishes (no-op for already-completed jobs).
 
         Returns:
-            dict: A status dict with ``{"StatusCode": 0}`` indicating
-                successful completion.
+            dict: A status dict with ``{"StatusCode": <exit_code>}``
         """
-        return {"StatusCode": 0}
+        return {"StatusCode": self._exit_code}
 
     def logs(self):
         """Return a placeholder log message for the completed cloud job.
 
         Returns:
-            bytes: A static byte string indicating a cloud submission.
+            bytes: A byte string with job information.
         """
-        return b"Cloud job submitted."
+        return self._logs_output.encode('utf-8')
 
 class CloudExecutor(SimulationExecutor):
     """Executes simulations on a remote HPC cluster via SSH and Singularity.
@@ -442,8 +451,8 @@ class CloudExecutor(SimulationExecutor):
         remote_app_dir: str,
         remote_sandbox_path: str,
         remote_tar_path: Optional[str] = None,
-    ) -> bool:
-        """Adaptively poll the remote job until all results reach 100 % progress.
+    ) -> tuple[bool, int]:
+        """Adaptively poll the remote job until all results reach 100 % progress or an error occurs.
 
         Opens a fresh SSH connection each cycle to download the output JSON,
         parse progress, and—if progress changed—persist the JSON locally so
@@ -471,9 +480,9 @@ class CloudExecutor(SimulationExecutor):
                 tarball, used for cleanup. Defaults to ``None``.
 
         Returns:
-            bool: ``True`` if outputs were collected and the remote workspace
-                was cleaned up successfully; ``False`` if an error occurred
-                during :meth:`_collect_outputs_and_cleanup`.
+            tuple[bool, int]: A tuple of (success, exit_code) where:
+                - success: ``True`` if outputs were collected and cleaned up successfully
+                - exit_code: 0 for success, 1 for error in simulation
         """
         local_json_path = os.path.join(local_uploads_dir, Path(remote_json_path).name)
 
@@ -487,8 +496,8 @@ class CloudExecutor(SimulationExecutor):
         while True:
             if self._should_cancel():
                 print("[Polling] Cancel requested. Exiting.")
-                return
-            
+                return (False, 0)
+
             cycle += 1
             print(f"[Polling] Cycle {cycle} (interval={poll_interval:.0f}s)")
 
@@ -519,6 +528,22 @@ class CloudExecutor(SimulationExecutor):
                 time.sleep(poll_interval)
                 continue
 
+            # Check for error in JSON (simulation failed)
+            if "error" in json_data:
+                print(f"[Polling] Error detected in JSON: {json_data['error']}")
+                # Save the error JSON locally
+                shutil.move(tmp_path, local_json_path)
+                print(f"[Polling] Error JSON written to {local_json_path}")
+                # Cleanup and return error exit code
+                success = self._collect_outputs_and_cleanup(
+                    remote_app_dir      = remote_app_dir,
+                    local_uploads_dir   = local_uploads_dir,
+                    remote_sandbox_path = remote_sandbox_path,
+                    remote_tar_path     = remote_tar_path,
+                )
+                # Exit code 1 for error
+                return (success, 1)
+
             current_progress = self._parse_overall_progress(json_data)
             print(f"[Polling] Progress: {current_progress}%")
 
@@ -543,7 +568,7 @@ class CloudExecutor(SimulationExecutor):
                     remote_tar_path     = remote_tar_path,
                 )
 
-                return success
+                return (success, 0)  # Exit code 0 for success
 
             if cycle >= POLL_FAST_PHASE_CYCLES:
                 poll_interval = min(
@@ -783,7 +808,7 @@ class CloudExecutor(SimulationExecutor):
 
         remote_app_dir_path = f"{self.remote_work_dir}/{sandbox_name}/app"
 
-        self._poll_until_complete(
+        success, exit_code = self._poll_until_complete(
             remote_json_path    = f"{remote_app_dir_path}/{json_filename}",
             local_uploads_dir   = local_uploads_dir,
             remote_app_dir      = remote_app_dir_path,
@@ -791,7 +816,15 @@ class CloudExecutor(SimulationExecutor):
             remote_tar_path     = f"{self.remote_work_dir}/{tar_image_name}",
         )
 
-        return _CompletedJob()
+        # Build log message
+        if exit_code != 0:
+            logs_output = f"Cloud job completed with error (exit code {exit_code})"
+        elif not success:
+            logs_output = "Cloud job completed but cleanup failed"
+        else:
+            logs_output = "Cloud job completed successfully"
+
+        return _CompletedJob(exit_code=exit_code, logs_output=logs_output)
 
     def cancel(self, cancelation_info: Dict[str, Any]):
         """Cancel a running Singularity job and clean up the remote workspace.
