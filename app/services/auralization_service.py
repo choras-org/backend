@@ -429,15 +429,28 @@ def auralization_calculation(
             data_signal, fs = sf.read(signal_file_name)  # this returns "data_signal", which is the
             # audiodata (one_dimentional array) of the anechoic signal. It returns also the
             # "fs" sample frequency of the signal
+            print(f"Data signal loaded with shape: {data_signal.shape} and sampling rate: {fs}")
         else:
             data_signal, fs = None, AuralizationParameters.visualization_fs
+            print(f"No signal file provided. Using default sampling rate: {fs}")
+
+
+        print(f"Trying to load: {pressure_file_name}")
+        print(f"Exists: {os.path.exists(pressure_file_name)}")
+
+        if os.path.exists("/app/uploads"):
+            print("Uploads:")
+            for f in os.listdir("/app/uploads"):
+                print(" ", f)
 
         data_pressure = np.loadtxt(
             pressure_file_name, skiprows=1, usecols=range(1, 6), delimiter=','
         )  # this returns the pressure data
+        print(f"Pressure data loaded with shape: {data_pressure.shape}")
         center_freq = np.loadtxt(
             pressure_file_name, usecols=range(1, 6), delimiter=',', dtype=str, max_rows=1
         )  # this returns the center frequencies of the bands with the suffix "Hz"
+        print(f"Center frequencies loaded: {center_freq}")
 
         center_freq = np.array([np.int32(f[:-2]) for f in center_freq])  # remove "Hz" suffix from the center frequency
         nBands = len(center_freq)  # number of bands
@@ -445,8 +458,11 @@ def auralization_calculation(
             data_pressure.transpose().copy()
         )  # energy decay curve in terms of pressure differentiated
 
+        print(f"p_rec_off_deriv_band shape: {p_rec_off_deriv_band.shape}")
+
         del data_pressure  # Delete the data to free up memory
         gc.collect()  # Force garbage collection
+        print("Data pressure deleted and garbage collected to free up memory.")
 
     except Exception as e:
         logger.error(f'Error loading files: {e}')

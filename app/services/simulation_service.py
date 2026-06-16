@@ -435,6 +435,20 @@ def run_solver(simulation_run_id: int, json_path: str):
                         json_path.replace(".json", ".wav"),
                     )
 
+                case "misuka":
+                    pressure_path = json_path.replace(".json", "_pressure.csv")
+                    print("JSON:", json_path)
+                    print("Pressure:", pressure_path)
+                    print("Exists:", os.path.exists(pressure_path))
+                    print("Directory:", os.listdir("/app/uploads"))
+
+                    # TODO: This function is not a general auralization function and should be renamed
+                    imp_tot, fs = auralization_calculation(
+                        None,
+                        json_path.replace(".json", "_pressure.csv"),
+                        json_path.replace(".json", ".wav"),
+                    )
+
                 # this should be the only thing getting executed
                 case _:
                     import numpy as np
