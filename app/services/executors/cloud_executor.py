@@ -1,16 +1,16 @@
-from venv import logger
-from contextlib import contextmanager
-import threading
-import socket
-import paramiko
-import time
 import json
 import os
 import shutil
-from typing import Any, Dict, List, Optional, Set
-from .simulation_executor_interface import SimulationExecutor
+import socket
+import time
+from contextlib import contextmanager
 from pathlib import Path
-import json
+from typing import Any, Dict, List, Optional
+
+import paramiko
+
+from .simulation_executor_interface import SimulationExecutor
+
 paramiko.util.log_to_file("paramiko.log", level="DEBUG")
 
 # ---------------------------------------------------------------------------
@@ -141,7 +141,7 @@ class CloudExecutor(SimulationExecutor):
         local_cancel_flag_path (str | None): Path to a local sentinel file
             whose existence signals that the polling loop should stop.
     """
-    
+
     def __init__(self, hostname, username, remote_work_dir, passphrase=None, key_path=None, entry_file=None):
         """Initialise a CloudExecutor with SSH connection parameters.
 
@@ -164,7 +164,7 @@ class CloudExecutor(SimulationExecutor):
         self.entry_file = entry_file
         self.remote_work_dir = remote_work_dir
         self.local_cancel_flag_path = None
-        
+
     @contextmanager
     def _ssh_session(self):
         """Context manager that yields an authenticated :class:`paramiko.SSHClient`.
@@ -287,7 +287,7 @@ class CloudExecutor(SimulationExecutor):
                 except Exception as e:
                     print(f"Error while transfering file via SFTP: {e}")
                     raise
-            
+
     def _download_file_via_sftp(self, remote_path: str, local_path: str):
         """Download a single file from the remote host to a local path over SFTP.
 
@@ -308,7 +308,7 @@ class CloudExecutor(SimulationExecutor):
                 except Exception as e:
                     print(f"Error while downloading file via SFTP: {e}")
                     raise
-    
+
     def _list_remote_files(self, remote_dir: str) -> List[str]:
         """List all non-hidden files in a remote directory.
 
@@ -373,7 +373,7 @@ class CloudExecutor(SimulationExecutor):
         Raises:
             SSHCommandError: If the ``singularity build`` command fails.
         """
-            
+
         build_cmd = f"singularity build --sandbox {self.remote_work_dir}/{sandbox_name} docker-archive://{self.remote_work_dir}/{image_tar_name}"
         print("Singularity image name is ", sandbox_name, "\n")
         print("image tar name is ",image_tar_name,"\n")
@@ -402,15 +402,15 @@ class CloudExecutor(SimulationExecutor):
                 launch (note: because it runs under ``nohup &``, failures
                 inside the container will not surface here).
         """
-            
+
         run_cmd = f"nohup singularity exec -w --pwd /app --env JSON_PATH=/app/{input_json} {self.remote_work_dir}/{sandbox_name} python {self.entry_file} --image-name {sandbox_name} &> {self.remote_work_dir}/{sandbox_name}/app/singularity_run.log 2>&1 &"
 
         print(f"Running command: {run_cmd}")
 
         self._run_remote_command(run_cmd)
-        print(f"Singularity launched in background.")
+        print("Singularity launched in background.")
 
-    
+
     @staticmethod
     def _parse_overall_progress(json_data: dict) -> Optional[float]:
         """Return the minimum completion percentage across all result entries.
@@ -434,7 +434,7 @@ class CloudExecutor(SimulationExecutor):
             return min(r.get("percentage", 0) for r in results)
         except Exception:
             return None
-    
+
     def _poll_until_complete(
         self,
         remote_json_path: str,
@@ -506,7 +506,7 @@ class CloudExecutor(SimulationExecutor):
                 except json.JSONDecodeError as e:
                     print(f"[Polling] JSON parse failed (attempt {attempt + 1}/{MAX_PARSE_RETRIES}): {e}")
                     if attempt < MAX_PARSE_RETRIES - 1:
-                        print(f"[Polling] Simulation may still be writing — retrying in 5s...")
+                        print("[Polling] Simulation may still be writing — retrying in 5s...")
                         time.sleep(5)
                 except Exception as e:
                     print(f"[Polling] Download error: {e}. Will retry next cycle.")
@@ -554,7 +554,7 @@ class CloudExecutor(SimulationExecutor):
             print(f"[Polling] Sleeping {poll_interval:.0f}s …\n")
             time.sleep(poll_interval)
 
-    def _cleanup(self, 
+    def _cleanup(self,
         remote_sandbox_path: str,
         remote_tar_path: Optional[str]):
         """Delete the remote Singularity sandbox and optionally the image tarball.
@@ -574,7 +574,7 @@ class CloudExecutor(SimulationExecutor):
         if remote_tar_path:
             print(f"[Cleanup] Removing tar     : ~/{remote_tar_path}")
             self._delete_remote_path(remote_tar_path)
-        
+
 
     def _collect_outputs_and_cleanup(
         self,
@@ -637,7 +637,7 @@ class CloudExecutor(SimulationExecutor):
         except Exception as e:
             print(f"[Cleanup] Error: {e}")
             return False
-    
+
     def _get_container_processes(self, sandbox_name: str) -> List[str]:
         """Return the PIDs of all remote processes associated with a sandbox.
 
@@ -665,10 +665,10 @@ class CloudExecutor(SimulationExecutor):
         output = self._run_remote_command(
             f"pgrep -u {self.username} -f {sandbox_name}")
         if output:
-            processes = output.split("\n") 
+            processes = output.split("\n")
 
         print(f"Found process(es) with PID(s): {processes}")
-        return processes 
+        return processes
 
     def _kill_container_processes(self, sandbox_name: str):
         """Kill all remote processes associated with a Singularity sandbox.
@@ -689,7 +689,7 @@ class CloudExecutor(SimulationExecutor):
         pid_str = " ".join(pids)
         self._run_remote_command(f"kill {pid_str}")
         print(f"Successfully killed PIDs: {pid_str}")
-    
+
     def _should_cancel(self) -> bool:
         """Check whether a local cancellation sentinel file exists.
 
@@ -701,7 +701,7 @@ class CloudExecutor(SimulationExecutor):
             bool: ``True`` if the cancel flag file exists; ``False`` otherwise.
         """
         return os.path.exists(self.local_cancel_flag_path)
-    
+
 
     def execute(self, method_config: Dict[str, Any], sim_config: Dict[str, Any]):
         """Run a simulation on the remote HPC cluster end-to-end.
@@ -739,12 +739,12 @@ class CloudExecutor(SimulationExecutor):
         local_tar_image_path = os.path.join(os.path.dirname(__file__), tar_image_name)
 
         self._upload_file_via_sftp(
-            local_tar_image_path, 
+            local_tar_image_path,
             f"{self.remote_work_dir}/{tar_image_name}")
-        
+
         sandbox_name = f"{docker_image_name}_sif_{task_id}"
 
-        self._build_singularity_image(sandbox_name, tar_image_name)    
+        self._build_singularity_image(sandbox_name, tar_image_name)
 
         env = sim_config.get("env", {})
         container_json_path = env.get("JSON_PATH")
@@ -759,17 +759,17 @@ class CloudExecutor(SimulationExecutor):
             self.remote_work_dir, docker_image_name, task_id, geo_filename)
 
         self._upload_file_via_sftp(
-            container_json_path, 
+            container_json_path,
             remote_json_path)
-        
+
         self._upload_file_via_sftp(
-            get_local_file_path(container_json_path, msh_filename), 
+            get_local_file_path(container_json_path, msh_filename),
             remote_msh_path)
-        
+
         self._upload_file_via_sftp(
-            get_local_file_path(container_json_path, geo_filename), 
+            get_local_file_path(container_json_path, geo_filename),
             remote_geo_path)
-        
+
         self._execute_singularity_image(
             sandbox_name=sandbox_name, input_json=json_filename)
 
@@ -778,7 +778,7 @@ class CloudExecutor(SimulationExecutor):
 
         # if this file exists, polling stops. Local backend creates this file
         # when simulation is canceled via the frontend, polling stops, and
-        # Celery task can be stopped. 
+        # Celery task can be stopped.
         self.local_cancel_flag_path = f"{local_uploads_dir}/{task_id}.cancel"
 
         remote_app_dir_path = f"{self.remote_work_dir}/{sandbox_name}/app"
@@ -824,5 +824,3 @@ class CloudExecutor(SimulationExecutor):
 
         self._kill_container_processes(sandbox_name)
         self._cleanup(remote_sandbox_path, remote_tar_path)
-
-
