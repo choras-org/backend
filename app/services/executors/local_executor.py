@@ -1,13 +1,10 @@
 import os
-import uuid
+import threading
 import docker
 import logging
 from typing import Any, Dict
 from .simulation_executor_interface import SimulationExecutor
 from pathlib import Path
-from flask_smorest import abort
-import json
-from app.services import model_service, file_service
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +24,7 @@ def get_host_path_for_container_path(container_path: str) -> str:
         RuntimeError: If no mount is found covering the given container path.
         Exception: If there is an error communicating with Docker or resolving the path.
     """
-    
+
     try:
         client = docker.from_env()
         import socket
@@ -55,7 +52,7 @@ class LocalExecutor(SimulationExecutor):
         Args:
             work_dir (str, optional): The working directory inside the container. Defaults to the value of the DOCKER_WORK_DIR environment variable or '/app'.
         """
-        
+
         if work_dir is None:
             work_dir = os.getenv("DOCKER_WORK_DIR", "/app")
         self.work_dir = work_dir
@@ -79,12 +76,14 @@ class LocalExecutor(SimulationExecutor):
         """
         Executes a simulation by running a Docker container with the specified configuration.
 
+        The logs of the Docker container will be prefixed with `[LocalExecutor - SimulationMethod: <...>]`
+
         Args:
             method_config (Dict[str, Any]): Dictionary containing method-specific configuration, including 'container_image', 'simulation_method', and 'simulation_id'.
             sim_config (Dict[str, Any]): Dictionary containing simulation-specific configuration, including environment variables.
 
         Returns:
-            tuple: The Docker container object representing the running simulation.
+            container: The Docker container object representing the running simulation.
 
         Raises:
             Exception: If the Docker container fails to start.
@@ -120,12 +119,38 @@ class LocalExecutor(SimulationExecutor):
                 # name=f"simjob_{job_id[:8]}",
                 remove = True,
             )
+
+            # Get simulation method for logging
+            simulation_method = method_config["simulation_method"]
+
+            def _stream_docker_container_logs() -> None:
+                """Helper function to write the Docker container logs in a separate thread.
+                """
+                prefix = f"[LocalExecutor - SimulationMethod: {simulation_method}]"
+                try:
+                    for chunk in container.logs(stream=True, follow=True):
+                        log_line = chunk.decode("utf-8", errors="replace").rstrip("\r\n")
+                        if log_line:
+                            logger.info(
+                                f"{prefix} {log_line}"
+                            )
+                except Exception:
+                    logger.exception(
+                        f"{prefix} Failed to stream container logs"
+                    )
+
+            threading.Thread(
+                target=_stream_docker_container_logs,
+                name=f"local-exec-logs-{container_name}",
+                daemon=True,
+            ).start()
+
             return container
 
         except Exception as e:
             logger.error(f"Failed to start Docker container: {e}")
             raise
-    
+
     def cancel(self, cancelation_info: Dict[str, Any]):
         """
         Cancels a running Docker container by its container name.
