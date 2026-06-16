@@ -19,6 +19,7 @@ class SimulationRun(db.Model):
     solverSettings = db.Column(JSON, nullable=False)
 
     status = db.Column(db.Enum(Status), default=Status.Created)
+    errorMessage = db.Column(db.String, nullable=True)
 
     createdAt = db.Column(db.String, default=datetime.now)
     updatedAt = db.Column(db.String, default=datetime.now, onupdate=datetime.now)

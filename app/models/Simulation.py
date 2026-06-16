@@ -23,6 +23,7 @@ class Simulation(db.Model):
     settingsPreset = db.Column(db.Enum(Setting), default=Setting.Default)
     solverSettings = db.Column(JSON, nullable=False)
     status = db.Column(db.Enum(Status), default=Status.Created)
+    errorMessage = db.Column(db.String, nullable=True)
 
     modelId = db.Column(db.Integer, db.ForeignKey("models.id", ondelete="CASCADE"), nullable=False)
 
