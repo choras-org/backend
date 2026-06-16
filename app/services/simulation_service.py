@@ -4,8 +4,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-import docker
-import gmsh
 from celery import shared_task  # , current_task
 from config import CustomExportParametersConfig
 from flask_smorest import abort
