@@ -26,9 +26,8 @@ def discover_methods() -> List[dict]:
     config_path = DefaultConfig.METHODS_CONFIG_PATH
 
     if(os.path.exists(config_path)):
-        logger.error(f"Found methods-config.json at: {config_path}")
+        logger.info(f"Found methods-config.json at: {config_path}")
 
-    
     try:
         with open(config_path, 'r') as f:
             methods_array = json.load(f)
