@@ -1,0 +1,49 @@
+[
+  {
+    "project": {
+      "name": "Example Project",
+      "description": "Auto-generated example project via script",
+      "group": "Example Group"
+    },
+    "model": {
+      "directory": "example_models",
+      "fileName": "MeasurementRoom.obj",
+      "name": "MeasurementRoom",
+      "imagePath": "uploads/model_images/MeasurementRoom.png"
+    },
+    "simulation": {
+      "name": "Example Simulation",
+      "description": "Auto-generated simulation",
+      "simulationMethod": "DE",
+      "layerIdByMaterialId": {},
+      "sources": [{
+        "label": "Source 1",
+        "orderNumber": 1,
+        "x": 1.5,
+        "y": 1.5,
+        "z": 1.2
+      }],
+      "receivers": [
+        {
+          "label": "Receiver 1",
+          "orderNumber": 1,
+          "x": 3.0,
+          "y": 3.0,
+          "z": 1.0
+        }
+      ],
+      "solverSettings": {
+        "simulationSettings": {
+            "sim_len_type": "edt",
+            "edt": 35,
+            "de_ir_length": 0.5,
+            "de_c0": 343,
+            "de_lc": 1
+        }
+      }
+    },
+    "material": {
+      "name": "Acoustic plaster 68 mm thick"
+    }
+  }
+]
