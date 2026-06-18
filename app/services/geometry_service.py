@@ -77,7 +77,7 @@ def map_to_3dm_and_geo(geometry_id):
     obj_path = os.path.join(directory, file.fileName)
     rhino3dm_path = os.path.join(directory, f"{file_name}.3dm")
     zip_file_path = os.path.join(directory, f"{file_name}.zip")
-    geo_path = os.path.join(directory, f"{file_name}.geo")
+    # geo_path = os.path.join(directory, f"{file_name}.geo")
 
     try:
         task.status = Status.InProgress
@@ -115,20 +115,21 @@ def map_to_3dm_and_geo(geometry_id):
         logger.error(f"Can not create a rhino file: {ex}")
         return False
 
-    if config.FeatureToggle.is_enabled("enable_geo_conversion"):
-        try:
-            if not obj_to_gmsh_geo_precise(obj_path, geo_path, rhino3dm_path):
-                logger.error("Can not generate a geo file")
-                return False
+    # Skip geo conversion, geo creation will be triggered after model creation
+    # if config.FeatureToggle.is_enabled("enable_geo_conversion"):
+    #     try:
+    #         # if not obj_to_gmsh_geo_precise(obj_path, geo_path, rhino3dm_path):
+    #         #     logger.error("Can not generate a geo file")
+    #         #     return False
+            
+    #         file_geo = File(fileName=f"{file_name}.geo")
+    #         db.session.add(file_geo)
+    #         db.session.commit()
 
-            file_geo = File(fileName=f"{file_name}.geo")
-            db.session.add(file_geo)
-            db.session.commit()
-
-        except Exception as ex:
-            db.session.rollback()
-            logger.error(f"Can not attach a geo file: {ex}")
-            return False
+    #     except Exception as ex:
+    #         db.session.rollback()
+    #         logger.error(f"Can not attach a geo file: {ex}")
+    #         return False
 
     return True
 
@@ -708,6 +709,8 @@ def run_repair_pipeline(
     out_dir = _Path(output_dir)
 
     try:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Starting repair pipeline for {obj_dir}, output to {output_dir} with volume name '{volume_name}'")
         repair_geometry(obj_dir, out_dir, volume_name=volume_name)
     except Exception as exc:
         logger = logging.getLogger(__name__)
@@ -721,14 +724,17 @@ def run_inspect_for_file_upload(file_name: str, issue_path: str) -> tuple[str, i
     a tuple `(report_path, issue_count)`.
     """
     from config import DefaultConfig
+    from pathlib import Path as _Path
 
+    out_dir = _Path(issue_path)
     directory = DefaultConfig.UPLOAD_FOLDER
-    obj_path = os.path.join(directory, f"{file_name}.obj")
+    #TODO 1
+    obj_path = os.path.join(directory, f"{file_name}_repaired.obj")
 
     if not os.path.exists(obj_path):
         abort(400, message=f"OBJ not found for file {file_name} at {obj_path}")
 
-    _, payload_issue_count = _run_inspect_pipeline_for_obj(obj_path, issue_path)
+    _, payload_issue_count = _run_inspect_pipeline_for_obj(obj_path, out_dir)
 
     return issue_path, payload_issue_count
 
@@ -742,9 +748,9 @@ def _run_inspect_pipeline_for_obj(
     has no geometry exporters.
     """
     from pathlib import Path as _Path
-
+    #TODO 2
     output_path = _Path(output_path)
-    out_dir = output_path.parent
+    out_dir = output_path
     # ask the geometry package to write its reports into the requested folder
     res = inspect_geometry(obj_file, output_dir=out_dir)
 
