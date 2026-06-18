@@ -4,8 +4,9 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+import pyfar as pf
 from celery import shared_task  # , current_task
-from config import CustomExportParametersConfig
 from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
@@ -21,6 +22,7 @@ from app.services.discovery_service import (
 )
 from app.services.executors.factory import executor_factory
 from app.types import Status, TaskType
+from config import CustomExportParametersConfig
 
 simulation_methods = discover_method_names()
 
@@ -326,6 +328,46 @@ def start_solver_task(simulation_id):
             abort(400, message=f"Can not update a new simulation run status: {ex}")
 
         return new_simulation_run
+
+
+def export_wav_file(json_path: str):
+    """Export the impulse response contained in json to wav file.
+
+    The wav file is named the same as the json file but with different
+    file extension and is saved in the same location.
+
+    Parameters
+    ----------
+    json_path : str
+        The path to the JSON file containing the impulse response data.
+
+    """
+
+    with open(json_path, "r") as json_file:
+        result_container = json.load(json_file)
+
+    imp_tot = np.array(result_container["results"][0]["responses"][0]["receiverResults"])
+
+    with open(json_path, "r") as json_file:
+        input_data = json.load(json_file)
+        if "sampling_rate" in input_data["simulationSettings"]:
+            fs = input_data["simulationSettings"]["sampling_rate"]
+        else:
+            fs = input_data["fs_auralization"]  # 44100 by default
+
+    rir_wav_file_name = json_path.replace(".json", ".wav")
+
+    if imp_tot is None or len(imp_tot) == 0:
+        logger.warning("Impulse response data is empty or missing")
+        imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
+        norm_rir = pf.Signal(imp_tot, fs)  # don't use the pf.dsp.normalize function on an empty signal, as it returns NaN values.
+    else:
+        rir = pf.Signal(imp_tot, fs)
+        # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
+        norm_rir = pf.dsp.normalize(rir, target=1)
+
+    pf.io.write_audio(norm_rir, rir_wav_file_name)
+    logger.info(f"Impulse response shape: {imp_tot.shape}, sampling rate: {fs}")
 
 
 @shared_task
