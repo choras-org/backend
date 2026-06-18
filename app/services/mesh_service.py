@@ -143,6 +143,8 @@ def attach_geo_file(model_id, file_input_id):
 
 
 gmsh.initialize()
+# Set the gmsh verbosity level to only show errors and warnings
+gmsh.option.setNumber("General.Verbosity", 2)
 
 
 def start_mesh_task(model_id):
