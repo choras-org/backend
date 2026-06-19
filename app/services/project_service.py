@@ -186,14 +186,31 @@ def create_example_projects():
                 slot_data = file_service.get_slot()
                 slot_id = slot_data["id"]
 
-                # Step 3: Upload model file (copy example model to uploads folder)
-                logger.info("Step 3: Upload model file")
+                # Step 3: Upload model file & copy image preview
+                logger.info("Step 3: Upload model file and copy image preview")
 
                 model_init = example_data["model"]
                 example_model_path = os.path.join(config.basedir, model_init["directory"], model_init["fileName"])
                 unique_name = f"MeasurementRoom_{uuid.uuid4().hex}.obj"
                 dst_path = os.path.join(config.DefaultConfig.UPLOAD_FOLDER, unique_name)
                 shutil.copy2(example_model_path, dst_path)
+
+                if "imageFileName" in model_init and model_init["imageFileName"]:
+                    image_filename = os.path.basename(model_init["imageFileName"])
+                    
+                    src_image_path = os.path.join(config.basedir, model_init["directory"], image_filename)
+                    
+                    target_img_dir = os.path.join(config.DefaultConfig.UPLOAD_FOLDER, "model_images")
+                    
+                    os.makedirs(target_img_dir, exist_ok=True)
+                    
+                    dst_image_path = os.path.join(target_img_dir, image_filename)
+                    
+                    if os.path.exists(src_image_path):
+                        shutil.copy2(src_image_path, dst_image_path)
+                        logger.info(f"Image preview copied successfully to {dst_image_path}")
+                    else:
+                        logger.warning(f"Source image not found at {src_image_path}")
 
                 file_record = File.query.filter_by(slot=slot_id).first()
                 file_record.fileName = unique_name
@@ -257,8 +274,8 @@ def create_example_projects():
                         {
                             "id": str(uuid.uuid4()),
                             "label": receiver["label"],
-                            "orderNumber": receiver["orderNumber"],  # Fixed typo
-                            "x": receiver["x"],                      # Fixed typo
+                            "orderNumber": receiver["orderNumber"],
+                            "x": receiver["x"],
                             "y": receiver["y"],
                             "z": receiver["z"],
                             "isValid": True,
