@@ -2,7 +2,7 @@ from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
-from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelSchema, ModelUpdateSchema, ModelUploadImageResponseSchema
+from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelSchema, ModelUpdateSchema, ModelUploadImageResponseSchema, ModelExampleSchema
 from app.services import model_service
 
 blp = Blueprint("Model", __name__, description="Model API")
@@ -22,6 +22,11 @@ class ModelUploadImage(MethodView):
     def post(self):
         return model_service.upload_image(request.files)
 
+@blp.route("/models/examples")
+class ModelUploadImage(MethodView):
+    @blp.response(200, ModelExampleSchema(many=True))
+    def get(self):
+        return model_service.get_example_models()
 
 @blp.route("/models/<int:model_id>")
 class Model(MethodView):

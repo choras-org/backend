@@ -6,7 +6,7 @@ import coverage
 from passlib.hash import pbkdf2_sha256
 
 from app.db import db
-from app.services import auralization_service, material_service, setting_service, user_preference_service, project_service
+from app.services import auralization_service, material_service, setting_service, user_preference_service, project_service, model_service
 from config import DefaultConfig
 
 
@@ -87,6 +87,7 @@ def create_db():
     setting_service.insert_initial_settings()
     user_preference_service.insert_initial_user_preferences()
     project_service.create_example_projects()
+    model_service.copy_example_models_to_uploads()
     db.session.commit()
 
 
@@ -101,6 +102,7 @@ def reset_db():
     setting_service.insert_initial_settings()
     user_preference_service.insert_initial_user_preferences()
     project_service.create_example_projects()
+    model_service.copy_example_models_to_uploads()
     db.session.commit()
 
 

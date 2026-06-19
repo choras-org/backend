@@ -2,6 +2,8 @@ import logging
 import os
 import uuid
 import config
+import shutil
+import json
 
 from flask_smorest import abort
 from werkzeug.utils import secure_filename
@@ -9,7 +11,10 @@ from werkzeug.utils import secure_filename
 from app.db import db
 from app.models import Model
 from config import FeatureToggle, DefaultConfig
+from config import app_dir
 from datetime import datetime
+
+from app.services import file_service
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -127,3 +132,74 @@ def upload_image(files):
     except Exception as ex:
         logger.error(f"Error uploading image file: {ex}")
         abort(500, message=f"Error uploading image file: {ex}")
+
+
+def copy_example_models_to_uploads():
+    # 1. Define the path to the example models catalog JSON file
+    json_path = os.path.join(app_dir, "models", "data", "example_models.json")
+    
+    if not os.path.exists(json_path):
+        logger.error(f"Catalog JSON not found at: {json_path}")
+        abort(404, "Example models catalog file not found.")
+
+    # 2. Read and parse the JSON data
+    with open(json_path, "r") as f:
+        example_models = json.load(f)
+
+    try:
+        # Ensure the main destination uploads folder exists before starting the loop
+        os.makedirs(config.DefaultConfig.UPLOAD_FOLDER, exist_ok=True)
+
+        # 3. Loop through each model item in the JSON array
+        for model_data in example_models:
+            src_relative_path = model_data.get("filePath")
+            if not src_relative_path:
+                logger.warning(f"Model ID {model_data.get('id')} is missing 'filePath'. Skipping.")
+                continue
+                
+            src_absolute_path = os.path.join(config.basedir, src_relative_path)
+            
+            # Validate if the source physical file actually exists
+            if not os.path.exists(src_absolute_path):
+                logger.error(f"Physical file not found at path: {src_absolute_path}")
+                abort(404, f"Example file for {model_data['name']} not found.")
+
+            # 4. Extract the file extension (.obj) and the base filename dynamically
+            _, file_extension = os.path.splitext(src_relative_path)
+            base_name = os.path.basename(src_relative_path).replace(file_extension, "")
+            
+            unique_name = f"{base_name}{file_extension}"
+            dst_absolute_path = os.path.join(config.DefaultConfig.UPLOAD_FOLDER, unique_name)
+
+            # 6. Execute the physical file copy operation
+            shutil.copy2(src_absolute_path, dst_absolute_path)
+            logger.info(f"Successfully copied {model_data['name']} to: {dst_absolute_path}")
+
+        return {"message": "Initial full projects successfully!"}
+
+    except Exception as ex:
+        logger.error(f"Failed to execute example models copying method! Error: {ex}")
+        abort(500, f"Failed to process example models: {ex}")
+
+
+def get_example_models():
+    json_path = os.path.join(app_dir, "models", "data", "example_models.json")
+    
+    if not os.path.exists(json_path):
+        logger.error(f"Catalog JSON file not found at: {json_path}")
+        abort(404, "Example models catalog file not found.")
+        
+    try:
+        with open(json_path, "r") as f:
+            example_models = json.load(f)
+            
+        # Dynamically map and build the modelUrl for each item
+        for model in example_models:
+            base_url = file_service.upload_dir().rstrip("/")
+            model["modelUrl"] = f"{base_url}/{model['fileName']}"
+            
+        return example_models
+        
+    except Exception as ex:
+        logger.error(f"Failed to retrieve example models! Error: {ex}")
+        abort(500, "Internal server error while fetching example models.")
