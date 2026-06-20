@@ -76,8 +76,7 @@ class DefaultConfig:
 
     #METHODS_CONFIG_PATH = "/app/simulation-backend/methods-config.json"
     METHODS_CONFIG_PATH = os.environ.get(
-    "METHODS_CONFIG_PATH",
-        os.path.join(basedir, "app", "simulation-backend", "methods-config.json")
+        "METHODS_CONFIG_PATH", "/app/simulation-backend/methods-config.json"
     )
 
     
