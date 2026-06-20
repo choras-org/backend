@@ -12,7 +12,8 @@ class ModelIssue(db.Model):
     model = db.relationship("Model", backref="issues")
 
     
-    fileName = db.Column(db.String, nullable=False)
+    # DB column name `fileUrl` (rename required in DB to match this)
+    fileUrl = db.Column(db.String, nullable=False)
     issueCount = db.Column(db.Integer, default=0)
     detectionStage = db.Column(db.Enum(DetectionStage), nullable=False)
 

@@ -729,7 +729,7 @@ def run_inspect_for_file_upload(file_name: str, issue_path: str) -> tuple[str, i
     out_dir = _Path(issue_path)
     directory = DefaultConfig.UPLOAD_FOLDER
     #TODO 1
-    obj_path = os.path.join(directory, f"{file_name}_repaired.obj")
+    obj_path = os.path.join(directory, f"{file_name}.obj")
 
     if not os.path.exists(obj_path):
         abort(400, message=f"OBJ not found for file {file_name} at {obj_path}")
