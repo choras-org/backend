@@ -55,7 +55,7 @@ RUN apt-get update && \
 # Copy repository and run the native build script for geom_pipeline
 COPY . /src
 # Note: the submodule folder is 'geometry-pipeline' but the Python package dir is 'geometry_pipeline'.
-WORKDIR /src/geometry-pipeline/src/geometry_pipeline/volume/_native
+WORKDIR /src/geometry-pipeline/src/geometry_pipeline/cavity_detection/_native
 # Normalize potential Windows CRLF line endings so the shebang works on Linux.
 RUN sed -i 's/\r$//' build.sh
 RUN chmod +x build.sh || true
