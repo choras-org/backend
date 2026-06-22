@@ -468,24 +468,35 @@ def run_solver(simulation_run_id: int, json_path: str):
         cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
 
 
-        # auralization: generate impulse response wav file
-        # TODO: move the auralization calculation to DE and write that
-        # to the JSON so that everything can be handled by the current
-        # default case and we can get rid of the match case.
-        match simulation_method:
-            case "DE":
-                logger.info("Synthesizing the room impulse response.")
-                # TODO: This function is not a general auralization function and should be renamed
-                auralization_calculation(
-                    None,
-                    json_path.replace(".json", "_pressure.csv"),
-                    json_path.replace(".json", ".wav"),
-                )
+        with open(json_path, "r") as json_file:
+            sim_results = json.load(json_file)["results"]
 
-            # this should be the only thing getting executed
-            case _:
-                logger.info("Exporting impulse response.")
-                export_wav_file(json_path)
+        # Check if the result type is and energy decay curve (EDC). If this is the case,
+        # an impulse response is synthesized.
+        # In case the result is an impulse response, the field does not exist and will
+        # throw a KeyError.
+        # This is a quite hacky way to check the result type and should be improved in the
+        # near future.
+        try:
+            result_is_edc = sim_results[0]["responses"][0]["receiverResults"][0]["type"] == "edc"
+            logger.info("Result type is an EDC, synthesizing RIR.")
+        except (TypeError, KeyError):
+            result_is_edc = False
+            logger.info("Result type is not EDC, skipping synthesis.")
+
+        if result_is_edc:
+            logger.info("Synthesizing the room impulse response.")
+            # TODO: This function is not a general auralization function and should be renamed
+            # Instead it is a RIR sythesis function
+            auralization_calculation(
+                None,
+                json_path.replace(".json", "_pressure.csv"),
+                json_path.replace(".json", ".wav"),
+            )
+
+        else:
+            logger.info("Exporting impulse response.")
+            export_wav_file(json_path)
 
     except Exception as ex:
         logger.error(f"run_solver failed: {ex}")
