@@ -25,3 +25,25 @@ class GeometryGetQuerySchema(Schema):
 
 class GeometryResultQuerySchema(Schema):
     taskId = fields.Integer(required=True)
+
+
+class IssueCompatibilitySchema(Schema):
+    label = fields.Str()
+    description = fields.Str()
+    compatibility = fields.Str()
+
+
+class MethodCompatibilitySchema(Schema):
+    simulationType = fields.Str()
+    label = fields.Str(allow_none=True)
+    notes = fields.Str(allow_none=True)
+    issues = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Nested(IssueCompatibilitySchema),
+    )
+
+
+class SimulationCompatibilitySchema(Schema):
+    version = fields.Integer(allow_none=True)
+    compatibilityLevels = fields.Dict(keys=fields.Str(), values=fields.Str())
+    methods = fields.List(fields.Nested(MethodCompatibilitySchema))
