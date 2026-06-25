@@ -754,6 +754,6 @@ def _run_inspect_pipeline_for_obj(
     # ask the geometry package to write its reports into the requested folder
     res = inspect_geometry(obj_file, output_dir=out_dir)
 
-    # The reporting exporter writes `<stem>_issue.json` next to the base
-    issue_path = out_dir / f"{output_path.stem}_issue.json"
+    # The reporting exporter writes `<stem>_inspect_issue.json` next to the base
+    issue_path = out_dir / f"{output_path.stem}_inspect_issue.json"
     return str(issue_path), res.issue_count
