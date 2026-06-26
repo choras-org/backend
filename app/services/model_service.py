@@ -9,9 +9,10 @@ from werkzeug.utils import secure_filename
 
 from app.db import db
 from app.models import Model, File, ModelIssue
-from app.types import DetectionStage
+from app.types import DetectionStage, RepairStatus
 from config import FeatureToggle, DefaultConfig
 from datetime import datetime
+from app.services import file_service
 from app.services.geometry_service import (
     run_inspect_for_file_upload,
     run_repair_pipeline
@@ -92,6 +93,10 @@ def create_new_model(model_data):
                     )
 
                     db.session.add(repaired_model_issue)
+
+                    # A repaired geometry is available but the user has not
+                    # yet accepted or rejected it.
+                    new_model.repairStatus = RepairStatus.Pending
                 except Exception as ex:
                     # don't abort creation for pipeline failures; log and continue
                     db.session.rollback()
@@ -113,6 +118,59 @@ def get_model(model_id):
     if not model:
         logger.error("Model with id " + str(model_id) + "does not exists!")
         abort(404, "Model does not exist")
+    return model
+
+
+def set_repair_decision(model_id, accept):
+    """Accept or reject the repaired geometry for a model.
+
+    When accepted, the model's ``outputFileId`` is switched to a File row
+    representing the repaired 3DM so that both the viewer URL and the
+    simulation geometry (.geo/.msh) resolve to the repaired files. When
+    rejected, ``outputFileId`` is reset to the original ``sourceFileId``.
+    """
+    model = get_model(model_id)
+
+    if model.repairStatus is None:
+        logger.error(f"Model {model_id} has no repaired geometry to decide on")
+        abort(400, message="No repaired geometry is available for this model")
+
+    if accept:
+        source_file = file_service.get_file_by_id(model.sourceFileId)
+        stem, _ = os.path.splitext(os.path.basename(source_file.fileName))
+
+        directory = DefaultConfig.UPLOAD_FOLDER
+        repaired_geo = os.path.join(directory, f"{stem}_repaired.geo")
+        repaired_zip = os.path.join(directory, f"{stem}_repaired.zip")
+        if not os.path.exists(repaired_geo) or not os.path.exists(repaired_zip):
+            logger.error(
+                f"Repaired geometry files missing for model {model_id}: "
+                f"{repaired_geo} / {repaired_zip}"
+            )
+            abort(400, message="Repaired geometry files are not available")
+
+        repaired_file_name = f"{stem}_repaired.3dm"
+        repaired_file = File.query.filter_by(fileName=repaired_file_name).first()
+        if not repaired_file:
+            repaired_file = File(fileName=repaired_file_name)
+            db.session.add(repaired_file)
+            db.session.flush()
+
+        model.outputFileId = repaired_file.id
+        model.repairStatus = RepairStatus.Accepted
+    else:
+        model.outputFileId = model.sourceFileId
+        model.repairStatus = RepairStatus.Rejected
+
+    model.updatedAt = datetime.now()
+
+    try:
+        db.session.commit()
+    except Exception as ex:
+        db.session.rollback()
+        logger.error(f"Can not update the repair decision: {ex}")
+        abort(400, message=f"Can not update the repair decision: {ex}")
+
     return model
 
 

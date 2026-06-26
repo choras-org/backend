@@ -2,7 +2,7 @@ from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
-from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelSchema, ModelUpdateSchema, ModelUploadImageResponseSchema
+from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelRepairDecisionSchema, ModelSchema, ModelUpdateSchema, ModelUploadImageResponseSchema
 from app.schemas.geometry_schema import ModelSimulationCompatibilitySchema
 from app.services import model_service
 from app.services import geometry_compatibility_service
@@ -42,6 +42,21 @@ class Model(MethodView):
     def delete(self, model_id):
         model_service.delete_model(model_id)
         return {"message": "Model deleted successfully!"}
+
+
+@blp.route("/models/<int:model_id>/repair-decision")
+class ModelRepairDecision(MethodView):
+    @blp.arguments(ModelRepairDecisionSchema)
+    @blp.response(200, ModelInfoSchema)
+    def post(self, body_data, model_id):
+        """Accept or reject the repaired geometry for a model.
+
+        Body: ``{"decision": "accept" | "reject"}``. Accepting switches the
+        model's active geometry (viewer URL and simulation .geo/.msh) to the
+        repaired files; rejecting reverts to the original upload.
+        """
+        accept = body_data["decision"] == "accept"
+        return model_service.set_repair_decision(model_id, accept)
 
 
 @blp.route("/models/<int:model_id>/simulation-compatibility")
