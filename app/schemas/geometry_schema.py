@@ -47,3 +47,26 @@ class SimulationCompatibilitySchema(Schema):
     version = fields.Integer(allow_none=True)
     compatibilityLevels = fields.Dict(keys=fields.Str(), values=fields.Str())
     methods = fields.List(fields.Nested(MethodCompatibilitySchema))
+
+
+class ModelMethodIssueSchema(Schema):
+    kind = fields.Str()
+    label = fields.Str(allow_none=True)
+    compatibility = fields.Str(allow_none=True)
+    present = fields.Boolean()
+
+
+class ModelMethodCompatibilitySchema(Schema):
+    simulationType = fields.Str()
+    label = fields.Str(allow_none=True)
+    notes = fields.Str(allow_none=True)
+    compatible = fields.Str()
+    issues = fields.List(fields.Nested(ModelMethodIssueSchema))
+
+
+class ModelSimulationCompatibilitySchema(Schema):
+    version = fields.Integer(allow_none=True)
+    compatibilityLevels = fields.Dict(keys=fields.Str(), values=fields.Str())
+    modelId = fields.Integer()
+    detectionStage = fields.Str()
+    methods = fields.List(fields.Nested(ModelMethodCompatibilitySchema))

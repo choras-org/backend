@@ -3,7 +3,9 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
 from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelSchema, ModelUpdateSchema, ModelUploadImageResponseSchema
+from app.schemas.geometry_schema import ModelSimulationCompatibilitySchema
 from app.services import model_service
+from app.services import geometry_compatibility_service
 
 blp = Blueprint("Model", __name__, description="Model API")
 
@@ -40,3 +42,16 @@ class Model(MethodView):
     def delete(self, model_id):
         model_service.delete_model(model_id)
         return {"message": "Model deleted successfully!"}
+
+
+@blp.route("/models/<int:model_id>/simulation-compatibility")
+class ModelSimulationCompatibility(MethodView):
+    @blp.response(200, ModelSimulationCompatibilitySchema)
+    def get(self, model_id):
+        """Per-method geometry compatibility for this model's repaired geometry.
+
+        Loads the model's AfterRepair issue report and resolves, for every
+        simulation method, how its configured compatibility applies to the
+        issues that remain in the model.
+        """
+        return geometry_compatibility_service.get_model_simulation_compatibility(model_id)

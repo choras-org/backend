@@ -72,7 +72,7 @@ def create_new_model(model_data):
 
                     db.session.add(model_issue)
 
-                    run_repair_pipeline(
+                    _, remaining_issue_count = run_repair_pipeline(
                         obj_path,
                         directory,
                         volume_name="RoomVolume",
@@ -86,8 +86,7 @@ def create_new_model(model_data):
                     repaired_model_issue = ModelIssue(
                         modelId=new_model.id,
                         fileUrl=issue_url,
-                        # issue count still hardcoded here
-                        issueCount=10,
+                        issueCount=remaining_issue_count,
                         detectionStage=DetectionStage.AfterRepair,
                         modelFileUrl=repaired_model_url  
                     )

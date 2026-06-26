@@ -15,6 +15,7 @@ import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from flask_smorest import abort
 
@@ -24,6 +25,9 @@ from app.services.discovery_service import discover_methods
 logger = logging.getLogger(__name__)
 
 BASELINE_FILENAME = "baseline_geometry_compatibility.json"
+
+# Worst-case ordering used to aggregate a single `compatible` value per method.
+_SEVERITY_RANK = {"compatible": 0, "warning": 1, "incompatible": 2}
 
 
 def _load_json(path: str) -> Optional[dict]:
@@ -120,5 +124,132 @@ def get_simulation_compatibility() -> Dict[str, Any]:
     return {
         "version": baseline.get("version"),
         "compatibilityLevels": baseline.get("compatibilityLevels"),
+        "methods": methods,
+    }
+
+
+def _local_path_from_upload_url(file_url: str) -> str:
+    """Resolve an uploads file URL to its on-disk path inside UPLOAD_FOLDER.
+
+    Only the basename is used (path traversal in the URL is ignored), so the
+    result always stays within ``UPLOAD_FOLDER``.
+    """
+    filename = os.path.basename(urlparse(file_url).path)
+    return os.path.join(DefaultConfig.UPLOAD_FOLDER, filename)
+
+
+def _read_issue_report(file_url: Optional[str]) -> tuple[set, set]:
+    """Read the model report and return ``(report_keys, present_kinds)``.
+
+    The report is keyed by IssueKind enum values (matching the compatibility
+    tables). ``report_keys`` is every key present in the report (even when its
+    list is empty); ``present_kinds`` is the subset whose list is non-empty.
+    Returns two empty sets when the report is missing or unreadable.
+    """
+    if not file_url:
+        return set(), set()
+
+    report = _load_json(_local_path_from_upload_url(file_url))
+    if not isinstance(report, dict):
+        return set(), set()
+
+    report_keys = {
+        kind for kind, entries in report.items() if isinstance(entries, list)
+    }
+    present_kinds = {
+        kind
+        for kind, entries in report.items()
+        if isinstance(entries, list) and entries
+    }
+    return report_keys, present_kinds
+
+
+def _method_result(
+    method: Dict[str, Any], report_keys: set, present_kinds: set
+) -> Dict[str, Any]:
+    """Resolve one method's compatibility against the model report.
+
+    ``compatible`` is the worst-case compatibility among the issue kinds that
+    are present (non-empty) in the report. It is ``"unknown"`` when the method
+    declares a kind the report has no information about (the kind is not a key
+    in the report at all), otherwise ``"compatible"`` when nothing is present.
+    """
+    issues_out: List[Dict[str, Any]] = []
+    worst: Optional[str] = None
+    has_unknown = False
+
+    for kind, meta in (method.get("issues") or {}).items():
+        compatibility = meta.get("compatibility")
+        present = kind in present_kinds
+
+        if kind not in report_keys:
+            has_unknown = True
+
+        issues_out.append(
+            {
+                "kind": kind,
+                "label": meta.get("label"),
+                "compatibility": compatibility,
+                "present": present,
+            }
+        )
+
+        if present and compatibility in _SEVERITY_RANK:
+            if worst is None or _SEVERITY_RANK[compatibility] > _SEVERITY_RANK[worst]:
+                worst = compatibility
+
+    if worst is not None:
+        compatible = worst
+    elif has_unknown:
+        compatible = "unknown"
+    else:
+        compatible = "compatible"
+
+    return {
+        "simulationType": method.get("simulationType"),
+        "label": method.get("label"),
+        "notes": method.get("notes"),
+        "compatible": compatible,
+        "issues": issues_out,
+    }
+
+
+def get_model_simulation_compatibility(model_id: int) -> Dict[str, Any]:
+    """Build per-method compatibility for a specific model's repaired geometry.
+
+    Loads the model's ``AfterRepair`` issue report and, for every simulation
+    method, resolves how its configured compatibility applies to the issues
+    that remain in that model.
+    """
+    from app.models import Model, ModelIssue
+    from app.types import DetectionStage
+
+    model = Model.query.filter_by(id=model_id).first()
+    if not model:
+        abort(404, message=f"Model {model_id} does not exist")
+
+    model_issue = (
+        ModelIssue.query.filter_by(
+            modelId=model_id, detectionStage=DetectionStage.AfterRepair
+        )
+        .order_by(ModelIssue.id.desc())
+        .first()
+    )
+    if not model_issue:
+        abort(404, message=f"No AfterRepair issue report found for model {model_id}")
+
+    report_keys, present_kinds = _read_issue_report(model_issue.fileUrl)
+
+    base = get_simulation_compatibility()
+    methods = [
+        _method_result(m, report_keys, present_kinds)
+        for m in base.get("methods", [])
+    ]
+
+    return {
+        "version": base.get("version"),
+        "compatibilityLevels": base.get("compatibilityLevels"),
+        "modelId": model_id,
+        "detectionStage": DetectionStage.AfterRepair.value,
         "methods": methods,
     }

@@ -703,7 +703,14 @@ def run_repair_pipeline(
     obj_dir: str,
     output_dir: str,
     volume_name: str,
-) -> bool:
+) -> tuple[bool, int]:
+    """Run the repair pipeline.
+
+    Returns a tuple ``(success, remaining_issue_count)`` where
+    ``remaining_issue_count`` is the number of issues still present in the mesh
+    after repair (the pipeline's final/remaining issues). On failure the count
+    is ``0``.
+    """
     from pathlib import Path as _Path
 
     out_dir = _Path(output_dir)
@@ -711,13 +718,21 @@ def run_repair_pipeline(
     try:
         logger = logging.getLogger(__name__)
         logger.warning(f"Starting repair pipeline for {obj_dir}, output to {output_dir} with volume name '{volume_name}'")
-        repair_geometry(obj_dir, out_dir, volume_name=volume_name)
+        result = repair_geometry(obj_dir, out_dir, volume_name=volume_name)
     except Exception as exc:
         logger = logging.getLogger(__name__)
         logger.exception("repair pipeline failed: %s", exc)
-        return False
+        return False, 0
 
-    return True
+    # `report["post"]` is the kind_dict of the final (post-repair) issues:
+    # {issue_kind: [entries...]}. Sum the entry lists to get the remaining count.
+    post_issues = (result.report or {}).get("post", {}) if result else {}
+    remaining_count = sum(
+        len(entries) for entries in post_issues.values() if isinstance(entries, list)
+    )
+
+    return True, remaining_count
+
 
 def run_inspect_for_file_upload(file_name: str, issue_path: str) -> tuple[str, int]:
     """Resolve the OBJ for a File row, run the inspect pipeline and return
