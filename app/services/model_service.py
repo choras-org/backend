@@ -70,6 +70,41 @@ def create_new_model(model_data):
     return new_model
 
 
+def reprocess_model_geometry(model_id):
+    """Re-run the background geometry pipeline for a model.
+
+    Intended for models whose pipeline previously failed. Clears any stale
+    ModelIssue rows and the repair decision, resets the status to ``Pending``
+    and dispatches the task again.
+    """
+    model = get_model(model_id)
+
+    if not model.hasGeo:
+        logger.error(f"Model {model_id} has no geometry to process")
+        abort(400, message="This model has no geometry to process")
+
+    if model.geometryStatus == GeometryProcessingStatus.Processing:
+        logger.warning(f"Model {model_id} is already processing")
+        abort(409, message="Geometry processing is already running for this model")
+
+    try:
+        # Idempotency: drop any partial results from a previous run so the task
+        # does not create duplicate ModelIssue rows.
+        ModelIssue.query.filter_by(modelId=model.id).delete()
+        model.repairStatus = None
+        model.geometryStatus = GeometryProcessingStatus.Pending
+        model.geometryProgress = 0
+        model.updatedAt = datetime.now()
+        db.session.commit()
+    except Exception as ex:
+        db.session.rollback()
+        logger.error(f"Can not reset model {model_id} for reprocessing: {ex}")
+        abort(400, message=f"Can not reprocess geometry: {ex}")
+
+    process_model_geometry.delay(model.id)
+    return model
+
+
 @shared_task
 def process_model_geometry(model_id: int):
     """Run the inspect + repair geometry pipeline for a model in the background.
@@ -106,6 +141,11 @@ def process_model_geometry(model_id: int):
 
         model.geometryStatus = GeometryProcessingStatus.Processing
         _set_progress(model, 5)
+
+        # Idempotency: remove any issue rows from a previous (failed/retried)
+        # run so this task never produces duplicates.
+        session.query(ModelIssue).filter_by(modelId=model.id).delete()
+        session.commit()
 
         # --- inspect (AfterUpload) ---
         inital_issue_path = os.path.join(directory, f"{file_name}_inspect_issue.json")

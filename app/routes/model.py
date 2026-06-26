@@ -59,6 +59,19 @@ class ModelRepairDecision(MethodView):
         return model_service.set_repair_decision(model_id, accept)
 
 
+@blp.route("/models/<int:model_id>/reprocess-geometry")
+class ModelReprocessGeometry(MethodView):
+    @blp.response(202, ModelInfoSchema)
+    def post(self, model_id):
+        """Re-run the background geometry pipeline for a model.
+
+        Useful when a previous run failed. Clears stale issue rows and the
+        repair decision, resets the status to ``Pending`` and dispatches the
+        background task again. Returns immediately (202).
+        """
+        return model_service.reprocess_model_geometry(model_id)
+
+
 @blp.route("/models/<int:model_id>/simulation-compatibility")
 class ModelSimulationCompatibility(MethodView):
     @blp.response(200, ModelSimulationCompatibilitySchema)
