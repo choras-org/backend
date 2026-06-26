@@ -57,7 +57,7 @@ def create_new_model(model_data):
                     initial_issue_filename = os.path.basename(inital_issue_path)
                     initial_issue_url = f"{request.host_url}{DefaultConfig.UPLOAD_FOLDER_NAME}/{initial_issue_filename}"
 
-                    initial_model_path = os.path.join(directory, f"{file_name}.3dm")
+                    initial_model_path = os.path.join(directory, f"{file_name}.zip")
                     initial_model_url = f"{request.host_url}{DefaultConfig.UPLOAD_FOLDER_NAME}/{os.path.basename(initial_model_path)}"
                     logger.warning(
                         f"Inspect report for file upload {model_data['sourceFileId']} generated at: {issue_path} with {issue_count} issues found. Accessible at: {initial_issue_url}"
@@ -80,7 +80,7 @@ def create_new_model(model_data):
 
                     issue_filename = os.path.basename(issue_path)
                     issue_url = f"{request.host_url}{DefaultConfig.UPLOAD_FOLDER_NAME}/{issue_filename}"
-                    repaired_model_path = os.path.join(directory, f"{file_name}_repaired.3dm")
+                    repaired_model_path = os.path.join(directory, f"{file_name}_repaired.zip")
                     repaired_model_url = f"{request.host_url}{DefaultConfig.UPLOAD_FOLDER_NAME}/{os.path.basename(repaired_model_path)}"
                     
                     repaired_model_issue = ModelIssue(
