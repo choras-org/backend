@@ -13,6 +13,10 @@ class ModelSchema(Schema):
     repairStatus = fields.Function(
         lambda obj: obj.repairStatus.value if obj.repairStatus else None
     )
+    geometryStatus = fields.Function(
+        lambda obj: obj.geometryStatus.value if obj.geometryStatus else None
+    )
+    geometryProgress = fields.Integer(dump_only=True)
 
     projectId = fields.Integer()
     imagePath = fields.String()
@@ -35,6 +39,10 @@ class ModelInfoSchema(ModelInfoBasicSchema):
     repairStatus = fields.Function(
         lambda obj: obj.repairStatus.value if obj.repairStatus else None
     )
+    geometryStatus = fields.Function(
+        lambda obj: obj.geometryStatus.value if obj.geometryStatus else None
+    )
+    geometryProgress = fields.Integer(dump_only=True)
     modelUrl = fields.Method("get_model_url", dump_only=True)
     meshId = fields.String(data_key="meshId", attribute="mesh.id")
     simulationCount = fields.Function(lambda obj: obj.simulation_count)
