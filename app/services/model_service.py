@@ -135,6 +135,25 @@ def upload_image(files):
 
 
 def copy_example_models_to_uploads():
+    """
+    Copy sample model files from the catalog directory to the application uploads folder.
+
+    This function reads a JSON catalog mapping out example models, verifies 
+    their physical existence on disk, and replicates them to the configured 
+    upload destination.
+
+    Returns
+    -------
+    dict
+        A dictionary containing a success message upon completion.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with a 404 status code if the catalog JSON file or a referenced physical 
+        source file is missing. Aborts with a 500 status code if any unexpected 
+        system or file system error occurs.
+    """
     # 1. Define the path to the example models catalog JSON file
     json_path = os.path.join(app_dir, "models", "data", "example_models.json")
     
@@ -183,6 +202,24 @@ def copy_example_models_to_uploads():
 
 
 def get_example_models():
+    """
+    Retrieve the catalog of example models with dynamically generated access URLs.
+
+    This function reads the metadata catalog JSON file and injects an absolute 
+    URL parameter for each model file pointing to its location in the upload directory.
+
+    Returns
+    -------
+    list of dict
+        A list of dictionaries representing the example models, each updated 
+        with a 'modelUrl' field.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with a 404 status code if the catalog JSON file is missing, 
+        or a 500 status code if an error occurs while processing the file.
+    """
     json_path = os.path.join(app_dir, "models", "data", "example_models.json")
     
     if not os.path.exists(json_path):

@@ -24,8 +24,21 @@ class ModelUploadImage(MethodView):
 
 @blp.route("/models/examples")
 class ModelUploadImage(MethodView):
+    """
+    HTTP methods for handling example model retrieval operations.
+    """
+
     @blp.response(200, ModelExampleSchema(many=True))
     def get(self):
+        """
+        Retrieve a list of all pre-configured example models.
+
+        Returns
+        -------
+        list of dict
+            A list of example model metadata objects formatted according to 
+            the ModelExampleSchema.
+        """
         return model_service.get_example_models()
 
 @blp.route("/models/<int:model_id>")
