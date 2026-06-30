@@ -375,6 +375,43 @@ def export_wav_file(json_path: str):
     logger.info(f"Impulse response shape: {imp_tot.shape}, sampling rate: {fs}")
 
 
+def export_edc_to_pressure_csv(json_path: str):
+    """Export the energy decay curve (EDC) contained in the json to a CSV file.
+
+    The CSV file is named the same as the json file but with different
+    file extension and is saved in the same location. This is a necesary step
+    for the synthesis of the room impulse response (RIR) from the EDC, which requires
+    the EDC to be in CSV format.
+
+    The CSV file will have the following header (columns):
+    The first column is time in seconds, all following columns are the EDCs for the
+    respective octave band.
+
+    Header:
+    t, 125Hz, ... ,2000Hz
+
+    Parameters
+    ----------
+    json_path : str
+        The path to the JSON file containing the EDC data.
+
+    """
+
+    with open(json_path, "r") as json_file:
+        result_container = json.load(json_file)
+
+    receiver_results = result_container["results"][0]["responses"][0]["receiverResults"]
+    receiver_results = sorted(receiver_results, key=lambda r: r["frequency"])
+
+    t = np.array(receiver_results[0]["t"])
+    data = np.column_stack([t] + [np.array(r["data"]) for r in receiver_results])
+    header = "t," + ",".join(f"{int(r['frequency'])}Hz" for r in receiver_results)
+
+    edc_csv_file_name = json_path.replace(".json", "_pressure.csv")
+    np.savetxt(edc_csv_file_name, data, delimiter=",", header=header, comments="")
+    logger.info(f"EDC shape: {data.shape}, saved to {edc_csv_file_name}")
+
+
 @shared_task
 def run_solver(simulation_run_id: int, json_path: str):
 
@@ -486,11 +523,22 @@ def run_solver(simulation_run_id: int, json_path: str):
 
         if result_is_edc:
             logger.info("Synthesizing the room impulse response.")
+
+            fname_csv = json_path.replace(".json", "_pressure.csv")
+            if not os.path.exists(fname_csv):
+                try:
+                    export_edc_to_pressure_csv(json_path)
+                except Exception as ex:
+                    logger.error(f"CSV file {fname_csv} does not exist, cannot synthesize RIR.")
+                    raise FileNotFoundError(
+                        f"CSV file {fname_csv} does not exist, cannot synthesize RIR."
+                    ) from ex
+
             # TODO: This function is not a general auralization function and should be renamed
             # Instead it is a RIR sythesis function
             auralization_calculation(
                 None,
-                json_path.replace(".json", "_pressure.csv"),
+                fname_csv,
                 json_path.replace(".json", ".wav"),
             )
 
