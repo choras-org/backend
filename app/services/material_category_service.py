@@ -34,22 +34,29 @@ def update_material_category(material_category_id, material_category_data):
         abort(404, message="Material category doesn't exist, cannot update!")
 
     try:
-        material_category.name = material_category_data["name"] # DIUBAH: material -> material_category
-        material_category.updatedAt = datetime.now()             # DIUBAH: material -> material_category
+        material_category.name = material_category_data["name"]
+        material_category.updatedAt = datetime.now()
         db.session.commit()
     except Exception as ex:
         db.session.rollback()
         logger.error(f"Can not update! Error: {ex}")
         abort(400, message=f"Can not update! Error: {ex}")
 
-    return material_category # DIUBAH: material -> material_category
+    return material_category
 
 def get_material_category_by_id(material_category_id):
     material_category = MaterialCategory.query.filter_by(id=material_category_id).first()
-    if not material_category: # DIUBAH: material -> material_category
+    if not material_category:
         logger.error("Material category with id " + str(material_category_id) + " does not exists!")
         abort(400, "Material category doesn't exists!")
-    return material_category # DIUBAH: material -> material_category
+    return material_category
+
+def get_material_category_by_name(material_category_name):
+    material_category = MaterialCategory.query.filter_by(name=material_category_name).first()
+    if not material_category:
+        logger.error("Material category with name " + str(material_category_name) + " does not exists!")
+        abort(400, "Material category doesn't exists!")
+    return material_category
 
 def insert_initial_material_categories():
     material_categories = get_all_material_categories()
