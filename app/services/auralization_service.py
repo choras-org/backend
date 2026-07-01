@@ -435,6 +435,7 @@ def auralization_calculation(
         data_pressure = np.loadtxt(
             pressure_file_name, skiprows=1, usecols=range(1, 6), delimiter=','
         )  # this returns the pressure data
+
         center_freq = np.loadtxt(
             pressure_file_name, usecols=range(1, 6), delimiter=',', dtype=str, max_rows=1
         )  # this returns the center frequencies of the bands with the suffix "Hz"
