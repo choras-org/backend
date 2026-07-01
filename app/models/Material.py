@@ -6,6 +6,30 @@ from app.db import db
 
 
 class Material(db.Model):
+    """SQLAlchemy model representing an acoustic material.
+
+    Attributes
+    ----------
+    id : int
+        Primary key, auto-incremented.
+    name : str
+        Name of the material. Cannot be null.
+    description : str or None
+        Optional description of the material.
+    categoryId : int
+        Foreign key referencing ``material_categories.id``. Cascades on delete.
+    absorptionCoefficients : dict
+        JSON object storing absorption coefficient values. Cannot be null.
+    origin : str
+        Source of the material record; defaults to ``"user"``. Cannot be null.
+    createdAt : str
+        Timestamp string of when the record was created.
+    updatedAt : str
+        Timestamp string of when the record was last updated.
+    materialCategory : MaterialCategory
+        Relationship to the associated :class:`MaterialCategory` instance.
+    """
+
     __tablename__ = "materials"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)

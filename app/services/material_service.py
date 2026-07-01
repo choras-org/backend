@@ -34,6 +34,27 @@ def create_new_material(material_data):
     return new_material
 
 def update_material(material_id, material_data):
+    """Update an existing material by ID.
+
+    Parameters
+    ----------
+    material_id : int
+        The ID of the material to update.
+    material_data : dict
+        Dictionary containing updated fields: ``name``, ``description``,
+        ``categoryId``, and ``absorptionCoefficients``.
+
+    Returns
+    -------
+    Material
+        The updated material record.
+
+    Raises
+    ------
+    HTTPException
+        404 if the material does not exist.
+        400 if the material has ``origin="factory"`` or the database operation fails.
+    """
     material = Material.query.filter_by(id=material_id).first()
     if not material:
         abort(404, message="Material doesn't exist, cannot update!")
@@ -65,6 +86,21 @@ def get_material_by_id(material_id):
 
 
 def insert_initial_materials():
+    """Seed the database with initial materials from a JSON file.
+
+    Reads ``app/models/data/materials.json`` and inserts all entries if the
+    table is currently empty. Does nothing if records already exist.
+
+    Returns
+    -------
+    dict or None
+        A success message dict if records were inserted, otherwise ``None``.
+
+    Raises
+    ------
+    HTTPException
+        400 if the database operation fails.
+    """
     materials = get_all_materials()
     if len(materials):
         return
