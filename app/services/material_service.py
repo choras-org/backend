@@ -9,6 +9,7 @@ from app.db import db
 from app.models import Material
 from config import app_dir
 from datetime import datetime
+from app.services import material_category_service
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ def update_material(material_id, material_data):
     try:
         material.name = material_data["name"]
         material.description = material_data["description"]
-        material.category = material_data["category"]
+        material.categoryId = material_data["categoryId"]
         material.absorptionCoefficients = material_data["absorptionCoefficients"]
         material.updatedAt = datetime.now()
         db.session.commit()
@@ -73,11 +74,12 @@ def insert_initial_materials():
         try:
             new_materials = []
             for material in initial_materials:
+                material_category = material_category_service.get_material_category_by_name(material["category"])
                 new_materials.append(
                     Material(
                         name=material["name"],
                         description=material["description"],
-                        category=material["category"],
+                        categoryId=material_category.id,
                         absorptionCoefficients=material["absorptionCoefficients"],
                         origin="factory",
                     )
