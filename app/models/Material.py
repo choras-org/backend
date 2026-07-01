@@ -11,8 +11,10 @@ class Material(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(), nullable=False)
     description = db.Column(db.String(), nullable=True)
-    category = db.Column(db.String(80), nullable=False)
+    categoryId = db.Column(db.Integer, db.ForeignKey("material_categories.id", ondelete="CASCADE"), nullable=False)
     absorptionCoefficients = db.Column(JSON, nullable=False)
     origin = db.Column(db.String(10), default="user", nullable=False)
     createdAt = db.Column(db.String(), default=datetime.now())
     updatedAt = db.Column(db.String(), default=datetime.now())
+
+    materialCategory = db.relationship("MaterialCategory", foreign_keys=[categoryId])
