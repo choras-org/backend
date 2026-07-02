@@ -533,10 +533,9 @@ def run_solver(simulation_run_id: int, json_path: str):
             try:
                 export_edc_to_pressure_csv(json_path)
             except Exception as ex:
-                logger.error(f"CSV file {fname_csv} does not exist, cannot synthesize RIR.")
-                raise FileNotFoundError(
-                    f"CSV file {fname_csv} does not exist, cannot synthesize RIR."
-                ) from ex
+                message = f"CSV file {fname_csv} not written, cannot synthesize RIR."
+                logger.error(message)
+                raise FileNotFoundError(message) from ex
 
             # TODO: This function is not a general auralization function and should be renamed
             # Instead it is a RIR sythesis function
