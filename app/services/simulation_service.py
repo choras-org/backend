@@ -526,13 +526,17 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             fname_csv = json_path.replace(".json", "_pressure.csv")
             if not os.path.exists(fname_csv):
-                try:
-                    export_edc_to_pressure_csv(json_path)
-                except Exception as ex:
-                    logger.error(f"CSV file {fname_csv} does not exist, cannot synthesize RIR.")
-                    raise FileNotFoundError(
-                        f"CSV file {fname_csv} does not exist, cannot synthesize RIR."
-                    ) from ex
+                logger.info(f"CSV file {fname_csv} does not exist, exporting EDC to CSV.")
+            else:
+                logger.info(f"CSV file {fname_csv} already exists, overwriting file.")
+
+            try:
+                export_edc_to_pressure_csv(json_path)
+            except Exception as ex:
+                logger.error(f"CSV file {fname_csv} does not exist, cannot synthesize RIR.")
+                raise FileNotFoundError(
+                    f"CSV file {fname_csv} does not exist, cannot synthesize RIR."
+                ) from ex
 
             # TODO: This function is not a general auralization function and should be renamed
             # Instead it is a RIR sythesis function
