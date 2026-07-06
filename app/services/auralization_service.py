@@ -435,6 +435,18 @@ def auralization_calculation(
         data_pressure = np.loadtxt(
             pressure_file_name, skiprows=1, usecols=range(1, 6), delimiter=','
         )  # this returns the pressure data
+
+        # read the discrete times at which the EDC is sampled
+        times = np.loadtxt(pressure_file_name, skiprows=1, usecols=0, delimiter=',')
+        # derive the sampling rate of the EDC from the time intervals
+        sampling_rate_edc = 1/np.mean(np.diff(times))
+        sampling_rate_edc_relative_std = (1/np.std(np.diff(times))) / sampling_rate_edc
+
+        if np.abs(sampling_rate_edc_relative_std) > 0.01:
+            logger.warning(
+                f"Relative standard deviation of the sampling rate is {sampling_rate_edc_relative_std}. The EDC might be non-uniformly sampled.",
+            )
+
         center_freq = np.loadtxt(
             pressure_file_name, usecols=range(1, 6), delimiter=',', dtype=str, max_rows=1
         )  # this returns the center frequencies of the bands with the suffix "Hz"
@@ -451,6 +463,9 @@ def auralization_calculation(
     except Exception as e:
         logger.error(f'Error loading files: {e}')
         return None, None
+
+    logger.info(
+        f"Synthesizing room impulse response with sampling rate {fs} Hz from EDC sampled at {sampling_rate_edc} Hz.")
 
     # Auralization Calculation
     try:
