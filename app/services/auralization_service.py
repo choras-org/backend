@@ -438,9 +438,17 @@ def auralization_calculation(
 
         # read the discrete times at which the EDC is sampled
         times = np.loadtxt(pressure_file_name, skiprows=1, usecols=0, delimiter=',')
-        # derive the sampling rate of the EDC from the time intervals
-        sampling_rate_edc = 1/np.mean(np.diff(times))
-        sampling_rate_edc_relative_std = (1/np.std(np.diff(times))) / sampling_rate_edc
+
+        dt = np.diff(times)
+
+        if dt.size == 0 or np.any(dt <= 0) or np.any(times < 0):
+            raise ValueError(
+                "Sampling times need to be positive and strictly increasing."
+            )
+
+        mean_dt = float(np.mean(dt))
+        sampling_rate_edc = 1.0 / mean_dt
+        sampling_rate_edc_relative_std = float(np.std(dt) / mean_dt)
 
         if np.abs(sampling_rate_edc_relative_std) > 0.01:
             logger.warning(
@@ -474,7 +482,7 @@ def auralization_calculation(
         p_rec_off_deriv_band_resampled = np.zeros((p_rec_off_deriv_band.shape[0], num_samples))
         for i in range(p_rec_off_deriv_band.shape[0]):
             p_rec_off_deriv_band_resampled[i, :] = resample_poly(
-                p_rec_off_deriv_band[i, :], up=int(fs), down=int(sampling_rate_edc)
+                p_rec_off_deriv_band[i, :], up=int(fs), down=sampling_rate_edc,
             )
 
         # Clip negative values to zero
