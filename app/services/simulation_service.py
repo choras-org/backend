@@ -451,8 +451,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                             from config import AuralizationParametersConfig
                             fs = AuralizationParametersConfig.visualization_fs
                             logger.warning(
-                                "The sampling rate of the impulse response was not provided. " +
-                                f"Assuming {fs} as fallback."
+                                f"The sampling rate of the impulse response was not provided. Assuming {fs} as fallback."
                             )
 
                     rir_wav_file_name = json_path.replace(".json", ".wav")
