@@ -435,6 +435,26 @@ def auralization_calculation(
         data_pressure = np.loadtxt(
             pressure_file_name, skiprows=1, usecols=range(1, 6), delimiter=','
         )  # this returns the pressure data
+
+        # read the discrete times at which the EDC is sampled
+        times = np.loadtxt(pressure_file_name, skiprows=1, usecols=0, delimiter=',')
+
+        dt = np.diff(times)
+
+        if dt.size == 0 or np.any(dt <= 0) or np.any(times < 0):
+            raise ValueError(
+                "Sampling times need to be positive and strictly increasing."
+            )
+
+        mean_dt = float(np.mean(dt))
+        sampling_rate_edc = 1.0 / mean_dt
+        sampling_rate_edc_relative_std = float(np.std(dt) / mean_dt)
+
+        if np.abs(sampling_rate_edc_relative_std) > 0.01:
+            logger.warning(
+                f"Relative standard deviation of the sampling rate is {sampling_rate_edc_relative_std}. The EDC might be non-uniformly sampled.",
+            )
+
         center_freq = np.loadtxt(
             pressure_file_name, usecols=range(1, 6), delimiter=',', dtype=str, max_rows=1
         )  # this returns the center frequencies of the bands with the suffix "Hz"
@@ -452,14 +472,17 @@ def auralization_calculation(
         logger.error(f'Error loading files: {e}')
         return None, None
 
+    logger.info(
+        f"Synthesizing room impulse response with sampling rate {fs} Hz from EDC sampled at {sampling_rate_edc} Hz.")
+
     # Auralization Calculation
     try:
         # RESAMPLING PRESSURE ENVELOPE
-        num_samples = ceil(p_rec_off_deriv_band.shape[1] * fs / AuralizationParameters.original_fs)
+        num_samples = ceil(p_rec_off_deriv_band.shape[1] * fs / sampling_rate_edc)
         p_rec_off_deriv_band_resampled = np.zeros((p_rec_off_deriv_band.shape[0], num_samples))
         for i in range(p_rec_off_deriv_band.shape[0]):
             p_rec_off_deriv_band_resampled[i, :] = resample_poly(
-                p_rec_off_deriv_band[i, :], up=int(fs), down=int(AuralizationParameters.original_fs)
+                p_rec_off_deriv_band[i, :], up=int(fs), down=sampling_rate_edc,
             )
 
         # Clip negative values to zero
