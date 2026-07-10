@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 
 BASELINE_FILENAME = "baseline_geometry_compatibility.json"
 
+# Simulation types excluded from the compatibility result (e.g. template/example
+# methods that ship in methods-config.json but are not real solvers).
+_EXCLUDED_SIMULATION_TYPES = {"MyNewMethod"}
+
 # Worst-case ordering used to aggregate a single `compatible` value per method.
 _SEVERITY_RANK = {"compatible": 0, "warning": 1, "incompatible": 2}
 
@@ -106,6 +110,8 @@ def get_simulation_compatibility() -> Dict[str, Any]:
     methods: List[Dict[str, Any]] = []
     for cfg in discover_methods():
         sim_type = cfg.get("simulationType")
+        if sim_type in _EXCLUDED_SIMULATION_TYPES:
+            continue
         rel_path = cfg.get("geometryCompatibility")
 
         override: Optional[dict] = None

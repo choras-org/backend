@@ -1,6 +1,7 @@
 from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
+from flask import send_from_directory
 
 from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelRepairDecisionSchema, ModelSchema, ModelUpdateSchema, ModelUploadImageResponseSchema
 from app.schemas.geometry_schema import ModelSimulationCompatibilitySchema
@@ -83,3 +84,12 @@ class ModelSimulationCompatibility(MethodView):
         issues that remain in the model.
         """
         return geometry_compatibility_service.get_model_simulation_compatibility(model_id)
+
+
+@blp.route("/models/<int:model_id>/download/repaired")
+class ModelDownloadRepaired(MethodView):
+    @blp.response(200)
+    def get(self, model_id):
+        """Download the repaired ``.obj`` geometry for a model as an attachment."""
+        directory, filename = model_service.get_repaired_obj_download(model_id)
+        return send_from_directory(directory, filename, as_attachment=True)

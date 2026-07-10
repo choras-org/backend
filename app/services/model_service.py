@@ -268,6 +268,32 @@ def set_repair_decision(model_id, accept):
     return model
 
 
+def get_repaired_obj_download(model_id):
+    """Resolve the repaired ``.obj`` geometry for a model.
+
+    Returns ``(directory, filename)`` for the repaired OBJ produced by the
+    geometry pipeline so the route can serve it as a download. Aborts when no
+    repair is available or the file is missing on disk.
+    """
+    model = get_model(model_id)
+
+    if model.repairStatus is None:
+        logger.error(f"Model {model_id} has no repaired geometry to download")
+        abort(400, message="No repaired geometry is available for this model")
+
+    source_file = file_service.get_file_by_id(model.sourceFileId)
+    stem, _ = os.path.splitext(os.path.basename(source_file.fileName))
+
+    directory = DefaultConfig.UPLOAD_FOLDER
+    filename = f"{stem}_repaired.obj"
+    repaired_obj = os.path.join(directory, filename)
+    if not os.path.exists(repaired_obj):
+        logger.error(f"Repaired OBJ missing for model {model_id}: {repaired_obj}")
+        abort(404, message="Repaired geometry file is not available")
+
+    return directory, filename
+
+
 def update_model(model_id, model_data):
     model = Model.query.filter_by(id=model_id).first()
     if not model:
