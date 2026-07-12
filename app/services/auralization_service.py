@@ -187,6 +187,51 @@ def upload_audio_file(
 
     return audio_file
 
+def update_audio_file(audiofile_id: int, body_data: Dict) -> AudioFile:
+    """Update the name and/or description of an audio file.
+
+    Parameters
+    ----------
+    audiofile_id : int
+        The ID of the audio file to update.
+    body_data : Dict
+        Dictionary containing the fields to update. Accepted keys:
+
+        - ``name`` : str, optional
+            New name for the audio file. If ``None``, the existing name is kept.
+        - ``description`` : str, optional
+            New description for the audio file. If ``None``, the existing description is kept.
+
+    Returns
+    -------
+    AudioFile
+        The updated audio file object.
+
+    Raises
+    ------
+    404
+        If no audio file is found with the given ``audiofile_id``.
+    400
+        If an error occurs during the database update.
+    """
+    audiofile: Optional[AudioFile] = AudioFile.query.filter_by(id=audiofile_id).first()
+    if audiofile is None:
+        abort(404, message="No audio file found with this id.")
+
+    try:
+        if body_data.get("name") is not None:
+            audiofile.name = body_data["name"]
+        if body_data.get("description") is not None:
+            audiofile.description = body_data["description"]
+        audiofile.updatedAt = datetime.now()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating audio file data: {e}")
+        abort(400, message="Error updating audio file data")
+
+    return audiofile
+
 
 def __update_audio_file__(
     name: str, description: str, path: Path, fileExtension: str, projectId: int, isUserFile: bool
