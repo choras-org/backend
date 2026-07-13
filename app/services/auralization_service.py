@@ -447,7 +447,7 @@ def auralization_calculation(
             )
 
         mean_dt = float(np.mean(dt))
-        sampling_rate_edc = 1.0 / mean_dt
+        sampling_rate_edc = round(1.0 / mean_dt)
         sampling_rate_edc_relative_std = float(np.std(dt) / mean_dt)
 
         if np.abs(sampling_rate_edc_relative_std) > 0.01:
