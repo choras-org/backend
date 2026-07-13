@@ -4,7 +4,7 @@ import zipfile
 
 import rhino3dm
 from flask_smorest import abort
-from geometry_pipeline import inspect_geometry, repair_geometry
+from geometry_pipeline import process_geometry
 
 import config
 from app.db import db
@@ -699,17 +699,28 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
     print(f"Wrote {geo_file}: {len(unique_vertices)} points, {next_line_id-1} lines, {len(face_line_loops)} surfaces.")
     return True
 
-def run_repair_pipeline(
+
+def run_geometry_pipeline(
     obj_dir: str,
     output_dir: str,
     volume_name: str,
+    on_checkpoint=None,
 ) -> tuple[bool, int]:
-    """Run the repair pipeline.
+    """Run the merged inspect+repair pipeline in a single pass.
 
-    Returns a tuple ``(success, remaining_issue_count)`` where
-    ``remaining_issue_count`` is the number of issues still present in the mesh
-    after repair (the pipeline's final/remaining issues). On failure the count
-    is ``0``.
+    Emits the inspect checkpoint (``<stem>.geo`` + ``<stem>_inspect_issue.json``)
+    and the repaired bundle in one run — the shared prefix (dedup/orient/
+    T-junction fix) is computed once instead of twice. The initial
+    ``<stem>.3dm``/``.zip`` is produced separately by ``map_to_3dm_and_geo``.
+
+    ``on_checkpoint`` (if given) is invoked when the inspect checkpoint fires,
+    with a dict ``{"stage", "issue_report", "issue_count"}`` describing the
+    initial (AfterUpload) issues, so the caller can persist them and report
+    progress before the repair finishes.
+
+    Returns ``(success, remaining_issue_count)``; the remaining count is the
+    number of issues still present after repair (the pipeline's final issues).
+    On failure the count is ``0``.
     """
     from pathlib import Path as _Path
 
@@ -717,58 +728,26 @@ def run_repair_pipeline(
 
     try:
         logger = logging.getLogger(__name__)
-        logger.warning(f"Starting repair pipeline for {obj_dir}, output to {output_dir} with volume name '{volume_name}'")
-        result = repair_geometry(obj_dir, out_dir, volume_name=volume_name)
+        logger.warning(
+            f"Starting merged geometry pipeline for {obj_dir}, output to {output_dir} "
+            f"with volume name '{volume_name}'"
+        )
+        result = process_geometry(
+            obj_dir,
+            out_dir,
+            volume_name=volume_name,
+            detect_cavities=True,
+            on_checkpoint=on_checkpoint,
+        )
     except Exception as exc:
         logger = logging.getLogger(__name__)
-        logger.exception("repair pipeline failed: %s", exc)
+        logger.exception("merged geometry pipeline failed: %s", exc)
         return False, 0
 
-    # `report["post"]` is the kind_dict of the final (post-repair) issues:
-    # {issue_kind: [entries...]}. Sum the entry lists to get the remaining count.
+    # `report["post"]` is the kind_dict of the final (post-repair) issues.
     post_issues = (result.report or {}).get("post", {}) if result else {}
     remaining_count = sum(
         len(entries) for entries in post_issues.values() if isinstance(entries, list)
     )
 
     return True, remaining_count
-
-
-def run_inspect_for_file_upload(file_name: str, issue_path: str) -> tuple[str, int]:
-    """Resolve the OBJ for a File row, run the inspect pipeline and return
-    a tuple `(report_path, issue_count)`.
-    """
-    from config import DefaultConfig
-    from pathlib import Path as _Path
-
-    out_dir = _Path(issue_path)
-    directory = DefaultConfig.UPLOAD_FOLDER
-    #TODO 1
-    obj_path = os.path.join(directory, f"{file_name}.obj")
-
-    if not os.path.exists(obj_path):
-        abort(400, message=f"OBJ not found for file {file_name} at {obj_path}")
-
-    _, payload_issue_count = _run_inspect_pipeline_for_obj(obj_path, out_dir)
-
-    return issue_path, payload_issue_count
-
-def _run_inspect_pipeline_for_obj(
-    obj_file: str,
-    output_path: str,
-) -> str:
-    """Run the inspect-only profile and write the API-shaped JSON report.
-
-    Returns the report path. Does NOT emit OBJ/GEO — the inspect profile
-    has no geometry exporters.
-    """
-    from pathlib import Path as _Path
-    #TODO 2
-    output_path = _Path(output_path)
-    out_dir = output_path
-    # ask the geometry package to write its reports into the requested folder
-    res = inspect_geometry(obj_file, output_dir=out_dir)
-
-    # The reporting exporter writes `<stem>_inspect_issue.json` next to the base
-    issue_path = out_dir / f"{output_path.stem}_inspect_issue.json"
-    return str(issue_path), res.issue_count

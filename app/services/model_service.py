@@ -14,10 +14,7 @@ from app.types import DetectionStage, RepairStatus, GeometryProcessingStatus
 from config import FeatureToggle, DefaultConfig
 from datetime import datetime
 from app.services import file_service
-from app.services.geometry_service import (
-    run_inspect_for_file_upload,
-    run_repair_pipeline
-)
+from app.services.geometry_service import run_geometry_pipeline
 # Create logger for this module
 logger = logging.getLogger(__name__)
 
@@ -147,33 +144,42 @@ def process_model_geometry(model_id: int):
         session.query(ModelIssue).filter_by(modelId=model.id).delete()
         session.commit()
 
-        # --- inspect (AfterUpload) ---
-        inital_issue_path = os.path.join(directory, f"{file_name}_inspect_issue.json")
-        _, issue_count = run_inspect_for_file_upload(file_name, directory)
+        # --- merged inspect + repair (single pass) ---
+        # One pipeline run emits the inspect checkpoint (<stem>.geo +
+        # <stem>_inspect_issue.json) and the repaired bundle. The initial
+        # <stem>.zip / <stem>.3dm (referenced by the AfterUpload row below) is
+        # produced earlier by map_to_3dm_and_geo (model-creation flow). The
+        # AfterUpload row is written from the checkpoint callback (before repair
+        # finishes, preserving the early-render UX); AfterRepair after it returns.
+        obj_path = os.path.join(directory, f"{file_name}.obj")
 
+        inital_issue_path = os.path.join(directory, f"{file_name}_inspect_issue.json")
         initial_issue_url = f"{base_url}/{os.path.basename(inital_issue_path)}"
         initial_model_path = os.path.join(directory, f"{file_name}.zip")
         initial_model_url = f"{base_url}/{os.path.basename(initial_model_path)}"
-        session.add(
-            ModelIssue(
-                modelId=model.id,
-                fileUrl=initial_issue_url,
-                issueCount=issue_count,
-                detectionStage=DetectionStage.AfterUpload,
-                modelFileUrl=initial_model_url,
-            )
-        )
-        _set_progress(model, 35)
 
-        # --- repair (AfterRepair) ---
-        obj_path = os.path.join(directory, f"{file_name}.obj")
-        issue_path = os.path.join(directory, f"{file_name}_remaining_issue.json")
-        _, remaining_issue_count = run_repair_pipeline(
+        def _on_checkpoint(payload):
+            # AfterUpload: initial issues, persisted mid-pipeline.
+            session.add(
+                ModelIssue(
+                    modelId=model.id,
+                    fileUrl=initial_issue_url,
+                    issueCount=payload.get("issue_count", 0),
+                    detectionStage=DetectionStage.AfterUpload,
+                    modelFileUrl=initial_model_url,
+                )
+            )
+            session.commit()
+            _set_progress(model, 35)
+
+        _, remaining_issue_count = run_geometry_pipeline(
             obj_path,
             directory,
-            volume_name="RoomVolume",
+            "RoomVolume",
+            on_checkpoint=_on_checkpoint,
         )
 
+        issue_path = os.path.join(directory, f"{file_name}_remaining_issue.json")
         issue_url = f"{base_url}/{os.path.basename(issue_path)}"
         repaired_model_path = os.path.join(directory, f"{file_name}_repaired.zip")
         repaired_model_url = f"{base_url}/{os.path.basename(repaired_model_path)}"
