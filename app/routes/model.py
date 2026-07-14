@@ -87,10 +87,14 @@ class ModelSimulationCompatibility(MethodView):
         return geometry_compatibility_service.get_model_simulation_compatibility(model_id)
 
 
-@blp.route("/models/<int:model_id>/download/repaired")
-class ModelDownloadRepaired(MethodView):
+@blp.route("/models/<int:model_id>/download")
+class ModelDownload(MethodView):
     @blp.response(200)
     def get(self, model_id):
-        """Download the repaired ``.obj`` geometry for a model as an attachment."""
-        directory, filename = model_service.get_repaired_obj_download(model_id)
+        """Download the model's ``.obj`` geometry as an attachment.
+
+        Serves the repaired OBJ when the repair was accepted, otherwise the
+        original (non-repaired) OBJ.
+        """
+        directory, filename = model_service.get_obj_download(model_id)
         return send_from_directory(directory, filename, as_attachment=True)
