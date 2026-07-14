@@ -274,23 +274,28 @@ def set_repair_decision(model_id, accept):
     return model
 
 
-def get_obj_download(model_id):
+def get_obj_download(model_id, variant=None):
     """Resolve the ``.obj`` geometry to download for a model.
 
-    Returns ``(directory, filename)`` for the geometry the model is currently
-    using: the repaired OBJ when the repair was accepted, otherwise the
-    original (non-repaired) OBJ. Aborts when the resolved file is missing.
+    Returns ``(directory, filename)`` for the requested geometry. ``variant``
+    (``"repaired"`` | ``"initial"``) forces a specific version; when omitted the
+    repaired OBJ is used if the repair was accepted, otherwise the original
+    (non-repaired) OBJ. Aborts when the resolved file is missing.
     """
     model = get_model(model_id)
 
     source_file = file_service.get_file_by_id(model.sourceFileId)
     stem, _ = os.path.splitext(os.path.basename(source_file.fileName))
 
-    directory = DefaultConfig.UPLOAD_FOLDER
-    if model.repairStatus == RepairStatus.Accepted:
-        filename = f"{stem}_repaired.obj"
+    if variant == "repaired":
+        use_repaired = True
+    elif variant == "initial":
+        use_repaired = False
     else:
-        filename = f"{stem}.obj"
+        use_repaired = model.repairStatus == RepairStatus.Accepted
+
+    directory = DefaultConfig.UPLOAD_FOLDER
+    filename = f"{stem}_repaired.obj" if use_repaired else f"{stem}.obj"
 
     obj_path = os.path.join(directory, filename)
     if not os.path.exists(obj_path):

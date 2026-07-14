@@ -72,6 +72,12 @@ class ModelRepairDecisionSchema(Schema):
         validate=validate.OneOf(["accept", "reject"]),
     )
 
+class ModelDownloadQuerySchema(Schema):
+    variant = fields.Str(
+        required=False,
+        validate=validate.OneOf(["repaired", "initial"]),
+    )
+
 
 class ModelUploadImageResponseSchema(Schema):
     imagePath = fields.Str(required=True)

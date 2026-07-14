@@ -3,7 +3,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from flask import send_from_directory
 
-from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelRepairDecisionSchema, ModelSchema, ModelUpdateSchema, ModelUploadImageResponseSchema
+from app.schemas.model_schema import ModelCreateSchema, ModelInfoSchema, ModelRepairDecisionSchema, ModelSchema, ModelUpdateSchema, ModelUploadImageResponseSchema, ModelDownloadQuerySchema
 from app.schemas.geometry_schema import ModelSimulationCompatibilitySchema
 from app.services import model_service
 from app.services import geometry_compatibility_service
@@ -89,12 +89,16 @@ class ModelSimulationCompatibility(MethodView):
 
 @blp.route("/models/<int:model_id>/download")
 class ModelDownload(MethodView):
+    @blp.arguments(ModelDownloadQuerySchema, location="query")
     @blp.response(200)
-    def get(self, model_id):
+    def get(self, query_args, model_id):
         """Download the model's ``.obj`` geometry as an attachment.
 
-        Serves the repaired OBJ when the repair was accepted, otherwise the
-        original (non-repaired) OBJ.
+        Optional query param ``variant`` (``repaired`` | ``initial``) forces a
+        specific version. When omitted, serves the repaired OBJ if the repair
+        was accepted, otherwise the original (non-repaired) OBJ.
         """
-        directory, filename = model_service.get_obj_download(model_id)
+        directory, filename = model_service.get_obj_download(
+            model_id, variant=query_args.get("variant")
+        )
         return send_from_directory(directory, filename, as_attachment=True)
