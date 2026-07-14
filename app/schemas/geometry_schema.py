@@ -64,9 +64,14 @@ class ModelMethodCompatibilitySchema(Schema):
     issues = fields.List(fields.Nested(ModelMethodIssueSchema))
 
 
+class ModelCompatibilityBlockSchema(Schema):
+    detectionStage = fields.Str()
+    methods = fields.List(fields.Nested(ModelMethodCompatibilitySchema))
+
+
 class ModelSimulationCompatibilitySchema(Schema):
     version = fields.Integer(allow_none=True)
     compatibilityLevels = fields.Dict(keys=fields.Str(), values=fields.Str())
     modelId = fields.Integer()
-    detectionStage = fields.Str()
-    methods = fields.List(fields.Nested(ModelMethodCompatibilitySchema))
+    initialCompatibility = fields.Nested(ModelCompatibilityBlockSchema)
+    repairedCompatibility = fields.Nested(ModelCompatibilityBlockSchema)

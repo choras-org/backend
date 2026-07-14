@@ -77,11 +77,12 @@ class ModelReprocessGeometry(MethodView):
 class ModelSimulationCompatibility(MethodView):
     @blp.response(200, ModelSimulationCompatibilitySchema)
     def get(self, model_id):
-        """Per-method geometry compatibility for this model's repaired geometry.
+        """Per-method geometry compatibility for this model.
 
-        Loads the model's AfterRepair issue report and resolves, for every
-        simulation method, how its configured compatibility applies to the
-        issues that remain in the model.
+        Loads the model's ``AfterUpload`` (initial) and ``AfterRepair``
+        (repaired) issue reports and resolves, for every simulation method, how
+        its configured compatibility applies to each stage. Returns both under
+        ``initialCompatibility`` and ``repairedCompatibility``.
         """
         return geometry_compatibility_service.get_model_simulation_compatibility(model_id)
 

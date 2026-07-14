@@ -220,12 +220,33 @@ def _method_result(
     }
 
 
-def get_model_simulation_compatibility(model_id: int) -> Dict[str, Any]:
-    """Build per-method compatibility for a specific model's repaired geometry.
+def _compatibility_block(
+    base: Dict[str, Any], model_issue: Optional[Any], detection_stage: str
+) -> Dict[str, Any]:
+    """Build a single compatibility block for one detection stage.
 
-    Loads the model's ``AfterRepair`` issue report and, for every simulation
-    method, resolves how its configured compatibility applies to the issues
-    that remain in that model.
+    Resolves every method against the given ``model_issue`` report. When the
+    report is missing, methods fall back to ``"unknown"`` (no information).
+    """
+    file_url = model_issue.fileUrl if model_issue else None
+    report_keys, present_kinds = _read_issue_report(file_url)
+    methods = [
+        _method_result(m, report_keys, present_kinds)
+        for m in base.get("methods", [])
+    ]
+    return {
+        "detectionStage": detection_stage,
+        "methods": methods,
+    }
+
+
+def get_model_simulation_compatibility(model_id: int) -> Dict[str, Any]:
+    """Build per-method compatibility for a specific model.
+
+    Loads both the ``AfterUpload`` (initial) and ``AfterRepair`` (repaired)
+    issue reports and, for every simulation method, resolves how its configured
+    compatibility applies to the issues in each stage. Returns both under
+    ``initialCompatibility`` and ``repairedCompatibility``.
     """
     from app.models import Model, ModelIssue
     from app.types import DetectionStage
@@ -234,28 +255,33 @@ def get_model_simulation_compatibility(model_id: int) -> Dict[str, Any]:
     if not model:
         abort(404, message=f"Model {model_id} does not exist")
 
-    model_issue = (
+    initial_issue = (
+        ModelIssue.query.filter_by(
+            modelId=model_id, detectionStage=DetectionStage.AfterUpload
+        )
+        .order_by(ModelIssue.id.desc())
+        .first()
+    )
+    repaired_issue = (
         ModelIssue.query.filter_by(
             modelId=model_id, detectionStage=DetectionStage.AfterRepair
         )
         .order_by(ModelIssue.id.desc())
         .first()
     )
-    if not model_issue:
-        abort(404, message=f"No AfterRepair issue report found for model {model_id}")
-
-    report_keys, present_kinds = _read_issue_report(model_issue.fileUrl)
+    if not initial_issue and not repaired_issue:
+        abort(404, message=f"No issue report found for model {model_id}")
 
     base = get_simulation_compatibility()
-    methods = [
-        _method_result(m, report_keys, present_kinds)
-        for m in base.get("methods", [])
-    ]
 
     return {
         "version": base.get("version"),
         "compatibilityLevels": base.get("compatibilityLevels"),
         "modelId": model_id,
-        "detectionStage": DetectionStage.AfterRepair.value,
-        "methods": methods,
+        "initialCompatibility": _compatibility_block(
+            base, initial_issue, DetectionStage.AfterUpload.value
+        ),
+        "repairedCompatibility": _compatibility_block(
+            base, repaired_issue, DetectionStage.AfterRepair.value
+        ),
     }
