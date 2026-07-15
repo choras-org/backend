@@ -10,6 +10,8 @@ from app.routes.model import blp as model_blueprint
 from app.routes.project import blp as project_blueprint
 from app.routes.setting import blp as setting_blueprint
 from app.routes.simulation import blp as simulation_blueprint
+from app.routes.receive import blp as receive_blueprint
+from app.routes.user_preference import blp as user_preference_blueprint
 
 
 # Register Blueprint
@@ -25,3 +27,5 @@ def register_routing(app):
     api.register_blueprint(export_blueprint)
     api.register_blueprint(auralization_blueprint)
     api.register_blueprint(setting_blueprint)
+    api.register_blueprint(receive_blueprint)
+    api.register_blueprint(user_preference_blueprint)

@@ -9,6 +9,7 @@ from flask_smorest import abort
 from app.db import db
 from app.models.SimulationSetting import SimulationSetting
 from config import DefaultConfig, app_dir
+from app.services.discovery_service import discover_methods
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -16,15 +17,40 @@ logger = logging.getLogger(__name__)
 
 def get_setting_by_type(simulation_type: str) -> Optional[Dict]:
     try:
-        setting: Optional[SimulationSetting] = SimulationSetting.query.filter_by(simulationType=simulation_type).first()
-        if setting is None:
-            logger.error(f"Setting not found by type: {simulation_type}")
-            abort(404, f"Setting not found by type: {simulation_type}")
+        # Use discovery service to find method config
+        methods = discover_methods()
+        if len(methods) > 0:
+            logger.info("Methods are there")
+        else:
+            logger.error("Methods not there")
+        method_config = next((m for m in methods if m.get("simulationType") == simulation_type), None)
+        # logger.warning("Method Config", method_config)
+        
+        if method_config:
+            # Found in dynamic config → load its settings file
+            settings_file = method_config.get("settings")
+            if settings_file:
+                settings_path = os.path.join(DefaultConfig.SETTINGS_FILE_FOLDER, settings_file)
+                logger.warning(f"Settings File: {settings_file}")
+                logger.warning(f"Settings File Path: {settings_path}")
+                if os.path.exists(settings_path):
+                    with open(settings_path) as json_setting_file:
+                        logger.error("Settings and Method available in Config")
+                        return json.load(json_setting_file)
+                logger.error("Settings Path does not exist", settings_path)
+                    
+        logger.error("Settings not avaiable in Config")
+        
+        #Fallback to existing DB method retrieval
+        # setting: Optional[SimulationSetting] = SimulationSetting.query.filter_by(simulationType=simulation_type).first()
+        # if setting is None:
+        #     logger.error(f"Setting not found by type: {simulation_type}")
+        #     abort(404, f"Setting not found by type: {simulation_type}")
 
-        setting_path = os.path.join(DefaultConfig.SETTINGS_FILE_FOLDER, setting.name)
-        with open(setting_path) as json_setting_file:
-            setting_json: Dict = json.load(json_setting_file)
-            return setting_json
+        # setting_path = os.path.join(DefaultConfig.SETTINGS_FILE_FOLDER, setting.name)
+        # with open(setting_path) as json_setting_file:
+        #     setting_json: Dict = json.load(json_setting_file)
+        #     return setting_json
 
     except Exception as ex:
         logger.error(f"Can not get setting file by type! Error: {ex}")
@@ -34,6 +60,29 @@ def get_setting_by_type(simulation_type: str) -> Optional[Dict]:
 def get_all_simulation_settings():
     return SimulationSetting.query.order_by(SimulationSetting.simulationType).all()
 
+def get_all_simulation_settings():
+    """Get all available simulation types for dropdown"""
+    try:
+        methods = discover_methods()
+        if len(methods) == 0:
+            logger.error("No methods found for dropdown")
+            return []
+        
+        logger.error(f"Found {len(methods)} methods for dropdown")
+        
+        # Extract just the data needed for dropdown
+        # dropdown_data = []
+        # for method in methods:
+        #     dropdown_data.append({
+        #         "simulationType": method.get("simulationType"),
+        #         "label": method.get("label", method.get("simulationType"))
+        #     })
+        
+        return methods
+        
+    except Exception as ex:
+        logger.error(f"Error getting simulation settings for dropdown: {ex}")
+        return []
 
 def insert_initial_settings():
     simulation_settings = get_all_simulation_settings()

@@ -2,6 +2,7 @@ import logging
 import math
 import os
 import zipfile
+import math
 
 import rhino3dm
 from flask_smorest import abort
@@ -456,7 +457,7 @@ def convert_3dm_to_geo(
 
 def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="RoomVolume", tol=1e-8):
     """
-    Parse OBJ preserving groups, deduplicate vertices, merge triangle pairs into quads,
+    Parse OBJ preserving groups, deduplicate vertices,
     create Lines with consistent orientation and Line Loops with signed line indices,
     and write a Gmsh .geo with Physical Surface groups.
     """
@@ -545,89 +546,10 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
     faces_mapped = [[index_map[i] for i in face] for face in faces_mapped]
 
 
-    # --- Merge pairs of triangles within same group into quads when possible ---
-    nfaces = len(faces_mapped)
-    merged_flag = [False] * nfaces
-    merged_faces = []      # list of faces (each is 3 or 4 vertex indices, in CCW order)
-    merged_groups = []
+    # --- Do not merge triangles into quads; keep faces as provided ---
+    merged_faces = [list(f) for f in faces_mapped]
+    merged_groups = list(face_groups)
 
-    # helper: get coords by unique index (1-based)
-    def coords(idx):
-        return unique_vertices[idx - 1]
-
-    for i in range(nfaces):
-        if merged_flag[i]:
-            continue
-        fi = faces_mapped[i]
-        gi = face_groups[i]
-        if len(fi) == 3:
-            # try to find a partner triangle in same group sharing 2 vertices
-            partner = None
-            for j in range(i + 1, nfaces):
-                if merged_flag[j]:
-                    continue
-                if face_groups[j] != gi:
-                    continue
-                fj = faces_mapped[j]
-                if len(fj) != 3:
-                    continue
-                shared = set(fi) & set(fj)
-                if len(shared) == 2:
-                    partner = j
-                    break
-            if partner is not None:
-                # build quad from union of vertices (4 vertices)
-                union = list(dict.fromkeys(fi + faces_mapped[partner]))  # preserve order somewhat
-                if len(union) == 4:
-                    # order the 4 vertices into a planar loop consistently
-                    pts = [coords(idx) for idx in union]
-                    # compute plane normal using first triangle
-                    v0 = pts[0]
-                    v1 = pts[1]
-                    v2 = pts[2]
-                    nx = (v1[1] - v0[1]) * (v2[2] - v0[2]) - (v1[2] - v0[2]) * (v2[1] - v0[1])
-                    ny = (v1[2] - v0[2]) * (v2[0] - v0[0]) - (v1[0] - v0[0]) * (v2[2] - v0[2])
-                    nz = (v1[0] - v0[0]) * (v2[1] - v0[1]) - (v1[1] - v0[1]) * (v2[0] - v0[0])
-                    an = (abs(nx), abs(ny), abs(nz))
-                    # choose projection plane by largest normal component
-                    if an[2] >= an[0] and an[2] >= an[1]:
-                        # project to XY
-                        proj = lambda p: (p[0], p[1])
-                    elif an[1] >= an[0] and an[1] >= an[2]:
-                        # project to XZ
-                        proj = lambda p: (p[0], p[2])
-                    else:
-                        # project to YZ
-                        proj = lambda p: (p[1], p[2])
-
-                    uv = [proj(coords(idx)) for idx in union]
-                    cx = sum(pt[0] for pt in uv) / 4.0
-                    cy = sum(pt[1] for pt in uv) / 4.0
-                    angles = [math.atan2(pt[1] - cy, pt[0] - cx) for pt in uv]
-                    # sort union vertices by angle
-                    union_ordered = [x for _, x in sorted(zip(angles, union))]
-                    merged_faces.append(union_ordered)
-                    merged_groups.append(gi)
-                    merged_flag[i] = True
-                    merged_flag[partner] = True
-                    continue
-                # if union not 4, fallthrough to keep triangle
-            # no partner found => keep triangle
-            merged_faces.append(fi)
-            merged_groups.append(gi)
-            merged_flag[i] = True
-        else:
-            # non-triangle face: keep as-is (maybe quad)
-            merged_faces.append(fi)
-            merged_groups.append(gi)
-            merged_flag[i] = True
-
-    # There may be faces leftover (if any not processed): ensure all covered
-    for k in range(nfaces):
-        if not merged_flag[k]:
-            merged_faces.append(faces_mapped[k])
-            merged_groups.append(face_groups[k])
-            
     tag_to_surfaces = {}
     for sid, tag in enumerate(merged_groups, start=1):
         tag_to_surfaces.setdefault(tag, []).append(sid)

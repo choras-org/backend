@@ -1,10 +1,11 @@
 FROM python:3.11.13-slim
 WORKDIR /app
+
+# Install system dependencies
 RUN apt-get update && \
-    apt-get install -y postgresql-client && \
+    apt-get install -y postgresql-client git && \
     apt clean && \
-    apt-get install -y git && \
-    rm -rf /var/cache/apt/* &&\
+    rm -rf /var/cache/apt/* && \
     apt-get -y install \
     libglu1 \
     libxcursor-dev \
@@ -16,12 +17,13 @@ RUN apt-get update && \
     libocct-foundation-dev \
     libocct-data-exchange-dev
 
-COPY simulation-backend/ /app/simulation-backend
-
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir simulation-backend/.[backends]
 
-COPY . /app
+# Copy backend source code
+COPY backend/ /app
+RUN pip install --no-cache-dir backend/
+
+# Make entrypoint executable
 RUN chmod +x ./entrypoint.sh
 EXPOSE 5001
 CMD ["/app/entrypoint.sh"]
