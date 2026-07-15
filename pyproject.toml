@@ -32,6 +32,7 @@ dependencies = [
     'marshmallow>=3.13.0', # explicitly imported
     'nodeenv>=1.9.1',
     'numpy',
+    'openpyxl',
     'pandas',
     'parso>=0.8.3',
     'passlib>=1.7.4', # explicitly imported
