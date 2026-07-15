@@ -5,14 +5,6 @@
 # Required
 version: 2
 
-build:
-  os: ubuntu-22.04
-  tools:
-    python: "3.11"
-  apt_packages:
-    - libsndfile1
-    - libglu1-mesa
-
 # Include all git submodules, recursively
 submodules:
   include: all
@@ -22,7 +14,15 @@ submodules:
 sphinx:
   configuration: docs/source/conf.py
 
-# Optionally set the version of Python and requirements required to build your docs
-python:
-  install:
-    - requirements: requirements.txt
+# Install package + docs dependency group (PEP 735, pip >= 25.1)
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+  apt_packages:
+    - libsndfile1
+    - libglu1-mesa
+  jobs:
+    post_install:
+      - python -m pip install --upgrade pip
+      - pip install --group docs .
