@@ -80,6 +80,7 @@ tests = [
 dev = [
     {include-group = "tests"},
     {include-group = "docs"},
+]
 
 
 [tool.flit.module]
