@@ -21,12 +21,10 @@ git remote set-url origin git@github.com:choras-org/simulation-backend.git
 #### 1. Create a new Folder
 Add a new folder named `<method_name>_method` inside the **simulation-backend** submodule. This will contain everything related to your simulation method.
 
-<<<<<<< HEAD
 2. For your method, add an optional dependency section to `simulation-backend/pyproject.toml` and include all dependencies required by your method.
 =======
 #### 2. Add an interface File
 Inside your new folder, create a file named `<your_method_name>Interface.py` (see `MyNewMethodInterface.py` for reference).
->>>>>>> fix/schema_files
 
 This file defines the interface between CHORAS and your simulation method. It must include:
 
@@ -48,21 +46,15 @@ git+https://gitprovider.com/user/project.git@{version}
 
 Refer to the [Python Packaging Authority guide](https://packaging.python.org/en/latest/tutorials/installing-packages/#installing-from-vcs) for more options. **Note that providing a specific version number is important** to ensure reproducibility (and stability) of the results and CHORAS as a platform. If your method is not yet installable via pip, please refer to [packaging guidelines](https://packaging.python.org/en/latest/flow/) provided by the Python Packaging Authority.
 
-<<<<<<< HEAD
-    ``` shell
-    conda activate choras
-    pip install simulation-backend/.[backends,tests,docs]
-    ```
-=======
 #### 4. Create a Docker File
 Add a `Dockerfile` in your folder (see the `MyNewMethod` folder for reference).
->>>>>>> fix/schema_files
 
 This file should define the environment setup required to build your simulation method's Docker image.
 Guidelines of creating dockerfile is as follows:
 - Specify the python version is being used by your method. Preferably make it with the stable versions
 - Set the working directory as `/app`
 - Install system dependencies for mesh generation and scientific computing. You can use the following lines to do this step:
+
 ``` shell
     RUN apt-get update && apt-get install -y
     git
