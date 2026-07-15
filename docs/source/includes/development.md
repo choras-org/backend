@@ -21,8 +21,8 @@ git remote set-url origin git@github.com:choras-org/simulation-backend.git
 #### 1. Create a new Folder
 Add a new folder named `<method_name>_method` inside the **simulation-backend** submodule. This will contain everything related to your simulation method.
 
-2. For your method, add an optional dependency section to `simulation-backend/pyproject.toml` and include all dependencies required by your method.
-=======
+2. For your method, add a dependency group to `pyproject.toml` and include all dependencies required by your method.
+
 #### 2. Add an interface File
 Inside your new folder, create a file named `<your_method_name>Interface.py` (see `MyNewMethodInterface.py` for reference).
 
