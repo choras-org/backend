@@ -21,7 +21,7 @@ RUN pip install --upgrade pip
 
 # Copy backend source code
 COPY backend/ /app
-RUN pip install --no-cache-dir backend/
+RUN pip install --no-cache-dir .
 
 # Make entrypoint executable
 RUN chmod +x ./entrypoint.sh
