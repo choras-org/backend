@@ -52,6 +52,7 @@ dependencies = [
     'Werkzeug==2.2.3', # explicitly imported (auralization service)
     'locust',
     'ezdxf', # explicitly imported (for DXF file handling, Mesh handling)
+    'acousticDE @ git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@d32afb2498e27bd996fc7356d57dc4f1ed76aa44#egg=acousticDE',
 ]
 
 [project.optional-dependencies]
