@@ -22,8 +22,8 @@ submodules:
 sphinx:
   configuration: docs/source/conf.py
 
-# Optionally set the version of Python and requirements required to build your docs
-python:
-  install:
-    - method: pip
-      path: "simulation-backend/.[docs,backends]"
+# Install package + docs dependency group (PEP 735, pip >= 25.1)
+build:
+  jobs:
+    post_install:
+      - pip install --group docs .
