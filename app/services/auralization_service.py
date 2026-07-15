@@ -288,15 +288,25 @@ def run_auralization(auralizationId: int) -> None:
 
         logger.debug("run auralization calculation")
 
-        #TODO: fix behavior for DG auralization, DG method output format 
-        # should be changed. We want a single universal auralization method,
-        # without having to switch logic between them for each simulation method. 
         match simulation.simulationMethod:
             case "DE":
                  _, _ = auralization_calculation(signal_file_name, pressure_file_name, wav_output_file_name)
             case "DG":
                  _, _ = auralization_calculation_DG(signal_file_name, pressure_file_name, wav_output_file_name)
-                         
+            case _:
+                #TODO: We want a single universal auralization method,
+                # without having to switch logic between them for each simulation method. 
+                # This will be implemented in the function mono_aural_auralization, which will be a 
+                # general convolution-based auralization method using the RIR.
+                # This method does not rely on the pressure.csv file, but the wav file directly
+                pressure_file_name_wav = os.path.join(
+                    DefaultConfig.UPLOAD_FOLDER_NAME, export.name.replace(".xlsx", ".wav")
+                )
+                mono_aural_auralization(
+                    signal_file_name, 
+                    pressure_file_name_wav, 
+                    wav_output_file_name
+                )
 
         auralization.status = Status.Completed
 
@@ -309,6 +319,34 @@ def run_auralization(auralizationId: int) -> None:
         logger.error(f"Error running this auralization {auralization.id}: {e}")
         abort(400, "Error running this auralization")
 
+
+def mono_aural_auralization(
+        signal_file_name: str, 
+        impulse_response_file_name_wav: str,
+        wav_output_file_name: str,
+    ) -> None:
+    """Create a mono-aural auralization by convolution.
+
+    If the sampling rates do not match, the impulse response is resampled to
+    match the sampling rate of the dry input signal.
+
+    Parameters
+    ----------
+    signal_file_name : str
+        The dry input signal file name (wav format).
+    impulse_response_file_name_wav : str
+        The impulse response file name (wav format).
+    wav_output_file_name : str
+        The convolved output signal file name (wav format).
+    """
+
+    import pyfar as pf
+    dry_signal = pf.io.read_audio(signal_file_name)
+    rir = pf.io.read_audio(impulse_response_file_name_wav)
+    rir_resampled = pf.dsp.resample(rir, dry_signal.sampling_rate)
+    convolved_signal = pf.dsp.convolve(rir_resampled, dry_signal)
+    normalized_convolved_signal = pf.dsp.normalize(convolved_signal)
+    pf.io.write_audio(normalized_convolved_signal, wav_output_file_name)
 
 # TODO: too long code, refactor this function
 def auralization_calculation_DG(
@@ -397,6 +435,26 @@ def auralization_calculation(
         data_pressure = np.loadtxt(
             pressure_file_name, skiprows=1, usecols=range(1, 6), delimiter=','
         )  # this returns the pressure data
+
+        # read the discrete times at which the EDC is sampled
+        times = np.loadtxt(pressure_file_name, skiprows=1, usecols=0, delimiter=',')
+
+        dt = np.diff(times)
+
+        if dt.size == 0 or np.any(dt <= 0) or np.any(times < 0):
+            raise ValueError(
+                "Sampling times need to be positive and strictly increasing."
+            )
+
+        mean_dt = float(np.mean(dt))
+        sampling_rate_edc = 1.0 / mean_dt
+        sampling_rate_edc_relative_std = float(np.std(dt) / mean_dt)
+
+        if np.abs(sampling_rate_edc_relative_std) > 0.01:
+            logger.warning(
+                f"Relative standard deviation of the sampling rate is {sampling_rate_edc_relative_std}. The EDC might be non-uniformly sampled.",
+            )
+
         center_freq = np.loadtxt(
             pressure_file_name, usecols=range(1, 6), delimiter=',', dtype=str, max_rows=1
         )  # this returns the center frequencies of the bands with the suffix "Hz"
@@ -414,14 +472,20 @@ def auralization_calculation(
         logger.error(f'Error loading files: {e}')
         return None, None
 
+    logger.info(
+        f"Synthesizing room impulse response with sampling rate {fs} Hz from ETC sampled at {sampling_rate_edc:.2f} Hz.")
+
     # Auralization Calculation
     try:
-        # RESAMPLING PRESSURE ENVELOPE
-        num_samples = ceil(p_rec_off_deriv_band.shape[1] * fs / AuralizationParameters.original_fs)
+        # resample the energy decay curve via linear interpolation
+        num_samples = ceil(p_rec_off_deriv_band.shape[1] * fs / sampling_rate_edc)
         p_rec_off_deriv_band_resampled = np.zeros((p_rec_off_deriv_band.shape[0], num_samples))
+        times_interpolated = np.arange(num_samples) / fs
         for i in range(p_rec_off_deriv_band.shape[0]):
-            p_rec_off_deriv_band_resampled[i, :] = resample_poly(
-                p_rec_off_deriv_band[i, :], up=int(fs), down=int(AuralizationParameters.original_fs)
+            p_rec_off_deriv_band_resampled[i, :] = np.interp(
+                times_interpolated,
+                times,
+                p_rec_off_deriv_band[i, :],
             )
 
         # Clip negative values to zero
