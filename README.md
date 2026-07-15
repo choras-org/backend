@@ -71,7 +71,8 @@ conda create -n NAME_OF_VENV python=3.10
 
 conda activate NAME_OF_VENV
 
-pip install .
+python -m pip install --upgrade pip
+pip install --group dev .
 ```
 
 2. **Create PosgresSQL on Linux[Ubuntu] (optional)**

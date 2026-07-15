@@ -24,4 +24,5 @@ build:
     - libglu1-mesa
   jobs:
     post_install:
+      - python -m pip install --upgrade pip
       - pip install --group docs .

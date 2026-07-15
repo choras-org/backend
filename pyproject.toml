@@ -54,7 +54,7 @@ dependencies = [
     'paramiko',
     'pyfar',
     'shapely==2.1.2',
-    'acousticDE @ git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@d32afb2498e27bd996fc7356d57dc4f1ed76aa44#egg=acousticDE',
+    'acousticDE @ git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@d32afb2498e27bd996fc7356d57dc4f1ed76aa44',
 ]
 
 [dependency-groups]
