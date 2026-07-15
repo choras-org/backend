@@ -1,12 +1,10 @@
-[build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "simulation_backend"
+name = "choras-backend"
 version = "0.1.0"
-description = "Simulation backend"
-
+description = "Backend for CHORAS"
+authors = [
+    { name = "The CHORAS developers"},
+]
 requires-python = ">=3.10,<3.12"
 
 dependencies = [
@@ -61,13 +59,7 @@ dependencies = [
 [dependency-groups]
 
 docs = [
-    'Sphinx>=7.3.7',
-    'sphinxcontrib-applehelp>=1.0.8',
-    'sphinxcontrib-devhelp>=1.0.6',
-    'sphinxcontrib-htmlhelp>=2.0.5',
-    'sphinxcontrib-jsmath>=1.0.1',
-    'sphinxcontrib-qthelp>=1.0.7',
-    'sphinxcontrib-serializinghtml>=1.1.10',
+    'Sphinx!=0.9.1',
     'pydata-sphinx-theme',
     'myst_parser',
     'sphinx-design',
@@ -88,4 +80,15 @@ tests = [
 dev = [
     {include-group = "tests"},
     {include-group = "docs"},
-]
+
+
+[tool.flit.module]
+name = "app"
+
+[tool.pytest.ini_options]
+pythonpath = "."
+testpaths = ["tests"]
+
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
