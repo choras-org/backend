@@ -37,6 +37,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -44,13 +47,7 @@ jobs:
             libglu1-mesa \
             libgl1 \
             mesa-utils
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            echo "No requirements.txt found, skipping installation"
-          fi
-          pip install pyroomacoustics
-          pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
+          uv sync --group tests
       - name: Create mock methods-config.json and settings for CI
         run: |
           mkdir -p ${{ github.workspace }}/simulation-backend
@@ -113,7 +110,7 @@ jobs:
           METHODS_CONFIG_PATH: ${{ github.workspace }}/simulation-backend/methods-config.json
           SETTINGS_FILE_FOLDER: ${{ github.workspace }}/simulation-backend/example_settings
         run: |
-            pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/services/test_run_solver.py || echo "Tests failed, but workflow continues"
+            uv run pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/services/test_run_solver.py || echo "Tests failed, but workflow continues"
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4

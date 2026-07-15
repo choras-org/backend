@@ -1,7 +1,5 @@
-import os
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # ── adjust this import to match your actual module path ──────────────────────
 from app.services.executors.local_executor import LocalExecutor
@@ -38,8 +36,8 @@ def container_with_mounts():
 def method_config():
     return {
         "container_image": "my-sim-image:latest",
-        "container_name": "sim_container",
-        "command": "python run.py",
+        "simulation_method": "MySim",
+        "simulation_id": 123,
     }
 
 
@@ -61,35 +59,16 @@ def sim_config():
 class TestLocalExecutorExecute:
 
     @patch("app.services.executors.local_executor.get_host_path_for_container_path")
-    def test_returns_job_id_and_container(
-        self, mock_resolve, mock_docker_client, method_config, sim_config
-    ):
-        """execute() should return a (job_id, container) tuple."""
+    def test_returns_container(self, mock_resolve, mock_docker_client, method_config, sim_config):
+        """execute() should return a container object."""
         mock_resolve.return_value = "/host/uploads"
         fake_container = MagicMock()
         mock_docker_client.containers.run.return_value = fake_container
 
         executor = LocalExecutor()
-        job_id, container = executor.execute(method_config, sim_config)
+        container = executor.execute(method_config, sim_config)
 
-        assert isinstance(job_id, str)
-        assert len(job_id) == 36  # UUID4 format
         assert container is fake_container
-
-    @patch("app.services.executors.local_executor.get_host_path_for_container_path")
-    def test_stores_job_in_internal_dict(
-        self, mock_resolve, mock_docker_client, method_config, sim_config
-    ):
-        """execute() should store the container in _jobs keyed by job_id."""
-        mock_resolve.return_value = "/host/uploads"
-        fake_container = MagicMock()
-        mock_docker_client.containers.run.return_value = fake_container
-
-        executor = LocalExecutor()
-        job_id, _ = executor.execute(method_config, sim_config)
-
-        assert job_id in executor._jobs
-        assert executor._jobs[job_id] is fake_container
 
     @patch("app.services.executors.local_executor.get_host_path_for_container_path")
     def test_passes_correct_image_and_env(
@@ -150,24 +129,10 @@ class TestLocalExecutorExecute:
             executor.execute(method_config, sim_config)
 
     @patch("app.services.executors.local_executor.get_host_path_for_container_path")
-    def test_each_execution_gets_unique_job_id(
+    def test_uses_generated_container_name(
         self, mock_resolve, mock_docker_client, method_config, sim_config
     ):
-        """Multiple execute() calls should produce unique job IDs."""
-        mock_resolve.return_value = "/host/uploads"
-        mock_docker_client.containers.run.return_value = MagicMock()
-
-        executor = LocalExecutor()
-        job_id_1, _ = executor.execute(method_config, sim_config)
-        job_id_2, _ = executor.execute(method_config, sim_config)
-
-        assert job_id_1 != job_id_2
-
-    @patch("app.services.executors.local_executor.get_host_path_for_container_path")
-    def test_uses_container_name_from_method_config(
-        self, mock_resolve, mock_docker_client, method_config, sim_config
-    ):
-        """execute() should pass container_name from method_config."""
+        """execute() should generate container name from method_config."""
         mock_resolve.return_value = "/host/uploads"
         mock_docker_client.containers.run.return_value = MagicMock()
 
@@ -175,5 +140,148 @@ class TestLocalExecutorExecute:
         executor.execute(method_config, sim_config)
 
         call_kwargs = mock_docker_client.containers.run.call_args.kwargs
-        assert call_kwargs["name"] == "sim_container"
+        assert call_kwargs["name"] == "choras-MySim-simulation-123"
 
+    @patch("app.services.executors.local_executor.threading.Thread")
+    @patch("app.services.executors.local_executor.get_host_path_for_container_path")
+    def test_starts_log_streaming_thread(
+        self, mock_resolve, mock_thread_class, mock_docker_client, method_config, sim_config
+    ):
+        """execute() should start a daemon thread to stream container logs."""
+        mock_resolve.return_value = "/host/uploads"
+        fake_container = MagicMock()
+        mock_docker_client.containers.run.return_value = fake_container
+        mock_thread_instance = MagicMock()
+        mock_thread_class.return_value = mock_thread_instance
+
+        executor = LocalExecutor()
+        executor.execute(method_config, sim_config)
+
+        # Verify Thread was created with correct parameters
+        mock_thread_class.assert_called_once()
+        call_kwargs = mock_thread_class.call_args.kwargs
+        assert call_kwargs["daemon"] is True
+        assert "local-exec-logs-choras-MySim-simulation-123" in call_kwargs["name"]
+        assert callable(call_kwargs["target"])
+
+        # Verify thread.start() was called
+        mock_thread_instance.start.assert_called_once()
+
+    @patch("app.services.executors.local_executor.threading.Thread")
+    @patch("app.services.executors.local_executor.get_host_path_for_container_path")
+    def test_log_streaming_function_logs_container_output(
+        self, mock_resolve, mock_thread_class, mock_docker_client, method_config, sim_config
+    ):
+        """The log streaming function should call container.logs() and log each line."""
+        mock_resolve.return_value = "/host/uploads"
+        fake_container = MagicMock()
+        # Simulate container.logs() returning some log lines
+        fake_container.logs.return_value = [
+            b"Starting simulation...\n",
+            b"Processing step 1\n",
+            b"Simulation complete\n",
+        ]
+        mock_docker_client.containers.run.return_value = fake_container
+
+        # Capture the thread target function
+        captured_target = None
+        def capture_target(*args, **kwargs):
+            nonlocal captured_target
+            captured_target = kwargs["target"]
+            return MagicMock()
+        mock_thread_class.side_effect = capture_target
+
+        executor = LocalExecutor()
+
+        with patch("app.services.executors.local_executor.logger") as mock_logger:
+            executor.execute(method_config, sim_config)
+
+            # Execute the captured thread target function
+            assert captured_target is not None
+            captured_target()
+
+            # Verify container.logs() was called with correct parameters
+            fake_container.logs.assert_called_once_with(stream=True, follow=True)
+
+            # Verify logger.info was called for each log line with the correct prefix
+            assert mock_logger.info.call_count == 3
+            calls = mock_logger.info.call_args_list
+            assert "[LocalExecutor - SimulationMethod: MySim]" in calls[0][0][0]
+            assert "Starting simulation..." in calls[0][0][0]
+            assert "Processing step 1" in calls[1][0][0]
+            assert "Simulation complete" in calls[2][0][0]
+
+    @patch("app.services.executors.local_executor.threading.Thread")
+    @patch("app.services.executors.local_executor.get_host_path_for_container_path")
+    def test_log_streaming_handles_exceptions_gracefully(
+        self, mock_resolve, mock_thread_class, mock_docker_client, method_config, sim_config
+    ):
+        """The log streaming function should catch and log exceptions without crashing."""
+        mock_resolve.return_value = "/host/uploads"
+        fake_container = MagicMock()
+        # Simulate container.logs() raising an exception
+        fake_container.logs.side_effect = Exception("Connection lost")
+        mock_docker_client.containers.run.return_value = fake_container
+
+        # Capture the thread target function
+        captured_target = None
+        def capture_target(*args, **kwargs):
+            nonlocal captured_target
+            captured_target = kwargs["target"]
+            return MagicMock()
+        mock_thread_class.side_effect = capture_target
+
+        executor = LocalExecutor()
+
+        with patch("app.services.executors.local_executor.logger") as mock_logger:
+            executor.execute(method_config, sim_config)
+
+            # Execute the captured thread target function - should not raise
+            assert captured_target is not None
+            captured_target()  # Should handle exception internally
+
+            # Verify logger.exception was called
+            mock_logger.exception.assert_called_once()
+            exception_msg = mock_logger.exception.call_args[0][0]
+            assert "Failed to stream container logs" in exception_msg
+            assert "[LocalExecutor - SimulationMethod: MySim]" in exception_msg
+
+    @patch("app.services.executors.local_executor.threading.Thread")
+    @patch("app.services.executors.local_executor.get_host_path_for_container_path")
+    def test_log_streaming_skips_empty_lines(
+        self, mock_resolve, mock_thread_class, mock_docker_client, method_config, sim_config
+    ):
+        """The log streaming function should skip empty log lines."""
+        mock_resolve.return_value = "/host/uploads"
+        fake_container = MagicMock()
+        # Simulate container.logs() returning lines with empty ones
+        fake_container.logs.return_value = [
+            b"Line 1\n",
+            b"\n",  # Empty line
+            b"\r\n",  # Just newline
+            b"Line 2\n",
+        ]
+        mock_docker_client.containers.run.return_value = fake_container
+
+        # Capture the thread target function
+        captured_target = None
+        def capture_target(*args, **kwargs):
+            nonlocal captured_target
+            captured_target = kwargs["target"]
+            return MagicMock()
+        mock_thread_class.side_effect = capture_target
+
+        executor = LocalExecutor()
+
+        with patch("app.services.executors.local_executor.logger") as mock_logger:
+            executor.execute(method_config, sim_config)
+
+            # Execute the captured thread target function
+            assert captured_target is not None
+            captured_target()
+
+            # Verify only non-empty lines were logged
+            assert mock_logger.info.call_count == 2
+            calls = mock_logger.info.call_args_list
+            assert "Line 1" in calls[0][0][0]
+            assert "Line 2" in calls[1][0][0]
