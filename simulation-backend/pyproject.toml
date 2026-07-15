@@ -57,26 +57,6 @@ dependencies = [
 
 [project.optional-dependencies]
 
-de = [
-    'acousticDE @ git+https://github.com/Building-acoustics-TU-Eindhoven/acousticDE.git@d32afb2498e27bd996fc7356d57dc4f1ed76aa44#egg=acousticDE',
-]
-
-dg = [
-    'edg-acoustics @ git+https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics.git@08cac98da98ed14ba1366741b1c0644001503b82#egg=edg-acoustics',
-]
-
-pyroomacoustics = [
-    'pyroomacoustics==0.8.4',
-]
-
-example = [
-    'My_New_Method @ git+https://github.com/SilvinWillemsen/MyNewMethod.git@61879ead318f5fdc155a7b9a10b99ecbbdb1a696#egg=My_New_Method',
-]
-
-backends = [
-    'simulation_backend[de,dg,pyroomacoustics,example]',
-]
-
 docs = [
     'Sphinx==7.3.7',
     'sphinxcontrib-applehelp==1.0.8',
