@@ -473,16 +473,19 @@ def auralization_calculation(
         return None, None
 
     logger.info(
-        f"Synthesizing room impulse response with sampling rate {fs} Hz from EDC sampled at {sampling_rate_edc} Hz.")
+        f"Synthesizing room impulse response with sampling rate {fs} Hz from ETC sampled at {sampling_rate_edc:.2f} Hz.")
 
     # Auralization Calculation
     try:
-        # RESAMPLING PRESSURE ENVELOPE
+        # resample the energy decay curve via linear interpolation
         num_samples = ceil(p_rec_off_deriv_band.shape[1] * fs / sampling_rate_edc)
         p_rec_off_deriv_band_resampled = np.zeros((p_rec_off_deriv_band.shape[0], num_samples))
+        times_interpolated = np.arange(num_samples) / fs
         for i in range(p_rec_off_deriv_band.shape[0]):
-            p_rec_off_deriv_band_resampled[i, :] = resample_poly(
-                p_rec_off_deriv_band[i, :], up=int(fs), down=sampling_rate_edc,
+            p_rec_off_deriv_band_resampled[i, :] = np.interp(
+                times_interpolated,
+                times,
+                p_rec_off_deriv_band[i, :],
             )
 
         # Clip negative values to zero
