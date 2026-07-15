@@ -17,7 +17,6 @@ dependencies = [
     'click-didyoumean==0.3.1',
     'click-plugins==1.1.1',
     'click-repl==0.3.0',
-    'coverage==7.2.7', # explicitly imported
     'debugpy==1.6.4',
     'docutils==0.21.2',
     'eventlet==0.36.1', # Discouraged for use now, but seems to be used within celery
@@ -34,10 +33,8 @@ dependencies = [
     'Jinja2==3.1.2',
     'marshmallow==3.19.0', # explicitly imported
     'nodeenv==1.9.1',
-    'openpyxl==3.1.5',
     'numpy',
     'pandas',
-    'matplotlib',
     'parso==0.8.3',
     'passlib==1.7.4', # explicitly imported
     'pre-commit==3.8.0',
@@ -48,7 +45,9 @@ dependencies = [
     'rhino3dm==8.6.1', # explicitly imported (Mesh handling)
     'scipy==1.14.0', # explicitly imported
     'soundfile==0.13.1', # explicitly imported (for auralization service)
+    'SQLAlchemy==2.0.7', # explicitly imported
     'trimesh==4.4.1', # explicitly imported   (ObjConversion, Mesh handling)
+    'typing_extensions',
     'tzdata==2023.3',
     'Werkzeug==2.2.3', # explicitly imported (auralization service)
     'locust',
