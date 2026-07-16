@@ -195,6 +195,7 @@ class TestLocalExecutorExecute:
 
         with patch("app.services.executors.local_executor.logger") as mock_logger:
             executor.execute(method_config, sim_config)
+            mock_logger.info.reset_mock()  # ignore any logger.info calls from execute() itself
 
             # Execute the captured thread target function
             assert captured_target is not None
@@ -275,6 +276,7 @@ class TestLocalExecutorExecute:
 
         with patch("app.services.executors.local_executor.logger") as mock_logger:
             executor.execute(method_config, sim_config)
+            mock_logger.info.reset_mock()  # ignore any logger.info calls from execute() itself
 
             # Execute the captured thread target function
             assert captured_target is not None
