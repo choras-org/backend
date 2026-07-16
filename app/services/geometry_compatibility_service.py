@@ -239,8 +239,9 @@ def _method_result(
     declares a kind the report has no information about (the kind is not a key
     in the report at all), otherwise ``"compatible"`` when nothing is present.
 
-    If the method provides a validation function, its result overrides the
-    generic verdict and a ``reason`` is attached.
+    If the method provides a validation function, its verdict is combined with
+    the generic verdict using AND logic: result is only compatible if BOTH
+    generic and validation verdicts are compatible. The worst-case verdict wins.
     """
     issues_out: List[Dict[str, Any]] = []
     worst: Optional[str] = None
@@ -275,11 +276,18 @@ def _method_result(
 
     reason: Optional[str] = None
 
-    # Apply method-specific validation override if available
+    # Apply method-specific validation: merge with AND logic
+    # Result is only compatible if both generic and validation are compatible
     validation_result = _run_method_validation(method.get("methodValidation"), input_file)
     if validation_result is not None:
-        compatible = "compatible" if validation_result["compatible"] else "incompatible"
+        # Convert validation boolean to verdict string
+        validation_verdict = "compatible" if validation_result["compatible"] else "incompatible"
         reason = validation_result["reason"]
+        
+        # Take the worst-case verdict: if either is worse, use the worse one
+        if compatible in _SEVERITY_RANK and validation_verdict in _SEVERITY_RANK:
+            if _SEVERITY_RANK[validation_verdict] > _SEVERITY_RANK[compatible]:
+                compatible = validation_verdict
 
     return {
         "simulationType": method.get("simulationType"),
