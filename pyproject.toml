@@ -35,7 +35,6 @@ dependencies = [
     'Flask-Cors>=3.0.10', # explicitly imported
     'Flask-JWT-Extended>=4.4.4', # explicitly imported
     'Flask-Migrate>=4.0.4', # explicitly imported
-    'Flask-Script>=2.0.5',
     'flask-smorest>=0.40.0', # explicitly imported
     'Flask-SQLAlchemy>=3.0.3',
     'gmsh>=4.13.1', # explicitly imported (in simulation service)
