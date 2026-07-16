@@ -5,7 +5,7 @@ description = "Backend for CHORAS"
 authors = [
     { name = "The CHORAS developers"},
 ]
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.10,<3.14"
 
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -15,6 +15,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 dependencies = [
