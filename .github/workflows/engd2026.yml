@@ -117,7 +117,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-html-report
+          name: coverage-html-report-${{ matrix.python-version }}
           path: backend/htmlcov/
           retention-days: 30
 
@@ -125,7 +125,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-xml
+          name: coverage-xml-${{ matrix.python-version }}
           path: backend/coverage.xml
           retention-days: 30
 
