@@ -61,6 +61,7 @@ class ModelMethodCompatibilitySchema(Schema):
     label = fields.Str(allow_none=True)
     notes = fields.Str(allow_none=True)
     compatible = fields.Str()
+    reason = fields.Str(allow_none=True)
     issues = fields.List(fields.Nested(ModelMethodIssueSchema))
 
 
