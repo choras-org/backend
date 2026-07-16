@@ -51,7 +51,7 @@ dependencies = [
     'docker',
     'paramiko',
     'pyfar',
-    'shapely==2.1.2', # is this exact pin actually required?
+    'shapely==2.1.2', # exact pin maybe not required
     'acousticDE==0.1.0',
 ]
 
