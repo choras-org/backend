@@ -3,11 +3,14 @@ import os
 import json
 from pathlib import Path
 
+import pytest
+
 from app.services import discovery_service
 from tests.unit import BaseTestCase
 from config import DefaultConfig
 
 
+@pytest.mark.usefixtures("simulation_backend_files")
 class DiscoveryServiceUnitTests(BaseTestCase):
     def setUp(self):
         """

@@ -290,7 +290,6 @@ def start_solver_task(simulation_id):
                     "geo_path": geo_path,
                     "results": results_container,
                     "task_id": -1,
-                    "fs_auralization": 44100,
                 },
                 indent=4,
             )
@@ -449,7 +448,11 @@ def run_solver(simulation_run_id: int, json_path: str):
                         if "sampling_rate" in input_data["simulationSettings"]:
                             fs = input_data["simulationSettings"]["sampling_rate"]
                         else:
-                            fs = input_data["fs_auralization"]  # 44100 by default
+                            from config import AuralizationParametersConfig
+                            fs = AuralizationParametersConfig.visualization_fs
+                            logger.warning(
+                                f"The sampling rate of the impulse response was not provided. Assuming {fs} as fallback."
+                            )
 
                     rir_wav_file_name = json_path.replace(".json", ".wav")
 
