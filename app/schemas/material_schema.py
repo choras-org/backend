@@ -61,7 +61,7 @@ class MaterialSchema(MaterialCreateSchema):
         Timestamp string of when the record was last updated.
     """
 
-    id = fields.Number()
+    id = fields.Integer()
     origin = fields.String()
     category = fields.String(data_key="category", attribute="materialCategory.name")
     createdAt = fields.String()

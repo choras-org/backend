@@ -2,7 +2,6 @@ import unittest
 from pathlib import Path
 
 import click
-import coverage
 from passlib.hash import pbkdf2_sha256
 
 from app.db import db
@@ -15,6 +14,7 @@ def cov(pattern):
     """
     Run the unit tests with coverage
     """
+    import coverage
     cov = coverage.coverage(branch=True, include="app/*")
     cov.start()
 
@@ -39,6 +39,7 @@ def cov_html(pattern):
     """
     Run the unit tests with coverage and generate an HTML report.
     """
+    import coverage
     cov = coverage.coverage(branch=True, include="app/*")
     cov.start()
 

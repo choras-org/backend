@@ -9,6 +9,10 @@ on:
 jobs:
   backend-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     services:
       postgres:
@@ -29,10 +33,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
@@ -41,82 +48,20 @@ jobs:
             libglu1-mesa \
             libgl1 \
             mesa-utils
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            echo "No requirements.txt found, skipping installation"
-          fi
-          pip install pyroomacoustics
-          pip install pytest pytest-cov || echo "Skipping pytest install if pip fails"
-      - name: Create mock methods-config.json and settings for CI
-        run: |
-          mkdir -p ${{ github.workspace }}/simulation-backend
-          mkdir -p ${{ github.workspace }}/simulation-backend/example_settings
-          cat > ${{ github.workspace }}/simulation-backend/methods-config.json << 'EOF'
-          [
-            {
-              "simulationType": "DG",
-              "containerImage": "dg_image:latest",
-              "envVars": {"CUDA_VISIBLE_DEVICES": "0"},
-              "label": "Discontinuous Galerkin method",
-              "settings": "dg_setting.json",
-              "entryFile": "DGinterface.py",
-              "repositoryURL": "https://github.com/Building-acoustics-TU-Eindhoven/edg-acoustics/",
-              "documentationURL": "https://dg-roomacoustics.readthedocs.io/en/latest/"
-            },
-            {
-              "simulationType": "DE",
-              "containerImage": "de_image:latest",
-              "envVars": {},
-              "label": "Diffusion Equation method",
-              "settings": "de_setting.json",
-              "entryFile": "DEinterface.py",
-              "repositoryURL": "https://github.com/Building-acoustics-TU-Eindhoven/acousticDE/",
-              "documentationURL": "https://building-acoustics-tu-eindhoven.github.io/acousticDE/index.html"
-            },
-            {
-              "simulationType": "MyNewMethod",
-              "containerImage": "mynew_image:latest",
-              "envVars": {},
-              "label": "My New Method",
-              "entryFile": "MyNewMethodInterface.py",
-              "settings": "my_new_setting.json",
-              "repositoryURL": "",
-              "documentationURL": ""
-            },
-            {
-              "simulationType": "PA",
-              "containerImage": "pa_image:latest",
-              "envVars": {},
-              "label": "Pyromacoustics Method",
-              "entryFile": "pyroomacoustics_interface.py",
-              "settings": "examples.json",
-              "repositoryURL": "",
-              "documentationURL": ""
-            }
-          ]
-          EOF
-          # Create empty mock settings files
-          touch ${{ github.workspace }}/simulation-backend/example_settings/dg_setting.json
-          touch ${{ github.workspace }}/simulation-backend/example_settings/de_setting.json
-          touch ${{ github.workspace }}/simulation-backend/example_settings/my_new_setting.json
-          touch ${{ github.workspace }}/simulation-backend/example_settings/examples.json
-
+          uv sync --group tests
       - name: Run tests
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
           APP_TEST_SETTINGS_MODULE: config.TestingConfigs
           TESTING: "true"
-          METHODS_CONFIG_PATH: ${{ github.workspace }}/simulation-backend/methods-config.json
-          SETTINGS_FILE_FOLDER: ${{ github.workspace }}/simulation-backend/example_settings
         run: |
-            pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/services/test_run_solver.py || echo "Tests failed, but workflow continues"
+            uv run pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/services/test_run_solver.py
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-html-report
+          name: coverage-html-report-${{ matrix.python-version }}
           path: backend/htmlcov/
           retention-days: 30
 
@@ -124,7 +69,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-xml
+          name: coverage-xml-${{ matrix.python-version }}
           path: backend/coverage.xml
           retention-days: 30
 
