@@ -6,6 +6,7 @@ class ModelIssueSchema(Schema):
     modelId = fields.Int(required=False, allow_none=True)
     fileUrl = fields.Str(required=True)
     modelFileUrl = fields.Str(required=False, allow_none=True)
+    geometryPath = fields.Str(required=False, allow_none=True)
     issueCount = fields.Int(default=0)
     detectionStage = fields.Enum(DetectionStage, required=True)
     createdAt = fields.Str(dump_only=True)

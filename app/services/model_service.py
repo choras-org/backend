@@ -167,6 +167,7 @@ def process_model_geometry(model_id: int):
                     issueCount=payload.get("issue_count", 0),
                     detectionStage=DetectionStage.AfterUpload,
                     modelFileUrl=initial_model_url,
+                    geometryPath=obj_path,
                 )
             )
             session.commit()
@@ -183,6 +184,7 @@ def process_model_geometry(model_id: int):
         issue_url = f"{base_url}/{os.path.basename(issue_path)}"
         repaired_model_path = os.path.join(directory, f"{file_name}_repaired.zip")
         repaired_model_url = f"{base_url}/{os.path.basename(repaired_model_path)}"
+        repaired_obj_path = os.path.join(directory, f"{file_name}_repaired.obj")
         session.add(
             ModelIssue(
                 modelId=model.id,
@@ -190,6 +192,7 @@ def process_model_geometry(model_id: int):
                 issueCount=remaining_issue_count,
                 detectionStage=DetectionStage.AfterRepair,
                 modelFileUrl=repaired_model_url,
+                geometryPath=repaired_obj_path,
             )
         )
         _set_progress(model, 90)

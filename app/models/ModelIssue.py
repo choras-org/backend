@@ -15,6 +15,7 @@ class ModelIssue(db.Model):
     # DB column name `fileUrl` (rename required in DB to match this)
     fileUrl = db.Column(db.String, nullable=False)
     modelFileUrl = db.Column(db.String, nullable=True)
+    geometryPath = db.Column(db.String, nullable=True)
     issueCount = db.Column(db.Integer, default=0)
     detectionStage = db.Column(db.Enum(DetectionStage), nullable=False)
 

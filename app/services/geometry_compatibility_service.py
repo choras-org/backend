@@ -312,8 +312,8 @@ def _compatibility_block(
     
     # Resolve geometry input file for method validation
     input_file: Optional[str] = None
-    if model_issue and hasattr(model_issue, 'modelFileUrl') and model_issue.modelFileUrl:
-        input_file = _local_path_from_upload_url(model_issue.modelFileUrl)
+    if model_issue and hasattr(model_issue, 'geometryPath') and model_issue.geometryPath:
+        input_file = _local_path_from_upload_url(model_issue.geometryPath)
     
     methods = [
         _method_result(m, report_keys, present_kinds, input_file)
