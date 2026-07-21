@@ -340,14 +340,6 @@ def create_example_projects():
                     simulation.id,
                 )
 
-                # Step 10: Create mesh (synchronous)
-                logger.info("Step 10: Create mesh")
-                mesh_service.start_mesh_task(model.id)
-
-                # Step 11: Run simulation
-                logger.info("Step 11: Run simulation")
-                simulation_service.start_solver_task(simulation.id)
-
                 logger.info("Example project created successfully!")
 
         except Exception as ex:
