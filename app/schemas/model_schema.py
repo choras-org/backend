@@ -5,7 +5,7 @@ from app.services import file_service
 
 
 class ModelSchema(Schema):
-    id = fields.Number()
+    id = fields.Integer()
     name = fields.Str(required=True)
     sourceFileId = fields.Integer()
     outputFileId = fields.Integer()
