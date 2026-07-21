@@ -346,7 +346,7 @@ def create_example_projects():
 
                 # Step 11: Run simulation
                 logger.info("Step 11: Run simulation")
-                simulation_service.start_solver_task(simulation.id, sync=True)
+                simulation_service.start_solver_task(simulation.id)
 
                 logger.info("Example project created successfully!")
 

@@ -203,34 +203,7 @@ def create_result_source_object(source, receivers, simulation_method):
     }
 
 
-def start_solver_task(simulation_id, sync: bool = False):
-    """
-    Prepare and dispatch a solver task for the given simulation.
-
-    Creates a new ``SimulationRun``, writes the initial JSON input file with
-    absorption coefficients and mesh paths, then either runs the solver
-    synchronously (debug / test mode) or enqueues it as a Celery task.
-
-    Parameters
-    ----------
-    simulation_id : int
-        Primary-key identifier of the ``Simulation`` to run.
-    sync : bool, optional
-        When ``True`` the solver is executed in the calling thread instead of
-        being dispatched to the Celery queue.  Defaults to ``False``.
-
-    Returns
-    -------
-    SimulationRun
-        The newly created ``SimulationRun`` instance (only returned when the
-        task is dispatched asynchronously; ``None`` in synchronous mode).
-
-    Raises
-    ------
-    werkzeug.exceptions.HTTPException
-        400 – if the simulation method is not among the discovered methods, or
-        if the ``SimulationRun`` cannot be persisted.
-    """
+def start_solver_task(simulation_id):
     simulation = get_simulation_by_id(simulation_id)
 
     if simulation.simulationRunId:
@@ -323,7 +296,7 @@ def start_solver_task(simulation_id, sync: bool = False):
             )
         )
 
-    if debug_celery or sync:
+    if debug_celery:
         run_solver(new_simulation_run.id, json_path)
     else:
         task = run_solver.delay(new_simulation_run.id, json_path)
