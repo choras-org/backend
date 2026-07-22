@@ -31,13 +31,13 @@ RUN apt-get update && \
 # Upgrade pip and install build dependencies
 RUN pip install --upgrade pip setuptools wheel
 
-COPY backend/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
 # Copy backend source code (context is the repo root, so scope to backend/)
 COPY backend /app
 # Copy the geometry-pipeline submodule so the final stage can install it
 COPY geometry-pipeline /app/geometry-pipeline
+
+# Install backend dependencies from pyproject.toml
+RUN pip install --no-cache-dir .
 
 # Make entrypoint executable
 RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
