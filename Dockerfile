@@ -20,7 +20,12 @@ RUN apt-get update && \
         libxrender1 \
         libxcursor1 \
         libxft2 \
-        libxinerama1 && \
+        libxinerama1 \
+        libfltk1.3-dev \
+        libfreetype6-dev \
+        libgl1-mesa-dev \
+        libocct-foundation-dev \
+        libocct-data-exchange-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
 # Upgrade pip and install build dependencies

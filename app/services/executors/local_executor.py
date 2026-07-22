@@ -1,14 +1,10 @@
 import os
 import threading
-import uuid
 import docker
 import logging
 from typing import Any, Dict
 from .simulation_executor_interface import SimulationExecutor
 from pathlib import Path
-from flask_smorest import abort
-import json
-from app.services import model_service, file_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +24,7 @@ def get_host_path_for_container_path(container_path: str) -> str:
         RuntimeError: If no mount is found covering the given container path.
         Exception: If there is an error communicating with Docker or resolving the path.
     """
-    
+
     try:
         client = docker.from_env()
         import socket
@@ -56,7 +52,7 @@ class LocalExecutor(SimulationExecutor):
         Args:
             work_dir (str, optional): The working directory inside the container. Defaults to the value of the DOCKER_WORK_DIR environment variable or '/app'.
         """
-        
+
         if work_dir is None:
             work_dir = os.getenv("DOCKER_WORK_DIR", "/app")
         self.work_dir = work_dir

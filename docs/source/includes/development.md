@@ -21,6 +21,8 @@ git remote set-url origin git@github.com:choras-org/simulation-backend.git
 #### 1. Create a new Folder
 Add a new folder named `<method_name>_method` inside the **simulation-backend** submodule. This will contain everything related to your simulation method.
 
+2. For your method, add a dependency group to `pyproject.toml` and include all dependencies required by your method.
+
 #### 2. Add an interface File
 Inside your new folder, create a file named `<your_method_name>Interface.py` (see `MyNewMethodInterface.py` for reference).
 
@@ -52,6 +54,7 @@ Guidelines of creating dockerfile is as follows:
 - Specify the python version is being used by your method. Preferably make it with the stable versions
 - Set the working directory as `/app`
 - Install system dependencies for mesh generation and scientific computing. You can use the following lines to do this step:
+
 ``` shell
     RUN apt-get update && apt-get install -y
     git

@@ -152,7 +152,6 @@ class RunSolverUnitTests(BaseTestCase):
             "❌ Unreadable JSON → SimulationRun status should be Error")
         print("✅ Unreadable JSON → Error status set correctly")
 
-    @patch('app.services.simulation_service.auralization_calculation')
     @patch('app.services.simulation_service.ExportHelper')
     @patch('app.services.simulation_service.executor_factory')
     @patch('app.services.simulation_service.discover_entry_file')
@@ -161,70 +160,42 @@ class RunSolverUnitTests(BaseTestCase):
     @patch('app.services.simulation_service.sessionmaker')
     def test_auralization_fails_error_status_orphaned_xlsx(
         self, mock_sessionmaker, mock_scoped, mock_discover_image,
-        mock_discover_entry, mock_executor_factory,
-        mock_export_helper, mock_auralization
+        mock_discover_entry, mock_executor_factory, mock_export_helper
     ):
         """
-        Auralization raises exception → status=Error
-        BUT XLSX already written to DB → orphaned Export record (partial state).
+        write_data_to_xlsx_file raises after session.add(export) → status=Error
+        BUT Export record already written to DB → orphaned record (partial state).
+
+        Uses a non-DE resultType so the case _ branch runs: imp_tot is computed
+        from the JSON and session.add(export) is reached before the failure.
         """
+        test_json = {
+            **self.test_json,
+            "results": [{"resultType": "DG", "responses": [{"receiverResults": []}]}],
+        }
+        with open(self.json_path, "w") as f:
+            json.dump(test_json, f)
+
         mock_simrun = self._make_mock_simrun()
         mock_simulation = self._make_mock_simulation()
         mock_session = self._make_mock_session(mock_simrun, mock_simulation)
         mock_scoped.return_value.return_value = mock_session
 
-        mock_discover_image.return_value = "de_image:latest"
-        mock_discover_entry.return_value = "DEInterface.py"
+        mock_discover_image.return_value = "dg_image:latest"
+        mock_discover_entry.return_value = "DGInterface.py"
         mock_executor_factory.return_value.execute.return_value.wait.return_value = 0
         mock_export_helper.parse_json_file_to_xlsx_file.return_value = True
-        mock_auralization.side_effect = Exception("Auralization failed")  # FAILS
+        mock_export_helper.write_data_to_xlsx_file.side_effect = Exception("Auralization failed")  # FAILS after session.add
 
         simulation_service.run_solver(self.simulation_run_id, self.json_path)
 
         self.assertEqual(mock_simrun.status, Status.Error,
-            "❌ Auralization fail → SimulationRun should be Error")
-        # Orphaned XLSX was already added to session
+            "❌ write_data_to_xlsx_file fail → SimulationRun should be Error")
+        # Orphaned Export record was already added to the session before the failure
         mock_session.add.assert_called()
-        print("✅ Auralization fails → Error status")
+        print("✅ write_data_to_xlsx_file fails → Error status")
         print("⚠️  Orphaned Export record added to DB before failure!")
 
-    # @patch('app.services.simulation_service.ExportHelper')
-    # @patch('app.services.simulation_service.executor_factory')
-    # @patch('app.services.simulation_service.discover_entry_file')
-    # @patch('app.services.simulation_service.discover_container_image')
-    # @patch('app.services.simulation_service.scoped_session')
-    # @patch('app.services.simulation_service.sessionmaker')
-    # def test_unknown_method_no_auralization_no_error(
-    #     self, mock_sessionmaker, mock_scoped, mock_discover_image,
-    #     mock_discover_entry, mock_executor_factory, mock_export_helper
-    # ):
-    #     """
-    #     simulationMethod='MyNewMethod' → match falls through silently
-    #     → no auralization, no exception raised, status set to Completed.
-    #     """
-    #     # Write other Method test JSON
-    #     test_json = {**self.test_json, "results": [{"resultType": "PA",
-    #                                                  "responses": []}]}
-    #     with open(self.json_path, "w") as f:
-    #         json.dump(test_json, f)
-
-    #     mock_simrun = self._make_mock_simrun()
-    #     mock_simulation = self._make_mock_simulation()
-    #     mock_session = self._make_mock_session(mock_simrun, mock_simulation)
-    #     mock_scoped.return_value.return_value = mock_session
-
-    #     mock_discover_image.return_value = "pa_image:latest"
-    #     mock_discover_entry.return_value = "pyroomacoustics_interface.py"
-    #     mock_executor_factory.return_value.execute.return_value.wait.return_value = 0
-    #     mock_export_helper.parse_json_file_to_xlsx_file.return_value = True
-    #     mock_export_helper.write_data_to_xlsx_file.return_value = True
-
-    #     simulation_service.run_solver(self.simulation_run_id, self.json_path)
-
-    #     # No auralization called (match fell through)
-    #     self.assertEqual(mock_simrun.status, Status.Completed,
-    #         "✅ Unknown method → Completed (no auralization, no crash)")
-    #     print("✅ Unknown method → silent fall-through + Completed")
 
     @patch('app.services.simulation_service.ExportHelper')
     @patch('app.services.simulation_service.executor_factory')
