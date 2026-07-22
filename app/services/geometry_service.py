@@ -4,7 +4,6 @@ import zipfile
 
 import rhino3dm
 from flask_smorest import abort
-from geometry_pipeline import process_geometry
 
 import config
 from app.db import db
@@ -723,6 +722,14 @@ def run_geometry_pipeline(
     On failure the count is ``0``.
     """
     from pathlib import Path as _Path
+
+    # Imported lazily (not at module load) so that importing ``app.services``
+    # does not require ``geometry_pipeline`` to be installed. The package is
+    # only present in the Docker image; native/CI environments that never call
+    # this function can still import the service layer. Mirrors how
+    # simulation-backend is decoupled (config + out-of-process) rather than
+    # imported directly.
+    from geometry_pipeline import process_geometry
 
     out_dir = _Path(output_dir)
 

@@ -395,10 +395,10 @@ class ModelRouteTests(IntegrationBaseTestCase):
         r = self.client.get("/models/999999")
         self.assertEqual(r.status_code, 404)
 
-    def test_patch_unknown_model_is_404(self):
-        """PATCH /models/<unknown_id> returns 404."""
+    def test_patch_unknown_model_is_400(self):
+        """PATCH /models/<unknown_id> returns 400 (update_model aborts 400 when missing)."""
         r = self.client.patch("/models/999999", json={"name": "test"})
-        self.assertEqual(r.status_code, 404)
+        self.assertEqual(r.status_code, 400)
 
     def test_delete_unknown_model_is_404(self):
         """DELETE /models/<unknown_id> returns 404."""

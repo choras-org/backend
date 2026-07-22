@@ -312,7 +312,7 @@ def update_model(model_id, model_data):
     model = Model.query.filter_by(id=model_id).first()
     if not model:
         logger.error("Model doesn't exist, cannot update!")
-        abort(404, "Model doesn't exist, cannot update!")
+        abort(400, "Model doesn't exist, cannot update!")
 
     try:
         model.name = model_data["name"]
