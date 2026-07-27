@@ -161,6 +161,28 @@ def update_project_by_group(group, new_group):
 
 
 def create_example_projects():
+    """
+    Seed the database with comprehensive example projects from a JSON data file.
+
+    This function coordinates a multi-step orchestration process to construct complex 
+    example project entities. It skips execution if projects already exist. For each 
+    project in the catalog, it registers the project, acquires upload tokens, places 
+    physical 3D models and image assets on disk, executes physical geometry calculations, 
+    maps acoustics properties (sources, receivers, materials), generates calculation 
+    meshes, and initiates default solver simulation routines.
+
+    Returns
+    -------
+    dict or None
+        A success message dictionary if seeding finishes successfully, 
+        or None if skipped due to existing data.
+
+    Raises
+    ------
+    HTTPException
+        Aborts with a 400 status code if any error occurs during project generation 
+        or database operations, triggering a full session rollback.
+    """
     projects = get_all_projects()
     if len(projects):
         return
