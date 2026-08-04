@@ -81,3 +81,12 @@ class ModelDownloadQuerySchema(Schema):
 
 class ModelUploadImageResponseSchema(Schema):
     imagePath = fields.Str(required=True)
+
+class ModelExampleSchema(Schema):
+    id = fields.Str(required=True)
+    name = fields.Str(required=True)
+    description = fields.Str(required=True)
+    thumbnailUrl = fields.Str(required=True)
+    fileName = fields.Str(required=True)
+    filePath = fields.Str(required=True)
+    modelUrl = fields.Str(required=True)

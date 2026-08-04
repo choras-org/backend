@@ -10,3 +10,4 @@ from app.models.SimulationRun import SimulationRun
 from app.models.Task import Task
 from app.models.ModelIssue import ModelIssue
 from app.models.UserPreference import UserPreference
+from app.models.MaterialCategory import MaterialCategory
