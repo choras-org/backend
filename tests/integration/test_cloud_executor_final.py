@@ -537,7 +537,7 @@ class TestPollUntilComplete:
                 remote_tar_path="/remote/image.tar",
             )
 
-        assert result is True
+        assert result == (True, 0)
         mock_cleanup.assert_called_once()
 
     def test_json_only_written_locally_when_progress_changes(self, tmp_path):
@@ -608,7 +608,7 @@ class TestPollUntilComplete:
                 remote_sandbox_path="/remote/sandbox",
             )
 
-        assert result is True
+        assert result == (True, 0)
 
     def test_cancel_flag_before_polling_exits_immediately(self, tmp_path):
         """
@@ -839,7 +839,7 @@ class TestExecuteHappyPath:
             "_upload_file_via_sftp":      MagicMock(),
             "_build_singularity_image":   MagicMock(),
             "_execute_singularity_image": MagicMock(),
-            "_poll_until_complete":       MagicMock(return_value=True),
+            "_poll_until_complete":       MagicMock(return_value=(True, 0)),
         }
 
     def _write_sim_config(self, tmp_path):
