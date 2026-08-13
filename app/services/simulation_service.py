@@ -553,6 +553,7 @@ def run_solver(simulation_run_id: int, json_path: str):
             logger.info(f"SimulationRun status updated to {simulation_run.status}")
 
         except RuntimeError as ex:
+            session.rollback()
             # These are errors explicitly raised in the simulation-method
             # including a meaningful error message.
             # Propagate error messages to the database (frontend).
@@ -564,6 +565,7 @@ def run_solver(simulation_run_id: int, json_path: str):
             simulation.errorMessage = error_msg
             session.commit()
         except Exception as ex:
+            session.rollback()
             # Unexpected errors - log full details but show generic message
             error_details = traceback.format_exc()
             logger.error(f"Unexpected simulation error:\n{error_details}")
