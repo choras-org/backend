@@ -235,14 +235,14 @@ class RunSolverUnitTests(BaseTestCase):
     @patch('app.services.simulation_service.discover_container_image')
     @patch('app.services.simulation_service.scoped_session')
     @patch('app.services.simulation_service.sessionmaker')
-    def test_container_non_zero_exit_marked_completed(
+    def test_container_non_zero_exit_sets_error_status(
         self, mock_sessionmaker, mock_scoped, mock_discover_image,
         mock_discover_entry, mock_executor_factory,
         mock_export_helper, mock_auralization
     ):
         """
         container.wait() returns exit code 1 (failure)
-        → currently ignored entirely → simulation still marked Completed (BUG!).
+        → RuntimeError raised → caught → simulation marked Error.
         """
         mock_simrun = self._make_mock_simrun()
         mock_simulation = self._make_mock_simulation()
@@ -258,10 +258,11 @@ class RunSolverUnitTests(BaseTestCase):
 
         simulation_service.run_solver(self.simulation_run_id, self.json_path)
 
-        # BUG: should be Error but is Completed
-        self.assertEqual(mock_simrun.status, Status.Completed,
-            "❌ Non-zero container exit → should be Error, not Completed!")
-        print("❌ container.wait()=1 → Completed anyway (BUG: exit code ignored)")
+        self.assertEqual(mock_simrun.status, Status.Error,
+            "❌ Non-zero container exit → SimulationRun status should be Error")
+        self.assertEqual(mock_simulation.status, Status.Error,
+            "❌ Non-zero container exit → Simulation status should be Error")
+        print("✅ container.wait()={'StatusCode': 1} → Error status set correctly")
     
     @patch('app.services.simulation_service.scoped_session')
     @patch('app.services.simulation_service.sessionmaker')
