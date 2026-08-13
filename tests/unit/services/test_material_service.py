@@ -1,10 +1,11 @@
 import unittest
 from unittest.mock import patch
 
-from app.models import Material
-from app.services import material_service
+from app.models import Material, MaterialCategory
+from app.services import material_service, material_category_service
 from tests.unit import BaseTestCase
 from werkzeug.exceptions import BadRequest
+
 
 class UsersUnitTests(BaseTestCase):
     def setUp(self):
@@ -19,6 +20,9 @@ class UsersUnitTests(BaseTestCase):
         """
         # When
         with self.app.app_context():
+            # Categories must exist before materials (service does a lookup by name)
+            material_category_service.insert_initial_material_categories()
+
             # Call the function to insert initial materials
             material_service.insert_initial_materials()
 
@@ -47,11 +51,15 @@ class UsersUnitTests(BaseTestCase):
         Test that `create_new_material` creates a new material and checks its properties.
         """
         with self.app.app_context():
-            # Given: New material data
+            # Given: A category and new material data
+            category = MaterialCategory(name="Test Category")
+            self.db.session.add(category)
+            self.db.session.commit()
+
             new_material_data = {
                 "name": "Test Material",
                 "description": "A test material",
-                "category": "Test Category",
+                "categoryId": category.id,
                 "absorptionCoefficients": {},
             }
 
@@ -61,29 +69,22 @@ class UsersUnitTests(BaseTestCase):
             # Then: Check the material properties
             self.assertIsNotNone(created_material.id)
             self.assertEqual(created_material.name, "Test Material")
-            self.assertEqual(created_material.category, "Test Category")
+            self.assertEqual(created_material.categoryId, category.id)
 
     def test_create_new_material_with_invalid_data(self):
         """
-        Test that `create_new_material` handles invalid data correctly.
+        Test that `create_new_material` raises BadRequest for invalid data.
         """
         with self.app.app_context():
             # Given: Invalid material data
             invalid_material_data = {
                 "name": None,  # Name cannot be None if nullable=False in the model
                 "description": "Invalid Material",
-                "category": "Invalid Category",
+                "categoryId": 1,  # FK is OFF in test SQLite; value doesn't need to exist
                 "absorptionCoefficients": {},
             }
 
             # When/Then: Attempt to create material should raise an exception
-            """ 
-            with self.assertRaises(Exception) as context:
-                material_service.create_new_material(invalid_material_data)
-
-            # Ensure the logger was called with the expected message
-            self.assertIn("Can not create a new material", str(context.exception)) """
-            from werkzeug.exceptions import BadRequest
             with self.assertRaises(BadRequest) as context:
                 material_service.create_new_material(invalid_material_data)
             # Just check that it raises an error, don't check exact message
@@ -95,16 +96,21 @@ class UsersUnitTests(BaseTestCase):
         """
         with self.app.app_context():
             # Given: Inserting two materials into the database
+            cat1 = MaterialCategory(name="Cat1")
+            cat2 = MaterialCategory(name="Cat2")
+            self.db.session.add_all([cat1, cat2])
+            self.db.session.commit()
+
             material1 = Material(
                 name="Material1",
                 description="Desc1",
-                category="Cat1",
+                categoryId=cat1.id,
                 absorptionCoefficients={},
             )
             material2 = Material(
                 name="Material2",
                 description="Desc2",
-                category="Cat2",
+                categoryId=cat2.id,
                 absorptionCoefficients={},
             )
             self.db.session.add_all([material1, material2])
@@ -117,8 +123,8 @@ class UsersUnitTests(BaseTestCase):
             self.assertEqual(len(materials), 2)
             self.assertEqual(materials[0].name, "Material1")
             self.assertEqual(materials[1].name, "Material2")
-            self.assertEqual(materials[0].category, "Cat1")
-            self.assertEqual(materials[1].category, "Cat2")
+            self.assertEqual(materials[0].materialCategory.name, "Cat1")
+            self.assertEqual(materials[1].materialCategory.name, "Cat2")
 
     def test_get_material_by_id(self):
         """
@@ -126,10 +132,14 @@ class UsersUnitTests(BaseTestCase):
         """
         with self.app.app_context():
             # Given: Inserting a material into the database
+            category = MaterialCategory(name="Cat")
+            self.db.session.add(category)
+            self.db.session.commit()
+
             material = Material(
                 name="Material for ID",
                 description="Desc",
-                category="Cat",
+                categoryId=category.id,
                 absorptionCoefficients={},
             )
             self.db.session.add(material)
@@ -145,14 +155,10 @@ class UsersUnitTests(BaseTestCase):
 
     def test_get_material_by_id_not_exists(self):
         """
-        Test that `get_material_by_id` raises an exception if the material does not exist.
+        Test that `get_material_by_id` raises BadRequest if the material does not exist.
         """
         with self.app.app_context():
             # When/Then: Fetching a non-existent material should raise an exception
-            """ with self.assertRaises(Exception) as context:
-                material_service.get_material_by_id(9999)
-            self.assertIn("Material doesn't exists!", str(context.exception)) """
-            from werkzeug.exceptions import BadRequest
             with self.assertRaises(BadRequest) as context:
                 material_service.get_material_by_id(9999)
             # Just check that it raises an error, don't check exact message
