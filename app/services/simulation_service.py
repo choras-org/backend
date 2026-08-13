@@ -421,18 +421,18 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             exit_code = container_result["StatusCode"]
             if exit_code != 0:
-                # Try to read structured error from JSON
+                # Try to read a structured error written by the simulation container
+                # (or moved into place by the cloud executor on remote failure).
+                # If the container exits without writing {"error": {"message": ...}}
+                # to the JSON, the generic fallback is used instead.
+                error_msg = None
                 try:
                     with open(json_path, "r") as f:
-                        result = json.load(f)
-                        error_info = result.get("error", {})
-                        error_msg = error_info.get(
-                            "message", "Simulation container failed"
-                        )
+                        error_msg = json.load(f).get("error", {}).get("message")
                 except Exception:
-                    error_msg = f"Simulation failed with exit code {exit_code}"
+                    pass
 
-                raise RuntimeError(error_msg)
+                raise RuntimeError(error_msg or f"Simulation failed with exit code {exit_code}")
 
             logger.info(
                 f"{simulation_method} Simulation_service:...container has finished."
