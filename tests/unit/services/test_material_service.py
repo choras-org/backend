@@ -14,13 +14,6 @@ class UsersUnitTests(BaseTestCase):
         """
         super().setUp()
 
-    def _make_category(self, name="Test Category"):
-        with self.app.app_context():
-            category = MaterialCategory(name=name)
-            self.db.session.add(category)
-            self.db.session.commit()
-            return category.id  # return id; object detaches when context exits
-
     def test_insert_initial_materials(self):
         """
         Test that initial materials are correctly inserted into the database.
