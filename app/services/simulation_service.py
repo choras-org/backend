@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -564,8 +565,6 @@ def run_solver(simulation_run_id: int, json_path: str):
             session.commit()
         except Exception as ex:
             # Unexpected errors - log full details but show generic message
-            import traceback
-
             error_details = traceback.format_exc()
             logger.error(f"Unexpected simulation error:\n{error_details}")
 
