@@ -4,8 +4,9 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+import pyfar as pf
 from celery import shared_task  # , current_task
-from config import CustomExportParametersConfig
 from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
@@ -21,6 +22,7 @@ from app.services.discovery_service import (
 )
 from app.services.executors.factory import executor_factory
 from app.types import Status, TaskType
+from config import CustomExportParametersConfig
 
 simulation_methods = discover_method_names()
 
@@ -297,8 +299,13 @@ def start_solver_task(simulation_id):
 
     if debug_celery:
         run_solver(new_simulation_run.id, json_path)
+        export_xlsx_task(new_simulation_run.id, json_path)
     else:
-        task = run_solver.delay(new_simulation_run.id, json_path)
+        from celery import chain
+        task = chain(
+            run_solver.si(new_simulation_run.id, json_path),
+            export_xlsx_task.si(new_simulation_run.id, json_path),
+        ).delay()
 
         result_container = {}
         if json_path is not None:
@@ -328,6 +335,87 @@ def start_solver_task(simulation_id):
         return new_simulation_run
 
 
+def export_wav_file(json_path: str):
+    """Export the impulse response contained in json to wav file.
+
+    The wav file is named the same as the json file but with different
+    file extension and is saved in the same location.
+
+    Parameters
+    ----------
+    json_path : str
+        The path to the JSON file containing the impulse response data.
+
+    """
+
+    with open(json_path, "r") as json_file:
+        result_container = json.load(json_file)
+
+    imp_tot = np.array(result_container["results"][0]["responses"][0]["receiverResults"])
+
+    with open(json_path, "r") as json_file:
+        input_data = json.load(json_file)
+        if "sampling_rate" in input_data["simulationSettings"]:
+            fs = input_data["simulationSettings"]["sampling_rate"]
+        else:
+            from config import AuralizationParametersConfig
+            fs = AuralizationParametersConfig.visualization_fs
+            logger.warning(
+                f"The sampling rate of the impulse response was not provided. Assuming {fs} as fallback."
+            )
+
+    rir_wav_file_name = json_path.replace(".json", ".wav")
+
+    if imp_tot is None or len(imp_tot) == 0:
+        logger.warning("Impulse response data is empty or missing")
+        imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
+        norm_rir = pf.Signal(imp_tot, fs)  # don't use the pf.dsp.normalize function on an empty signal, as it returns NaN values.
+    else:
+        rir = pf.Signal(imp_tot, fs)
+        # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
+        norm_rir = pf.dsp.normalize(rir, target=1)
+
+    pf.io.write_audio(norm_rir, rir_wav_file_name)
+    logger.info(f"Impulse response shape: {imp_tot.shape}, sampling rate: {fs}")
+
+
+def export_edc_to_pressure_csv(json_path: str):
+    """Export the energy decay curve (EDC) contained in the json to a CSV file.
+
+    The CSV file is named the same as the json file but with different
+    file extension and is saved in the same location. This is a necesary step
+    for the synthesis of the room impulse response (RIR) from the EDC, which requires
+    the EDC to be in CSV format.
+
+    The CSV file will have the following header (columns):
+    The first column is time in seconds, all following columns are the EDCs for the
+    respective octave band.
+
+    Header:
+    t, 125Hz, ... ,2000Hz
+
+    Parameters
+    ----------
+    json_path : str
+        The path to the JSON file containing the EDC data.
+
+    """
+
+    with open(json_path, "r") as json_file:
+        result_container = json.load(json_file)
+
+    receiver_results = result_container["results"][0]["responses"][0]["receiverResults"]
+    receiver_results = sorted(receiver_results, key=lambda r: r["frequency"])
+
+    t = np.array(receiver_results[0]["t"])
+    data = np.column_stack([t] + [np.array(r["data"]) for r in receiver_results])
+    header = "t," + ",".join(f"{int(r['frequency'])}Hz" for r in receiver_results)
+
+    edc_csv_file_name = json_path.replace(".json", "_pressure.csv")
+    np.savetxt(edc_csv_file_name, data, delimiter=",", header=header, comments="")
+    logger.info(f"EDC shape: {data.shape}, saved to {edc_csv_file_name}")
+
+
 @shared_task
 def run_solver(simulation_run_id: int, json_path: str):
 
@@ -335,13 +423,13 @@ def run_solver(simulation_run_id: int, json_path: str):
     from app.models import SimulationRun
     from app.types import Status
 
-    # Create logger for this module
-
     logger.info(f"Running solver task for simulation_run_id: {simulation_run_id}")
 
-    # Scoped session factory to ensure proper session management
     session_factory = sessionmaker(bind=db.engine)
-    session = scoped_session(session_factory)()  # Create a new session for this thread
+    session = scoped_session(session_factory)()
+
+    simulation_run = None
+    simulation = None
 
     try:
         simulation_run = session.query(SimulationRun).get(simulation_run_id)
@@ -364,184 +452,244 @@ def run_solver(simulation_run_id: int, json_path: str):
         session.commit()
         logger.info(f"Simulation(run) status updated to {simulation_run.status}")
 
+        if simulation_run:
+            simulation_run.status = Status.InProgress
+        simulation.status = Status.InProgress
+        session.commit()
+        logger.info(f"SimulationRun status updated to {simulation_run.status}")
+
+        result_container = {}
+        if json_path is not None:
+            with open(json_path, "r") as json_file:
+                result_container = json.load(json_file)
+
+        # save the simulation solver settings
         try:
-            if simulation_run:
-                simulation_run.status = Status.InProgress
-            simulation.status = Status.InProgress
-            session.commit()
-            logger.info(f"SimulationRun status updated to {simulation_run.status}")
+            solverSettings = simulation.solverSettings
+            result_container["simulationSettings"] = solverSettings["simulationSettings"]
+            result_container["settingsPreset"] = simulation.settingsPreset.value
 
-            result_container = {}
-            if json_path is not None:
-                with open(json_path, "r") as json_file:
-                    result_container = json.load(json_file)
+            with open(json_path, "w", encoding="utf-8") as file:
+                json.dump(result_container, file, indent=4)
 
-            # save the simulation solver settings
-            try:
-                solverSettings = simulation.solverSettings
-                result_container["simulationSettings"] = solverSettings["simulationSettings"]
-                result_container["settingsPreset"] = simulation.settingsPreset.value
-
-                with open(json_path, "w", encoding="utf-8") as file:
-                    json.dump(result_container, file, indent=4)
-
-            except Exception as ex:
-                logger.error(f"Error saving the simulation solver settings: {ex}")
-                raise Exception(f"Error saving the simulation solver settings {ex}")
-
-            sim_config = {
-                "env": {
-                    "JSON_PATH": json_path,  # e.g. /app/uploads/MeasurementRoom_....json
-                },
-            }
-
-            resource_type = simulation.resourceType
-            simulation_method = result_container["results"][0]["resultType"]
-            logger.info(f"{simulation_method}")
-            container_image = discover_container_image(simulation_method)
-
-            print(f"Resource type: {resource_type.value}")
-
-            entry_file = discover_entry_file(simulation_method)
-
-            executor = executor_factory(resource_type, entry_file)
-
-            #Relevant method container would be started dynamically based on the container_image
-            method_config = {
-                "container_image": container_image,
-                "simulation_method": simulation_method.lower(),
-                "simulation_id":  str(simulation.id),
-                "task_id": result_container["task_id"]
-            }
-
-            logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
-            container = executor.execute(method_config, sim_config)
-            container.wait()
-            logger.info(f"{simulation_method} Simulation_service:...container has finished.")
-
-            cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
-
-            # auralization: generate impulse response wav file
-            # TODO: move the auralization calculation to DE and write that
-            # to the JSON so that everything can be handled by the current
-            # default case and we can get rid of the match case.
-            match simulation_method:
-                case "DE":
-                    # TODO: This function is not a general auralization function and should be renamed
-                    imp_tot, fs = auralization_calculation(
-                        None,
-                        json_path.replace(".json", "_pressure.csv"),
-                        json_path.replace(".json", ".wav"),
-                    )
-
-                # this should be the only thing getting executed
-                case _:
-                    import numpy as np
-
-                    with open(json_path, "r") as json_file:
-                        result_container = json.load(json_file)
-
-                    imp_tot = np.array(result_container["results"][0]["responses"][0]["receiverResults"])
-
-                    with open(json_path, "r") as json_file:
-                        input_data = json.load(json_file)
-                        if "sampling_rate" in input_data["simulationSettings"]:
-                            fs = input_data["simulationSettings"]["sampling_rate"]
-                        else:
-                            from config import AuralizationParametersConfig
-                            fs = AuralizationParametersConfig.visualization_fs
-                            logger.warning(
-                                f"The sampling rate of the impulse response was not provided. Assuming {fs} as fallback."
-                            )
-
-                    rir_wav_file_name = json_path.replace(".json", ".wav")
-
-                    import pyfar as pf
-
-                    if imp_tot is None or len(imp_tot) == 0:
-                        logger.warning("Impulse response data is empty or missing")
-                        imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
-                        norm_rir = pf.Signal(imp_tot, fs) # don't use the pf.dsp.normalize function on an empty signal, as it returns NaN values.
-                    else:
-                        rir = pf.Signal(imp_tot, fs)
-                        # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
-                        norm_rir = pf.dsp.normalize(rir)
-
-                    pf.io.write_audio(norm_rir, rir_wav_file_name)
-                    logger.info(f"Impulse response shape: {imp_tot.shape}, sampling rate: {fs}")
-
-            # logs = container.logs().decode("utf-8")
-            # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
-
-            if os.path.exists(cancel_flag_path):
-                logger.info("Cancelled: Not saving to xlsx")
-            else:
-                try:
-                    logger.info("Saving to xlsx...")
-
-                    # save the simulation result json to xlsx
-                    if not ExportHelper.parse_json_file_to_xlsx_file(
-                        json_path, json_path.replace(".json", ".xlsx")
-                    ):
-                        logger.error("Error saving the result to xlsx")
-                        raise RuntimeError("Error saving the result to xlsx")
-
-                    # db - save the xlsx file path
-                    export = Export(
-                        name=Path(json_path).name.replace(".json", ".xlsx"),
-                        simulationId=simulation.id,
-                    )
-                    session.add(export)
-
-                    # auralization: save the impulse response to xlsx
-                    if not ExportHelper.write_data_to_xlsx_file(
-                        json_path.replace(".json", ".xlsx"),
-                        CustomExportParametersConfig.impulse_response,
-                        {f"{fs}Hz": imp_tot},
-                    ):
-                        logger.error(
-                            "Error saving the impulse response to xlsx"
-                        )
-                        raise RuntimeError("Error saving the impulse response to xlsx")
-                except Exception as ex:
-                    logger.error(f"Error during saving results: {ex}")
-                    raise RuntimeError(f"Error during saving results: {ex}")
-
-            result_container = {}
-            if json_path is not None:
-                with open(json_path, "r") as json_file:
-                    result_container = json.load(json_file)
-
-            if simulation_run:
-                if os.path.exists(cancel_flag_path):
-                    simulation_run.status = Status.Cancelled
-                    simulation_run.completedAt = ""
-                    simulation.status = Status.Cancelled
-                    simulation.completedAt = ""
-                else:
-                    simulation_run.status = Status.Completed
-                    simulation_run.completedAt = datetime.now()
-                    simulation.status = Status.Completed
-                    simulation.completedAt = datetime.now()
-
-            simulation_run.updatedAt = datetime.now()
-            simulation.updatedAt = datetime.now()
-
-            session.commit()
-            logger.info(f"SimulationRun status updated to {simulation_run.status}")
         except Exception as ex:
-            simulation_run.status = Status.Error
-            simulation.status = Status.Error
-            session.commit()
-            logger.error(f"Cannot run the method because: {ex}")
+            logger.error(f"Error saving the simulation solver settings: {ex}")
+            raise Exception(f"Error saving the simulation solver settings {ex}")
+
+        sim_config = {
+            "env": {
+                "JSON_PATH": json_path,  # e.g. /app/uploads/MeasurementRoom_....json
+            },
+        }
+
+        resource_type = simulation.resourceType
+        simulation_method = result_container["results"][0]["resultType"]
+        logger.info(f"{simulation_method}")
+        container_image = discover_container_image(simulation_method)
+
+        print(f"Resource type: {resource_type.value}")
+
+        entry_file = discover_entry_file(simulation_method)
+
+        executor = executor_factory(resource_type, entry_file)
+
+        # Relevant method container would be started dynamically based on the container_image
+        method_config = {
+            "container_image": container_image,
+            "simulation_method": simulation_method.lower(),
+            "simulation_id":  str(simulation.id),
+            "task_id": result_container["task_id"]
+        }
+
+        logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
+        container = executor.execute(method_config, sim_config)
+        container.wait()
+        logger.info(f"{simulation_method} Simulation_service:...container has finished.")
+
+        cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
+
+
+        with open(json_path, "r") as json_file:
+            sim_results = json.load(json_file)["results"]
+
+        # Check if the result type is and energy decay curve (EDC). If this is the case,
+        # an impulse response is synthesized.
+        # In case the result is an impulse response, the field does not exist and will
+        # throw a KeyError.
+        # This is a quite hacky way to check the result type and should be improved in the
+        # near future.
+        try:
+            result_is_edc = sim_results[0]["responses"][0]["receiverResults"][0]["type"] == "edc"
+            logger.info("Result type is an EDC, synthesizing RIR.")
+        except (TypeError, KeyError):
+            result_is_edc = False
+            logger.info("Result type is not EDC, skipping synthesis.")
+
+        if result_is_edc:
+            logger.info("Synthesizing the room impulse response.")
+
+            fname_csv = json_path.replace(".json", "_pressure.csv")
+            if not os.path.exists(fname_csv):
+                logger.info(f"CSV file {fname_csv} does not exist, exporting EDC to CSV.")
+            else:
+                logger.info(f"CSV file {fname_csv} already exists, overwriting file.")
+
+            try:
+                export_edc_to_pressure_csv(json_path)
+            except Exception as ex:
+                message = f"CSV file {fname_csv} not written, cannot synthesize RIR."
+                logger.error(message)
+                raise FileNotFoundError(message) from ex
+
+            # TODO: This function is not a general auralization function and should be renamed
+            # Instead it is a RIR sythesis function
+            auralization_calculation(
+                None,
+                fname_csv,
+                json_path.replace(".json", ".wav"),
+            )
+
+        else:
+            logger.info("Exporting impulse response.")
+            export_wav_file(json_path)
 
     except Exception as ex:
-        session.rollback()
-        logger.error(f"Cannot update simulation run: {ex}")
+        logger.error(f"run_solver failed: {ex}")
+        if simulation_run is not None:
+            try:
+                simulation_run.status = Status.Error
+                if simulation is not None:
+                    simulation.status = Status.Error
+                session.commit()
+            except Exception:
+                session.rollback()
+
+        raise RuntimeError from ex
 
     finally:
+        if os.path.exists(cancel_flag_path):
+            logger.info("Simulation cancelled.")
+            simulation_run.status = Status.Cancelled
+            simulation_run.completedAt = ""
+            simulation.status = Status.Cancelled
+            simulation.completedAt = ""
+        else:
+            simulation_run.status = Status.Completed
+            simulation_run.completedAt = datetime.now()
+            simulation.status = Status.Completed
+            simulation.completedAt = datetime.now()
+        session.commit()
         session.close()  # Ensure the session is closed after use
         logger.info(f"Session closed for simulation_run_id: {simulation_run_id}")
+
+
+@shared_task
+def export_xlsx_task(simulation_run_id: int, json_path: str):
+
+    from app.db import db
+    from app.models import SimulationRun
+    from app.types import Status
+
+    logger.info(f"Running export_xlsx_task for simulation_run_id: {simulation_run_id}")
+
+    session_factory = sessionmaker(bind=db.engine)
+    session = scoped_session(session_factory)()
+
+    simulation_run = None
+    simulation = None
+
+    try:
+        simulation_run = session.query(SimulationRun).get(simulation_run_id)
+        if simulation_run is None:
+            logger.error(f"SimulationRun with id {simulation_run_id} not found")
+            return
+
+        simulation = (
+            session.query(Simulation)
+            .filter_by(simulationRunId=simulation_run.id)
+            .first()
+        )
+
+        logger.info(
+            f"Export for simulation (ID: {simulation_run_id}) starting. " +
+            f"Simulation status: {simulation.status} " +
+            f"SimulationRun status: {simulation_run.status} ",
+        )
+
+        result_container = {}
+        if json_path is not None:
+            with open(json_path, "r") as json_file:
+                result_container = json.load(json_file)
+
+        cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
+
+        if not os.path.exists(cancel_flag_path):
+            logger.info("Saving to xlsx...")
+
+            impulse_respnse = pf.io.read_audio(
+                json_path.replace(".json", ".wav"))
+
+            if not ExportHelper.parse_json_file_to_xlsx_file(
+                json_path, json_path.replace(".json", ".xlsx")
+            ):
+                logger.error("Error saving the result to xlsx")
+                raise RuntimeError("Error saving the result to xlsx")
+
+            # db - save the xlsx file path
+            export = Export(
+                name=Path(json_path).name.replace(".json", ".xlsx"),
+                simulationId=simulation.id,
+            )
+            session.add(export)
+
+            # auralization: save the impulse response to xlsx
+            if not ExportHelper.write_data_to_xlsx_file(
+                json_path.replace(".json", ".xlsx"),
+                CustomExportParametersConfig.impulse_response,
+                {f"{impulse_respnse.sampling_rate}Hz": np.squeeze(impulse_respnse.time).tolist()},
+            ):
+                logger.error("Error saving the impulse response to xlsx")
+                raise RuntimeError("Error saving the impulse response to xlsx")
+        else:
+            logger.info("Cancel flag detected: skipping xlsx export.")
+
+        if simulation_run:
+            if os.path.exists(cancel_flag_path):
+                logger.info("Simulation cancelled.")
+                simulation_run.status = Status.Cancelled
+                simulation_run.completedAt = ""
+                simulation.status = Status.Cancelled
+                simulation.completedAt = ""
+            else:
+                simulation_run.status = Status.Completed
+                simulation_run.completedAt = datetime.now()
+                simulation.status = Status.Completed
+                simulation.completedAt = datetime.now()
+
+        simulation_run.updatedAt = datetime.now()
+        simulation.updatedAt = datetime.now()
+        session.commit()
+        logger.info(
+            f"Export for simulation (ID: {simulation_run_id}) completed. " +
+            f"Simulation status: {simulation.status} " +
+            f"SimulationRun status: {simulation_run.status} ",
+        )
+        # logger.info(f"SimulationRun status updated to {simulation_run.status}")
+
+    except Exception as ex:
+        logger.error(f"export_xlsx_task failed: {ex}")
+        if simulation_run is not None:
+            try:
+                simulation_run.status = Status.Error
+                if simulation is not None:
+                    simulation.status = Status.Error
+                session.commit()
+            except Exception:
+                session.rollback()
+
+    finally:
+        session.close()
+        logger.info(f"Session closed for export_xlsx_task, simulation_run_id: {simulation_run_id}")
 
 
 def get_simulation_result_by_id(simulation_id):
