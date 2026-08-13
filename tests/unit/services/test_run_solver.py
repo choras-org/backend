@@ -183,7 +183,7 @@ class RunSolverUnitTests(BaseTestCase):
 
         mock_discover_image.return_value = "dg_image:latest"
         mock_discover_entry.return_value = "DGInterface.py"
-        mock_executor_factory.return_value.execute.return_value.wait.return_value = 0
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 0}
         mock_export_helper.parse_json_file_to_xlsx_file.return_value = True
         mock_export_helper.write_data_to_xlsx_file.side_effect = Exception("Auralization failed")  # FAILS after session.add
 
@@ -219,7 +219,7 @@ class RunSolverUnitTests(BaseTestCase):
 
         mock_discover_image.return_value = "de_image:latest"
         mock_discover_entry.return_value = "DEInterface.py"
-        mock_executor_factory.return_value.execute.return_value.wait.return_value = 0
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 0}
         mock_export_helper.parse_json_file_to_xlsx_file.return_value = False  # Trigger bug
 
         simulation_service.run_solver(self.simulation_run_id, self.json_path)
@@ -251,7 +251,7 @@ class RunSolverUnitTests(BaseTestCase):
 
         mock_discover_image.return_value = "dg_image:latest"
         mock_discover_entry.return_value = "DGinterface.py"
-        mock_executor_factory.return_value.execute.return_value.wait.return_value = 1  # FAIL
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 1}  # FAIL
         mock_export_helper.parse_json_file_to_xlsx_file.return_value = True
         mock_export_helper.write_data_to_xlsx_file.return_value = True
         mock_auralization.return_value = ([0.1, 0.2], 44100)
