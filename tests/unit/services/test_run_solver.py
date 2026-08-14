@@ -298,3 +298,207 @@ class RunSolverUnitTests(BaseTestCase):
             "❌ Malformed solverSettings → Simulation status should be Error")
         print("✅ Malformed solverSettings → Error status set correctly")
 
+
+class RunSolverErrorMessageTests(BaseTestCase):
+    """Verify errorMessage is written to both SimulationRun and Simulation on failure."""
+
+    def setUp(self):
+        super().setUp()
+        self.simulation_run_id = 123
+        fd, self.json_path = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        self._base_json = {
+            "task_id": "test-task-error",
+            "simulationSettings": {},
+            "results": [{"resultType": "DE", "responses": [{"receiverResults": []}]}],
+        }
+        with open(self.json_path, "w") as f:
+            json.dump(self._base_json, f)
+
+    def tearDown(self):
+        if os.path.exists(self.json_path):
+            os.chmod(self.json_path, 0o644)
+            os.unlink(self.json_path)
+        super().tearDown()
+
+    def _make_mock_session(self, mock_simrun, mock_simulation):
+        mock_session = MagicMock()
+        def query_side_effect(model_class):
+            mock_query = MagicMock()
+            if model_class.__name__ == "SimulationRun":
+                mock_query.get.return_value = mock_simrun
+            elif model_class.__name__ == "Simulation":
+                mock_query.filter_by.return_value.first.return_value = mock_simulation
+            return mock_query
+        mock_session.query.side_effect = query_side_effect
+        return mock_session
+
+    def _make_mock_simrun(self):
+        m = MagicMock()
+        m.id = self.simulation_run_id
+        m.status = Status.Created
+        return m
+
+    def _make_mock_simulation(self):
+        m = MagicMock()
+        m.id = 456
+        m.solverSettings = {"simulationSettings": {}}
+        m.settingsPreset = MagicMock(value="Default")
+        m.simulationMethod = "DE"
+        m.resourceType = ResourceType.LOCAL
+        m.status = Status.Created
+        m.simulationRunId = self.simulation_run_id
+        return m
+
+    @patch("app.services.simulation_service.executor_factory")
+    @patch("app.services.simulation_service.discover_entry_file")
+    @patch("app.services.simulation_service.discover_container_image")
+    @patch("app.services.simulation_service.scoped_session")
+    @patch("app.services.simulation_service.sessionmaker")
+    def test_json_error_message_written_to_both_models(
+        self, mock_sessionmaker, mock_scoped,
+        mock_discover_image, mock_discover_entry, mock_executor_factory
+    ):
+        """Exit code 1 + JSON {"error": {"message": "..."}} → exact string on both models."""
+        error_message = "Room geometry is invalid"
+        with open(self.json_path, "w") as f:
+            json.dump({**self._base_json, "error": {"message": error_message}}, f)
+
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_scoped.return_value.return_value = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_discover_image.return_value = "de_image:latest"
+        mock_discover_entry.return_value = "DEInterface.py"
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 1}
+
+        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.errorMessage, error_message)
+        self.assertEqual(mock_simulation.errorMessage, error_message)
+
+    @patch("app.services.simulation_service.executor_factory")
+    @patch("app.services.simulation_service.discover_entry_file")
+    @patch("app.services.simulation_service.discover_container_image")
+    @patch("app.services.simulation_service.scoped_session")
+    @patch("app.services.simulation_service.sessionmaker")
+    def test_missing_error_key_uses_fallback_message(
+        self, mock_sessionmaker, mock_scoped,
+        mock_discover_image, mock_discover_entry, mock_executor_factory
+    ):
+        """Exit code 1 + JSON has no \"error\" key → fallback message on both models."""
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_scoped.return_value.return_value = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_discover_image.return_value = "de_image:latest"
+        mock_discover_entry.return_value = "DEInterface.py"
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 1}
+
+        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.errorMessage, "Simulation failed with exit code 1")
+        self.assertEqual(mock_simulation.errorMessage, "Simulation failed with exit code 1")
+
+    @patch("app.services.simulation_service.executor_factory")
+    @patch("app.services.simulation_service.discover_entry_file")
+    @patch("app.services.simulation_service.discover_container_image")
+    @patch("app.services.simulation_service.scoped_session")
+    @patch("app.services.simulation_service.sessionmaker")
+    def test_unreadable_json_uses_fallback_message(
+        self, mock_sessionmaker, mock_scoped,
+        mock_discover_image, mock_discover_entry, mock_executor_factory
+    ):
+        """
+        Exit code 1 + JSON not readable when error path runs → fallback message on both models.
+
+        run_solver reads the JSON twice: once at startup to load the task config, and
+        again after a non-zero exit code to extract the structured error message. This
+        test covers the case where the second read fails (e.g. the simulation container
+        overwrote or removed the file before exiting).
+
+        Timing is controlled via wait()'s side_effect: the file is deleted at the
+        moment wait() returns, which is after the initial reads and write-back but
+        before the error-path read — the exact window where this failure can occur
+        in production.
+        """
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_scoped.return_value.return_value = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_discover_image.return_value = "de_image:latest"
+        mock_discover_entry.return_value = "DEInterface.py"
+
+        def remove_json_and_fail(*args, **kwargs):
+            os.unlink(self.json_path)
+            return {"StatusCode": 1}
+
+        mock_executor_factory.return_value.execute.return_value.wait.side_effect = remove_json_and_fail
+
+        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.errorMessage, "Simulation failed with exit code 1")
+        self.assertEqual(mock_simulation.errorMessage, "Simulation failed with exit code 1")
+
+    @patch("app.services.simulation_service.executor_factory")
+    @patch("app.services.simulation_service.discover_entry_file")
+    @patch("app.services.simulation_service.discover_container_image")
+    @patch("app.services.simulation_service.scoped_session")
+    @patch("app.services.simulation_service.sessionmaker")
+    def test_unexpected_exception_writes_error_message(
+        self, mock_sessionmaker, mock_scoped,
+        mock_discover_image, mock_discover_entry, mock_executor_factory
+    ):
+        """Unexpected exception (non-RuntimeError) in inner try → \"An unexpected error occurred: ...\" on both models."""
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_scoped.return_value.return_value = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_discover_image.return_value = "de_image:latest"
+        mock_discover_entry.return_value = "DEInterface.py"
+        mock_executor_factory.return_value.execute.side_effect = ValueError("Connection lost")
+
+        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.errorMessage, "An unexpected error occurred: Connection lost")
+        self.assertEqual(mock_simulation.errorMessage, "An unexpected error occurred: Connection lost")
+
+    @patch("app.services.simulation_service.executor_factory")
+    @patch("app.services.simulation_service.discover_entry_file")
+    @patch("app.services.simulation_service.discover_container_image")
+    @patch("app.services.simulation_service.scoped_session")
+    @patch("app.services.simulation_service.sessionmaker")
+    def test_error_message_committed(
+        self, mock_sessionmaker, mock_scoped,
+        mock_discover_image, mock_discover_entry, mock_executor_factory
+    ):
+        """
+        errorMessage is set on both models before session.commit() is called.
+
+        Setting errorMessage on the in-memory object is not enough — it must be
+        committed to actually reach the database. This test verifies the ordering
+        by recording the value of simulation_run.errorMessage each time commit()
+        fires. Early commits (status → Queued, status → InProgress) happen before
+        errorMessage is set, so they record the default MagicMock attribute. Only
+        the commit inside the error handler fires after the assignment, recording
+        the actual error string. The assertion passes only if that string appears
+        in the captured list, i.e. only if commit was called after the assignment.
+        """
+        error_message = "Simulation method failure"
+        with open(self.json_path, "w") as f:
+            json.dump({**self._base_json, "error": {"message": error_message}}, f)
+
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_session = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_scoped.return_value.return_value = mock_session
+        mock_discover_image.return_value = "de_image:latest"
+        mock_discover_entry.return_value = "DEInterface.py"
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 1}
+
+        # Record the value of errorMessage on simrun at the moment each commit fires
+        committed_messages = []
+        mock_session.commit.side_effect = lambda: committed_messages.append(mock_simrun.errorMessage)
+
+        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertIn(
+            error_message, committed_messages,
+            "errorMessage was not set on SimulationRun before session.commit() was called",
+        )
