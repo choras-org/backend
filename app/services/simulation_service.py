@@ -433,7 +433,10 @@ def run_solver(simulation_run_id: int, json_path: str):
                 except Exception:
                     pass
 
-                raise RuntimeError(error_msg or f"Simulation failed with exit code {exit_code}")
+                fallback_msg = f"No error message was provided. Please check the container logs or terminal output for more details. Exit code {exit_code}."
+                raise RuntimeError(
+                    error_msg or fallback_msg,
+                )
 
             logger.info(
                 f"{simulation_method} Simulation_service:...container has finished."
