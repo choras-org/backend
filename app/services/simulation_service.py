@@ -581,7 +581,6 @@ def run_solver(simulation_run_id: int, json_path: str):
         session.rollback()
         error_msg = f"Failed to initialize simulation: {str(ex)}"
         logger.error(error_msg)
-        abort(400, message=error_msg)
 
     finally:
         session.close()  # Ensure the session is closed after use
