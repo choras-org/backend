@@ -507,3 +507,113 @@ class RunSolverErrorMessageTests(BaseTestCase):
             error_message, committed_messages,
             "errorMessage was not set on SimulationRun before session.commit() was called",
         )
+
+
+class RunSolverCancellationTests(BaseTestCase):
+    """Verify Status.Cancelled is set on both models when a simulation is cancelled."""
+
+    def setUp(self):
+        super().setUp()
+        self.simulation_run_id = 123
+        fd, self.json_path = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        self._task_id = "test-task-cancel"
+        self._base_json = {
+            "task_id": self._task_id,
+            "simulationSettings": {},
+            "results": [{"resultType": "DE", "responses": [{"receiverResults": []}]}],
+        }
+        with open(self.json_path, "w") as f:
+            json.dump(self._base_json, f)
+        self._cancel_flag_path = str(Path(self.json_path).parent / f"{self._task_id}.cancel")
+
+    def tearDown(self):
+        for path in (self.json_path, self._cancel_flag_path):
+            if os.path.exists(path):
+                os.chmod(path, 0o644)
+                os.unlink(path)
+        super().tearDown()
+
+    def _make_mock_session(self, mock_simrun, mock_simulation):
+        mock_session = MagicMock()
+        def query_side_effect(model_class):
+            mock_query = MagicMock()
+            if model_class.__name__ == "SimulationRun":
+                mock_query.get.return_value = mock_simrun
+            elif model_class.__name__ == "Simulation":
+                mock_query.filter_by.return_value.first.return_value = mock_simulation
+            return mock_query
+        mock_session.query.side_effect = query_side_effect
+        return mock_session
+
+    def _make_mock_simrun(self):
+        m = MagicMock()
+        m.id = self.simulation_run_id
+        m.status = Status.Created
+        return m
+
+    def _make_mock_simulation(self):
+        m = MagicMock()
+        m.id = 456
+        m.solverSettings = {"simulationSettings": {}}
+        m.settingsPreset = MagicMock(value="Default")
+        m.simulationMethod = "DE"
+        m.resourceType = ResourceType.LOCAL
+        m.status = Status.Created
+        m.simulationRunId = self.simulation_run_id
+        return m
+
+    @patch("app.services.simulation_service.auralization_calculation")
+    @patch("app.services.simulation_service.executor_factory")
+    @patch("app.services.simulation_service.discover_entry_file")
+    @patch("app.services.simulation_service.discover_container_image")
+    @patch("app.services.simulation_service.scoped_session")
+    @patch("app.services.simulation_service.sessionmaker")
+    def test_cancelled_status_set_when_exit_137_with_cancel_flag(
+        self, mock_sessionmaker, mock_scoped,
+        mock_discover_image, mock_discover_entry, mock_executor_factory, mock_auralization
+    ):
+        """
+        Container exits with code 137 (SIGKILL) and cancel flag exists
+        → Status.Cancelled written to both models.
+        """
+        Path(self._cancel_flag_path).touch()
+
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_scoped.return_value.return_value = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_discover_image.return_value = "de_image:latest"
+        mock_discover_entry.return_value = "DEInterface.py"
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 137}
+        mock_auralization.return_value = ([0.0], 44100)
+
+        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.status, Status.Cancelled)
+        self.assertEqual(mock_simulation.status, Status.Cancelled)
+
+    @patch("app.services.simulation_service.executor_factory")
+    @patch("app.services.simulation_service.discover_entry_file")
+    @patch("app.services.simulation_service.discover_container_image")
+    @patch("app.services.simulation_service.scoped_session")
+    @patch("app.services.simulation_service.sessionmaker")
+    def test_error_status_set_when_exit_137_without_cancel_flag(
+        self, mock_sessionmaker, mock_scoped,
+        mock_discover_image, mock_discover_entry, mock_executor_factory
+    ):
+        """
+        Container exits with code 137 (SIGKILL) but no cancel flag exists
+        → treated as OOM/kill → Status.Error written to both models.
+        """
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_scoped.return_value.return_value = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_discover_image.return_value = "de_image:latest"
+        mock_discover_entry.return_value = "DEInterface.py"
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 137}
+
+        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.status, Status.Error)
+        self.assertEqual(mock_simulation.status, Status.Error)
+        self.assertIn("killed", mock_simrun.errorMessage.lower())
