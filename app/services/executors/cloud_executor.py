@@ -482,7 +482,7 @@ class CloudExecutor(SimulationExecutor):
         Returns:
             tuple[bool, int]: A tuple of (success, exit_code) where:
                 - success: ``True`` if outputs were collected and cleaned up successfully
-                - exit_code: 0 for success, 1 for simulation error, 130 for cancellation
+                - exit_code: 0 for success, 1 for simulation error, 137 for cancellation
         """
         local_json_path = os.path.join(local_uploads_dir, Path(remote_json_path).name)
 
@@ -496,8 +496,9 @@ class CloudExecutor(SimulationExecutor):
         while True:
             if self._should_cancel():
                 print("[Polling] Cancel requested. Exiting.")
-                # 130 = 128 + SIGINT(2): Unix convention for user-initiated cancellation
-                return (False, 130)
+                # 137 = 128 + SIGKILL(9): Unix convention for termination due to signal 9 (SIGKILL)
+                # This is used here to comply with the implementation for local Docker container usage
+                return (False, 137)
 
             cycle += 1
             print(f"[Polling] Cycle {cycle} (interval={poll_interval:.0f}s)")
@@ -818,7 +819,7 @@ class CloudExecutor(SimulationExecutor):
         )
 
         # Build log message
-        if exit_code == 130:
+        if exit_code == 137:
             logs_output = "Cloud job was cancelled"
         elif exit_code != 0:
             logs_output = f"Cloud job completed with error (exit code {exit_code})"
