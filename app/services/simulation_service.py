@@ -261,6 +261,7 @@ def start_solver_task(simulation_id):
     try:
         simulation.completedAt = ""
         simulation.status = Status.Created
+        simulation.errorMessage = None
 
         db.session.add(new_simulation_run)
         db.session.commit()
