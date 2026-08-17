@@ -420,30 +420,52 @@ def run_solver(simulation_run_id: int, json_path: str):
             container = executor.execute(method_config, sim_config)
             container_result = container.wait()
 
+            cancel_flag_path = (
+                Path(json_path).parent / f"{result_container['task_id']}.cancel"
+            )
+
             exit_code = container_result["StatusCode"]
-            if exit_code != 0:
+            cancelled = exit_code == 137 and os.path.exists(cancel_flag_path)
+
+            if exit_code != 0 and not cancelled:
                 # Try to read a structured error written by the simulation container
                 # (or moved into place by the cloud executor on remote failure).
                 # If the container exits without writing {"error": {"message": ...}}
                 # to the JSON, the generic fallback is used instead.
-                error_msg = None
-                try:
-                    with open(json_path, "r") as f:
-                        error_msg = json.load(f).get("error", {}).get("message")
-                except Exception:
-                    pass
+                post_msg = "Please check the container logs or terminal output for more details."
+                logger.error(f"Docker container exited with code {exit_code}")
+                if exit_code == 1:
+                    fallback_msg = post_msg
+                    try:
+                        with open(json_path, "r") as f:
+                            error_msg = json.load(f).get("error", {}).get("message")
+                        if error_msg is None or error_msg.strip() == "":
+                            error_msg = fallback_msg
+                    except Exception:
+                        error_msg = fallback_msg
+                elif exit_code in (126, 127):
+                    error_msg = (
+                        "Docker container failed to execute. "
+                        "This may be due to a missing or misconfigured simulation "
+                        "method interface in the container image. "
+                        + post_msg
+                    )
+                elif exit_code == 137:
+                    error_msg = (
+                        "Docker container was killed. "
+                        "This may be due to insufficient resources (e.g., memory). "
+                        + post_msg
+                    )
+                else:
+                    error_msg = (
+                        f"Docker container exited with code {exit_code}. "
+                        + post_msg
+                    )
 
-                fallback_msg = f"No error message was provided. Please check the container logs or terminal output for more details. Exit code {exit_code}."
-                raise RuntimeError(
-                    error_msg or fallback_msg,
-                )
+                raise RuntimeError(error_msg)
 
             logger.info(
                 f"{simulation_method} Simulation_service:...container has finished."
-            )
-
-            cancel_flag_path = (
-                Path(json_path).parent / f"{result_container['task_id']}.cancel"
             )
 
             # auralization: generate impulse response wav file

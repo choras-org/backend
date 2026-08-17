@@ -396,8 +396,12 @@ class RunSolverErrorMessageTests(BaseTestCase):
 
         simulation_service.run_solver(self.simulation_run_id, self.json_path)
 
-        self.assertIn("Exit code 1", mock_simrun.errorMessage)
-        self.assertIn("Exit code 1", mock_simulation.errorMessage)
+        self.assertIn(
+            "Please check the container logs or terminal output for more details",
+            mock_simrun.errorMessage)
+        self.assertIn(
+            "Please check the container logs or terminal output for more details",
+            mock_simulation.errorMessage)
 
     @patch("app.services.simulation_service.executor_factory")
     @patch("app.services.simulation_service.discover_entry_file")
@@ -435,8 +439,8 @@ class RunSolverErrorMessageTests(BaseTestCase):
 
         simulation_service.run_solver(self.simulation_run_id, self.json_path)
 
-        self.assertIn("Exit code 1", mock_simrun.errorMessage)
-        self.assertIn("Exit code 1", mock_simulation.errorMessage)
+        self.assertIn("Please check the container logs or terminal output for more details", mock_simrun.errorMessage)
+        self.assertIn("Please check the container logs or terminal output for more details", mock_simulation.errorMessage)
 
     @patch("app.services.simulation_service.executor_factory")
     @patch("app.services.simulation_service.discover_entry_file")
