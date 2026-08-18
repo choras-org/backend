@@ -39,14 +39,20 @@ APP_SETTINGS_MODULE=config.DevelopConfig flask db upgrade
 
 ## First-time deployment on a pre-existing database
 
-Databases created before Alembic was introduced (via `db.create_all()`) have no
-`alembic_version` table. Before running `flask db upgrade` for the first time on
-such a database, stamp it at the baseline revision so Alembic knows the schema is
-already in place and only applies incremental migrations:
+Databases created before Alembic was introduced have no `alembic_version` table.
+The correct stamp revision depends on whether `errorMessage` columns are already present:
 
+**Database created with the old code (no `errorMessage` columns):** stamp at the baseline,
+then upgrade to add the columns.
 ```sh
 flask db stamp aa014146bd5b
 flask db upgrade
+```
+
+**Database created with the current code via `flask create-db` (has `errorMessage` columns):**
+stamp directly at head — no upgrade needed.
+```sh
+flask db stamp 9b846e1fdacb
 ```
 
 Subsequent deploys just need `flask db upgrade` (already in `entrypoint.sh`).

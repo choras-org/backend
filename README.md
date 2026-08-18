@@ -124,15 +124,17 @@ DATABASE_TEST_URL=postgresql://db_user:db_password@localhost/db_test
    Once you are done with the above steps, you are ready to run the application.
 
 ```shell
-# Create database and seed initial data (fresh local setup)
-flask create-db
-
-# Alternatively, apply migrations (keeps your local DB in sync with production schema)
+# Create schema via migrations, then seed initial data
 APP_SETTINGS_MODULE=config.DevelopConfig flask db upgrade
+flask create-db
 
 # Run a development server
 flask run
 ```
+
+> `flask create-db` only seeds data (materials, settings, etc.). Schema creation is handled
+> by `flask db upgrade`; running `flask create-db` alone leaves the database without an
+> `alembic_version` record, which causes `flask db upgrade` to fail on the next startup.
 
 ### Testing
 
