@@ -1,1 +1,62 @@
 Single-database configuration for Flask.
+
+## Overview
+
+Migrations are managed with Flask-Migrate (Alembic). The migration files in
+`versions/` are the schema change history and must be committed to version control.
+
+Alembic tracks which migrations have been applied via the `alembic_version` table
+in the database — not the filenames. Renaming a migration file is safe as long as
+the `revision` variable inside the file is unchanged.
+
+## Common commands
+
+```sh
+# Apply all pending migrations (run on every deploy)
+flask db upgrade
+
+# Generate a new migration after changing a model
+flask db migrate -m "Short description of change"
+
+# Check the current migration state of the database
+flask db current
+
+# Show migration history
+flask db history
+```
+
+`APP_SETTINGS_MODULE` must be set when running these commands locally, e.g.:
+```sh
+APP_SETTINGS_MODULE=config.DevelopConfig flask db upgrade
+```
+
+## Migration history
+
+| Revision       | Description                                      |
+|----------------|--------------------------------------------------|
+| `aa014146bd5b` | Baseline: full initial schema (pre-errorMessage) |
+| `9b846e1fdacb` | Add `errorMessage` to `simulations` and `simulationRuns` |
+
+## First-time deployment on a pre-existing database
+
+Databases created before Alembic was introduced (via `db.create_all()`) have no
+`alembic_version` table. Before running `flask db upgrade` for the first time on
+such a database, stamp it at the baseline revision so Alembic knows the schema is
+already in place and only applies incremental migrations:
+
+```sh
+flask db stamp aa014146bd5b
+flask db upgrade
+```
+
+Subsequent deploys just need `flask db upgrade` (already in `entrypoint.sh`).
+
+## Adding a new migration
+
+1. Change the relevant SQLAlchemy model.
+2. Run `flask db migrate -m "Description"` — Alembic compares the models against
+   the live database and generates a script in `versions/`.
+3. Review the generated file before committing — auto-generation is not perfect,
+   especially for renamed columns or complex constraints.
+4. Run `flask db upgrade` to apply it locally.
+5. Commit both the model change and the new migration file together.
