@@ -212,4 +212,8 @@ def downgrade():
     op.drop_table('projects')
     op.drop_table('material_categories')
     op.drop_table('files')
+    # PostgreSQL retains named enum types after their tables are dropped;
+    # explicitly clean them up so a subsequent upgrade starts from a clean state.
+    for enum_name in ('status', 'setting', 'resourcetype', 'tasktype'):
+        sa.Enum(name=enum_name).drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###

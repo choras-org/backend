@@ -22,7 +22,7 @@ echo "Environment:" $APP_ENV
 # NOTE: First-time deployment on a database created before Alembic was introduced
 # requires a one-time manual stamp: flask db stamp aa014146bd5b
 echo "Applying database migrations..."
-flask db upgrade
+flask db upgrade || exit 1
 echo "Done applying database migrations"
 
 # If in local environment, seed initial data
