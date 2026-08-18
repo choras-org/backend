@@ -16,7 +16,16 @@ fi
 
 echo "Environment:" $APP_ENV
 
-# If in local environment, set up the database and admin user
+# Apply any pending database migrations (safe to run on every startup).
+# Fresh databases: the full migration chain creates the schema from scratch.
+# Existing databases: only pending migrations are applied.
+# NOTE: First-time deployment on a database created before Alembic was introduced
+# requires a one-time manual stamp: flask db stamp aa014146bd5b
+echo "Applying database migrations..."
+flask db upgrade
+echo "Done applying database migrations"
+
+# If in local environment, seed initial data
 if [ "$APP_ENV" = "local" ]; then
     echo "Start creating the database"
     flask create-db
