@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -260,6 +261,7 @@ def start_solver_task(simulation_id):
     try:
         simulation.completedAt = ""
         simulation.status = Status.Created
+        simulation.errorMessage = None
 
         db.session.add(new_simulation_run)
         db.session.commit()
@@ -403,23 +405,69 @@ def run_solver(simulation_run_id: int, json_path: str):
             print(f"Resource type: {resource_type.value}")
 
             entry_file = discover_entry_file(simulation_method)
-
             executor = executor_factory(resource_type, entry_file)
 
-            #Relevant method container would be started dynamically based on the container_image
+            # Relevant method container is started dynamically based on the container_image
             method_config = {
                 "container_image": container_image,
                 "simulation_method": simulation_method.lower(),
-                "simulation_id":  str(simulation.id),
-                "task_id": result_container["task_id"]
+                "simulation_id": str(simulation.id),
+                "task_id": result_container["task_id"],
             }
 
-            logger.info(f"{simulation_method} Simulation_service:...container has been spinned up.")
+            logger.info(
+                f"{simulation_method} Simulation_service:...container is spinning up."
+            )
             container = executor.execute(method_config, sim_config)
-            container.wait()
-            logger.info(f"{simulation_method} Simulation_service:...container has finished.")
+            container_result = container.wait()
 
-            cancel_flag_path = Path(json_path).parent / f"{result_container['task_id']}.cancel"
+            cancel_flag_path = (
+                Path(json_path).parent / f"{result_container['task_id']}.cancel"
+            )
+
+            exit_code = container_result["StatusCode"]
+            cancelled = exit_code == 137 and os.path.exists(cancel_flag_path)
+
+            if exit_code != 0 and not cancelled:
+                # Try to read a structured error written by the simulation container
+                # (or moved into place by the cloud executor on remote failure).
+                # If the container exits without writing {"error": {"message": ...}}
+                # to the JSON, the generic fallback is used instead.
+                post_msg = "Please check the container logs or terminal output for more details."
+                logger.error(f"Docker container exited with code {exit_code}")
+                if exit_code == 1:
+                    fallback_msg = post_msg
+                    try:
+                        with open(json_path, "r") as f:
+                            error_msg = json.load(f).get("error", {}).get("message")
+                        if error_msg is None or error_msg.strip() == "":
+                            error_msg = fallback_msg
+                    except Exception:
+                        error_msg = fallback_msg
+                elif exit_code in (126, 127):
+                    error_msg = (
+                        "Docker container failed to execute. "
+                        "This may be due to a missing or misconfigured simulation "
+                        "method interface in the container image. "
+                        + post_msg
+                    )
+                elif exit_code == 137:
+                    error_msg = (
+                        "Docker container was killed. "
+                        "This may be due to insufficient resources (e.g., memory). "
+                        + post_msg
+                    )
+                else:
+                    error_msg = (
+                        f"Docker container exited with code {exit_code}. "
+                        + post_msg
+                    )
+
+                raise RuntimeError(error_msg)
+
+            logger.info(
+                f"{simulation_method} Simulation_service:...container has finished."
+            )
 
             # auralization: generate impulse response wav file
             # TODO: move the auralization calculation to DE and write that
@@ -529,15 +577,36 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             session.commit()
             logger.info(f"SimulationRun status updated to {simulation_run.status}")
-        except Exception as ex:
+
+        except RuntimeError as ex:
+            session.rollback()
+            # These are errors explicitly raised in the simulation-method
+            # including a meaningful error message.
+            # Propagate error messages to the database (frontend).
+            error_msg = str(ex)
+            logger.error(f"Simulation error: {error_msg}")
             simulation_run.status = Status.Error
+            simulation_run.errorMessage = error_msg
             simulation.status = Status.Error
+            simulation.errorMessage = error_msg
             session.commit()
-            logger.error(f"Cannot run the method because: {ex}")
+        except Exception as ex:
+            session.rollback()
+            # Unexpected errors - log full details but show generic message
+            error_details = traceback.format_exc()
+            logger.error(f"Unexpected simulation error:\n{error_details}")
+
+            error_msg = f"An unexpected error occurred: {str(ex)}"
+            simulation_run.status = Status.Error
+            simulation_run.errorMessage = error_msg
+            simulation.status = Status.Error
+            simulation.errorMessage = error_msg
+            session.commit()
 
     except Exception as ex:
         session.rollback()
-        logger.error(f"Cannot update simulation run: {ex}")
+        error_msg = f"Failed to initialize simulation: {str(ex)}"
+        logger.error(error_msg)
 
     finally:
         session.close()  # Ensure the session is closed after use
