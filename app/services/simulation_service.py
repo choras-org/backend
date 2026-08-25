@@ -489,7 +489,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                     with open(json_path, "r") as json_file:
                         result_container = json.load(json_file)
 
-                    imp_tot = np.array(result_container["results"][0]["responses"][0]["receiverResults"])
+                    receiverResults = result_container["results"][0]["responses"][0]["receiverResults"]
 
                     with open(json_path, "r") as json_file:
                         input_data = json.load(json_file)
@@ -506,10 +506,11 @@ def run_solver(simulation_run_id: int, json_path: str):
 
                     import pyfar as pf
 
-                    if imp_tot is None or len(imp_tot) == 0:
+                    if receiverResults is None or len(receiverResults) == 0:
                         post_msg = "Please check the container logs or terminal output for more details."
                         raise RuntimeError("Impulse response data is empty or missing. " + post_msg)
                     else:
+                        imp_tot = np.array(receiverResults, dtype=float)
                         rir = pf.Signal(imp_tot, fs)
                         # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
                         norm_rir = pf.dsp.normalize(rir)
