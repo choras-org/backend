@@ -167,8 +167,51 @@ class RunSolverUnitTests(BaseTestCase):
         write_data_to_xlsx_file raises after session.add(export) → status=Error
         BUT Export record already written to DB → orphaned record (partial state).
 
-        Uses a non-DE resultType so the case _ branch runs: imp_tot is computed
-        from the JSON and session.add(export) is reached before the failure.
+        Non-empty receiverResults so the empty-check is passed and session.add(export)
+        is reached before write_data_to_xlsx_file raises.
+        """
+        test_json = {
+            **self.test_json,
+            "results": [{"resultType": "DG", "responses": [{"receiverResults": [[0.1, 0.2, 0.3]]}]}],
+        }
+        with open(self.json_path, "w") as f:
+            json.dump(test_json, f)
+
+        mock_simrun = self._make_mock_simrun()
+        mock_simulation = self._make_mock_simulation()
+        mock_session = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_scoped.return_value.return_value = mock_session
+
+        mock_discover_image.return_value = "dg_image:latest"
+        mock_discover_entry.return_value = "DGInterface.py"
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 0}
+        mock_export_helper.parse_json_file_to_xlsx_file.return_value = True
+        mock_export_helper.write_data_to_xlsx_file.side_effect = Exception("Auralization failed")  # FAILS after session.add
+
+        mock_pyfar = MagicMock()
+        with patch.dict('sys.modules', {'pyfar': mock_pyfar}):
+            simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.status, Status.Error,
+            "❌ write_data_to_xlsx_file fail → SimulationRun should be Error")
+        # Orphaned Export record was already added to the session before the failure
+        mock_session.add.assert_called()
+        print("✅ write_data_to_xlsx_file fails → Error status")
+        print("⚠️  Orphaned Export record added to DB before failure!")
+
+    @patch('app.services.simulation_service.ExportHelper')
+    @patch('app.services.simulation_service.executor_factory')
+    @patch('app.services.simulation_service.discover_entry_file')
+    @patch('app.services.simulation_service.discover_container_image')
+    @patch('app.services.simulation_service.scoped_session')
+    @patch('app.services.simulation_service.sessionmaker')
+    def test_dg_empty_receiver_results_sets_error_status(
+        self, mock_sessionmaker, mock_scoped, mock_discover_image,
+        mock_discover_entry, mock_executor_factory, mock_export_helper
+    ):
+        """
+        DG result with empty receiverResults → RuntimeError raised before WAV/xlsx export.
+        Asserts Error status with the expected message and no session.add / ExportHelper calls.
         """
         test_json = {
             **self.test_json,
@@ -185,17 +228,20 @@ class RunSolverUnitTests(BaseTestCase):
         mock_discover_image.return_value = "dg_image:latest"
         mock_discover_entry.return_value = "DGInterface.py"
         mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 0}
-        mock_export_helper.parse_json_file_to_xlsx_file.return_value = True
-        mock_export_helper.write_data_to_xlsx_file.side_effect = Exception("Auralization failed")  # FAILS after session.add
 
-        simulation_service.run_solver(self.simulation_run_id, self.json_path)
+        mock_pyfar = MagicMock()
+        with patch.dict('sys.modules', {'pyfar': mock_pyfar}):
+            simulation_service.run_solver(self.simulation_run_id, self.json_path)
 
         self.assertEqual(mock_simrun.status, Status.Error,
-            "❌ write_data_to_xlsx_file fail → SimulationRun should be Error")
-        # Orphaned Export record was already added to the session before the failure
-        mock_session.add.assert_called()
-        print("✅ write_data_to_xlsx_file fails → Error status")
-        print("⚠️  Orphaned Export record added to DB before failure!")
+            "❌ empty receiverResults → SimulationRun should be Error")
+        self.assertIn("empty or missing", mock_simrun.errorMessage,
+            "❌ error message should mention 'empty or missing'")
+        mock_session.add.assert_not_called()
+        mock_export_helper.parse_json_file_to_xlsx_file.assert_not_called()
+        mock_export_helper.write_data_to_xlsx_file.assert_not_called()
+        mock_pyfar.io.write_audio.assert_not_called()
+        print("✅ empty receiverResults → Error status, no WAV/xlsx export")
 
 
     @patch('app.services.simulation_service.ExportHelper')
