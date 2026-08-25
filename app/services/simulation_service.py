@@ -507,9 +507,8 @@ def run_solver(simulation_run_id: int, json_path: str):
                     import pyfar as pf
 
                     if imp_tot is None or len(imp_tot) == 0:
-                        logger.warning("Impulse response data is empty or missing")
-                        imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
-                        norm_rir = pf.Signal(imp_tot, fs) # don't use the pf.dsp.normalize function on an empty signal, as it returns NaN values.
+                        post_msg = "Please check the container logs or terminal output for more details."
+                        raise RuntimeError("Impulse response data is empty or missing. " + post_msg)
                     else:
                         rir = pf.Signal(imp_tot, fs)
                         # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
