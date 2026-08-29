@@ -483,6 +483,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                         json_path.replace(".json", "_pressure.csv"),
                         json_path.replace(".json", ".wav"),
                     )
+                    rir = pf.Signal(imp_tot, fs)
 
                 # this should be the only thing getting executed
                 case _:
