@@ -5,6 +5,8 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+import pyfar as pf
+
 from celery import shared_task  # , current_task
 from config import CustomExportParametersConfig
 from flask_smorest import abort
@@ -13,7 +15,7 @@ from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
 from app.models import Export, Simulation, SimulationRun, Task
-from app.services import file_service, material_service, model_service
+from app.services import file_service, material_service, model_service, visualization_service
 from app.services.auralization_service import auralization_calculation
 from app.services.discovery_service import (
     discover_container_image,
@@ -504,8 +506,6 @@ def run_solver(simulation_run_id: int, json_path: str):
 
                     rir_wav_file_name = json_path.replace(".json", ".wav")
 
-                    import pyfar as pf
-
                     if imp_tot is None or len(imp_tot) == 0:
                         logger.warning("Impulse response data is empty or missing")
                         imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
@@ -520,6 +520,14 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             # logs = container.logs().decode("utf-8")
             # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
+
+            if not cancelled:
+
+                visualization_service.generate_visualization_data(
+                    rir,
+                    json_path,
+                )
+
 
             if os.path.exists(cancel_flag_path):
                 logger.info("Cancelled: Not saving to xlsx")
