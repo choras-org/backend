@@ -507,8 +507,6 @@ def run_solver(simulation_run_id: int, json_path: str):
 
                     rir_wav_file_name = json_path.replace(".json", ".wav")
 
-                    import pyfar as pf
-
                     if receiverResults is None or len(receiverResults) == 0:
                         post_msg = "Please check the container logs or terminal output for more details."
                         raise RuntimeError("Impulse response data is empty or missing. " + post_msg)
