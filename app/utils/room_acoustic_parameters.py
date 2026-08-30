@@ -21,9 +21,8 @@ def calculate_room_acoustic_parameters(
     -------
     parameters : dict
         A dictionary containing the calculated room acoustic parameters for
-        each frequency band. The keys are the parameter names (e.g., 'RT60',
-        'C50', 'D50'), and the values are lists containing the
-        parameter values for each frequency band.
+        each frequency band. Keys include 'bands', 'edt', 't20', 't30', 'd50',
+        'c80', 'ts', and 'spl_t0_freq'; values are lists with one entry per band.
     """
 
     bands = np.asarray(bands, dtype=float)
