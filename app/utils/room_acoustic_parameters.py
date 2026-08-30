@@ -50,12 +50,7 @@ def calculate_room_acoustic_parameters(
         frequency_range=(np.min(bands), np.max(bands)),
     )
 
-    n_bands = rir_bands.cshape[0]
-    EDT = np.zeros(n_bands, dtype=float)
-    T_20 = np.zeros(n_bands, dtype=float)
-    T_30 = np.zeros(n_bands, dtype=float)
-    D_50 = np.zeros(n_bands, dtype=float)
-    C_80 = np.zeros(n_bands, dtype=float)
+    # pyrato returns per-band arrays directly; no pre-allocation required.
 
     edc_bands = pyrato.edc.schroeder_integration(
         rir_bands_shifted,
