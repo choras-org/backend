@@ -10,6 +10,8 @@ from config import CustomExportParametersConfig
 from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
+import pyfar as pf
+
 from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
 from app.models import Export, Simulation, SimulationRun, Task
@@ -481,6 +483,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                         json_path.replace(".json", "_pressure.csv"),
                         json_path.replace(".json", ".wav"),
                     )
+                    rir = pf.Signal(imp_tot, fs)
 
                 # this should be the only thing getting executed
                 case _:
@@ -504,8 +507,6 @@ def run_solver(simulation_run_id: int, json_path: str):
 
                     rir_wav_file_name = json_path.replace(".json", ".wav")
 
-                    import pyfar as pf
-
                     if receiverResults is None or len(receiverResults) == 0:
                         post_msg = "Please check the container logs or terminal output for more details."
                         raise RuntimeError("Impulse response data is empty or missing. " + post_msg)
@@ -520,6 +521,35 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             # logs = container.logs().decode("utf-8")
             # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
+
+            # ------------------------
+            # Room acoustic parameters
+            # ------------------------
+
+            if not cancelled:
+                logger.info(f"Calculating room acoustic parameters for simulation_run_id: {simulation_run_id}")
+                from app.utils.room_acoustic_parameters import calculate_room_acoustic_parameters
+
+                bands = pf.constants.fractional_octave_frequencies_nominal(
+                    num_fractions=1, frequency_range=(125, rir.sampling_rate/2),
+                ).astype(int)
+
+                room_acoustic_parameters = calculate_room_acoustic_parameters(
+                    rir,
+                    bands=bands,
+                )
+                parameter_container = result_container["results"][0]["responses"][0]["parameters"]
+
+                for key, value in room_acoustic_parameters.items():
+                    if not parameter_container.get(key):
+                        parameter_container[key] = value
+                    else:
+                        logger.warning(f"Skipping existing room acoustic parameter '{key}'.")
+
+                with open(json_path, "w") as json_file:
+                    json.dump(result_container, json_file)
+
+                logger.info(f"Room acoustic parameters exported to JSON for simulation_run_id: {simulation_run_id}")
 
             if os.path.exists(cancel_flag_path):
                 logger.info("Cancelled: Not saving to xlsx")

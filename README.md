@@ -67,7 +67,7 @@ In general, I am using conda to handle virtual env and packages installations, h
 use other alternatives to install the python dependencies as well.
 
 ```shell
-conda create -n NAME_OF_VENV python=3.10
+conda create -n NAME_OF_VENV python=3.11
 
 conda activate NAME_OF_VENV
 
