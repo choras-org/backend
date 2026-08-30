@@ -524,6 +524,10 @@ def run_solver(simulation_run_id: int, json_path: str):
             # logs = container.logs().decode("utf-8")
             # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
 
+            # -------------------------
+            # Export visualization data
+            # -------------------------
+
             if not cancelled:
 
                 visualization_service.generate_visualization_data(
