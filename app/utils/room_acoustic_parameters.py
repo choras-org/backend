@@ -71,7 +71,9 @@ def calculate_room_acoustic_parameters(
 
     C_80 = pyrato.parameters.clarity(edc_bands, early_time_limit=80)
 
-    spl_t0_freq = 20*np.log10(pf.dsp.rms(rir_bands)/20e-6)
+    # This is not generally available from the RIR, since not information about
+    # the source power or other calibration is available
+    spl_t0_freq = np.zeros_like(T_20)
 
     T_s = pyrato.parameters.center_time(edc_bands) * 1e3 # convert to ms
 
