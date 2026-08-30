@@ -5,7 +5,7 @@ description = "Backend for CHORAS"
 authors = [
     { name = "The CHORAS developers"},
 ]
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.11,<3.14"
 
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -13,7 +13,6 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -52,7 +51,7 @@ dependencies = [
     'paramiko',
     "pydantic", # explicitly imported (visualization service)
     'pyfar',
-    "pyrato", # explicitly imported (visualization service)
+    'pyrato>=1.1.0',
     'shapely==2.1.2', # exact pin maybe not required
     'acousticDE==0.1.0',
 ]
