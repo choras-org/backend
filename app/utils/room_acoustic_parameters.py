@@ -97,7 +97,6 @@ def calculate_room_acoustic_parameters(
         return arr
 
     parameters = {
-        'bands': bands.tolist(),
         'edt': np.squeeze(_normalize_nan_and_inf(EDT)).tolist(),
         't20': np.squeeze(_normalize_nan_and_inf(T_20)).tolist(),
         't30': np.squeeze(_normalize_nan_and_inf(T_30)).tolist(),
