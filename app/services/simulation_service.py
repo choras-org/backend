@@ -531,7 +531,7 @@ def run_solver(simulation_run_id: int, json_path: str):
                 from app.utils.room_acoustic_parameters import calculate_room_acoustic_parameters
 
                 bands = pf.constants.fractional_octave_frequencies_nominal(
-                    num_fractions=1, frequency_range=(125, rir.sampling_rate/2),
+                    num_fractions=1, frequency_range=(125, np.min([rir.sampling_rate/2, 2e3])),
                 ).astype(int)
 
                 room_acoustic_parameters = calculate_room_acoustic_parameters(
