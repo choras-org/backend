@@ -538,6 +538,10 @@ def run_solver(simulation_run_id: int, json_path: str):
                     rir,
                     bands=bands,
                 )
+
+                with open(json_path, "r") as json_file:
+                    result_container = json.load(json_file)
+
                 parameter_container = result_container["results"][0]["responses"][0]["parameters"]
 
                 for key, value in room_acoustic_parameters.items():
