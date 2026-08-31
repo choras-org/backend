@@ -11,6 +11,7 @@ from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
 import pyfar as pf
+import numpy as np
 
 from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
@@ -487,8 +488,6 @@ def run_solver(simulation_run_id: int, json_path: str):
 
                 # this should be the only thing getting executed
                 case _:
-                    import numpy as np
-
                     with open(json_path, "r") as json_file:
                         result_container = json.load(json_file)
 
