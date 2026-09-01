@@ -10,7 +10,7 @@ Features
 
 - Add room acoustic parameter calculation as a fallback step in the simulation task, for methods that don't return the parameters themselves (#140)
 - Propagate error messages from simulation methods to the database, distinguishing method-raised, unexpected and container-level errors (#107)
-- Add general auralization: generalized *.wav export and a simplified mono-aural auralization based on convolution with the RIR (#90)
+- Add general auralization: generalized ``*.wav`` export and a simplified mono-aural auralization based on convolution with the RIR (#90)
 - Add logging of Docker container output to the local executor (#101)
 - Persist material categories in the database instead of browser storage (#116)
 - Add full example projects and models (#113)
