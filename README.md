@@ -124,12 +124,17 @@ DATABASE_TEST_URL=postgresql://db_user:db_password@localhost/db_test
    Once you are done with the above steps, you are ready to run the application.
 
 ```shell
-# Create database
+# Create schema via migrations, then seed initial data
+APP_SETTINGS_MODULE=config.DevelopConfig flask db upgrade
 flask create-db
 
 # Run a development server
 flask run
 ```
+
+> `flask create-db` only seeds data (materials, settings, etc.). Schema creation is handled
+> by `flask db upgrade`; running `flask create-db` alone leaves the database without an
+> `alembic_version` record, which causes `flask db upgrade` to fail on the next startup.
 
 ### Testing
 
@@ -349,22 +354,34 @@ celery -A app.celery worker --loglevel=info -P eventlet
 
 ### Flask-migrate
 
-- Create a migration repository:
+Migration files live in `migrations/versions/` and must be committed to version control.
+See `migrations/README` for the full workflow including first-time deployment on pre-existing databases.
+
+- Generate a new migration after changing a model:
 
   ```sh
-  flask db init
+  APP_SETTINGS_MODULE=config.DevelopConfig flask db migrate -m "Short description"
   ```
 
-- Generate a migration version:
+- Apply pending migrations:
 
   ```sh
-  flask db migrate -m "Init"
+  APP_SETTINGS_MODULE=config.DevelopConfig flask db upgrade
   ```
 
-- Apply migration to the Database:
+- Check current migration state:
+
   ```sh
-  flask db upgrade
+  APP_SETTINGS_MODULE=config.DevelopConfig flask db current
   ```
+
+- Show migration history:
+
+  ```sh
+  APP_SETTINGS_MODULE=config.DevelopConfig flask db history
+  ```
+
+  > `flask db init` was used once to bootstrap the `migrations/` directory. It should not be re-run.
 
 ## Swagger
 
