@@ -687,7 +687,7 @@ class TestPollUntilComplete:
                 remote_sandbox_path="/remote/sandbox",
                 remote_tar_path="/remote/image.tar",
             )
-        assert result is True
+        assert result == (True, 0)
         mock_cleanup.assert_called_once()
 
     def test_full_chain_poll_to_completion_writes_output_files(self, tmp_path):
@@ -736,7 +736,7 @@ class TestPollUntilComplete:
                 remote_tar_path="/remote/image.tar",
             )
 
-        assert result is True
+        assert result == (True, 0)
         output_files = list(tmp_path.glob("*.json")) + list(tmp_path.glob("*.csv"))
         assert len(output_files) > 0
 
@@ -796,7 +796,7 @@ class TestPollUntilComplete:
                 remote_app_dir="/remote/app",
                 remote_sandbox_path="/remote/sandbox",
             )
-        assert result is True
+        assert result == (True, 0)
 
     def test_cancel_flag_before_polling_exits_immediately(self, tmp_path):
         """I15 — EP-P6: cancel flag at entry → exits immediately, nothing downloaded."""
@@ -911,7 +911,7 @@ class TestExecuteHappyPath:
             "_upload_file_via_sftp":      MagicMock(),
             "_build_singularity_image":   MagicMock(),
             "_execute_singularity_image": MagicMock(),
-            "_poll_until_complete":       MagicMock(return_value=True),
+            "_poll_until_complete":       MagicMock(return_value=(True, 0)),
         }
 
     def _write_sim_config(self, tmp_path):
