@@ -30,6 +30,7 @@ class SimulationSchema(SimulationCreateBodySchema):
     createdAt = fields.String()
     updatedAt = fields.String()
     completedAt = fields.String(allow_none=True)
+    errorMessage = fields.Str(allow_none=True, dump_only=True)
 
 
 class SimulationUpdateBodySchema(SimulationSchema):
@@ -70,6 +71,7 @@ class SimulationRunSchema(Schema):
     updatedAt = fields.String()
     completedAt = fields.String()
     simulation = fields.Nested(SimulationWithModelInfoSchema)
+    errorMessage = fields.Str(allow_none=True, dump_only=True)
 
 
 class SimulationCancelSchema(Schema):
