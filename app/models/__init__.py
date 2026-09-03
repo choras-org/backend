@@ -8,3 +8,5 @@ from app.models.Project import Project
 from app.models.Simulation import Simulation
 from app.models.SimulationRun import SimulationRun
 from app.models.Task import Task
+from app.models.UserPreference import UserPreference
+from app.models.MaterialCategory import MaterialCategory

@@ -1,26 +1,30 @@
 import unittest
-from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Material
+from app.models import Material, MaterialCategory
 from tests.unit import BaseTestCase
 
 
 class MaterialModelUnitTests(BaseTestCase):
+    def _make_category(self, name="Test Category"):
+        category = MaterialCategory(name=name)
+        self.db.session.add(category)
+        self.db.session.commit()
+        return category
+
     def test_create_material_success(self):
         """
         Test creating a material with valid data is successful.
         """
         with self.app.app_context():
-            # Given: Valid material data
+            # Given: A category and valid material data
+            category = self._make_category()
             material = Material(
                 name="Test Material",
                 description="A test material",
-                category="Test Category",
+                categoryId=category.id,
                 absorptionCoefficients=[0.1, 0.2, 0.3],
-                createdAt=datetime.now(),
-                updatedAt=datetime.now(),
             )
 
             # When: Adding and committing the material to the database
@@ -30,7 +34,8 @@ class MaterialModelUnitTests(BaseTestCase):
             # Then: The material should have been saved successfully
             self.assertIsNotNone(material.id)
             self.assertEqual(material.name, "Test Material")
-            self.assertEqual(material.category, "Test Category")
+            self.assertEqual(material.categoryId, category.id)
+            self.assertEqual(material.materialCategory.name, "Test Category")
             self.assertEqual(material.absorptionCoefficients, [0.1, 0.2, 0.3])
 
     def test_create_material_missing_name(self):
@@ -39,10 +44,11 @@ class MaterialModelUnitTests(BaseTestCase):
         """
         with self.app.app_context():
             # Given: Material data missing the name
+            category = self._make_category()
             material = Material(
                 name=None,  # Name is required, should raise an error
                 description="A test material",
-                category="Test Category",
+                categoryId=category.id,
                 absorptionCoefficients=[0.1, 0.2, 0.3],
             )
 
@@ -55,14 +61,14 @@ class MaterialModelUnitTests(BaseTestCase):
 
     def test_create_material_missing_category(self):
         """
-        Test creating a material without a category raises an IntegrityError.
+        Test creating a material without a categoryId raises an IntegrityError.
         """
         with self.app.app_context():
-            # Given: Material data missing the category
+            # Given: Material data missing the categoryId
             material = Material(
                 name="Test Material",
                 description="A test material",
-                category=None,  # Category is required, should raise an error
+                categoryId=None,  # categoryId is required, should raise an error
                 absorptionCoefficients=[0.1, 0.2, 0.3],
             )
 
@@ -79,10 +85,11 @@ class MaterialModelUnitTests(BaseTestCase):
         """
         with self.app.app_context():
             # Given: A material without createdAt or updatedAt provided
+            category = self._make_category()
             material = Material(
                 name="Test Material",
                 description="A test material",
-                category="Test Category",
+                categoryId=category.id,
                 absorptionCoefficients=[0.1, 0.2, 0.3],
             )
 

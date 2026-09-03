@@ -10,7 +10,7 @@ from app.schemas.task_schema import TaskSchema
 
 
 class MeshSchema(Schema):
-    id = fields.Number()
+    id = fields.Integer()
     taskId = fields.Integer()
 
     createdAt = fields.Str()

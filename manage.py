@@ -2,11 +2,10 @@ import unittest
 from pathlib import Path
 
 import click
-import coverage
 from passlib.hash import pbkdf2_sha256
 
 from app.db import db
-from app.services import auralization_service, material_service, setting_service
+from app.services import auralization_service, material_service, setting_service, user_preference_service, project_service, model_service, material_category_service
 from config import DefaultConfig
 
 
@@ -15,6 +14,7 @@ def cov(pattern):
     """
     Run the unit tests with coverage
     """
+    import coverage
     cov = coverage.coverage(branch=True, include="app/*")
     cov.start()
 
@@ -39,6 +39,7 @@ def cov_html(pattern):
     """
     Run the unit tests with coverage and generate an HTML report.
     """
+    import coverage
     cov = coverage.coverage(branch=True, include="app/*")
     cov.start()
 
@@ -82,9 +83,13 @@ def create_db():
     Create Database.
     """
     db.create_all()
+    material_category_service.insert_initial_material_categories()
     material_service.insert_initial_materials()
     auralization_service.insert_initial_audios_examples()
     setting_service.insert_initial_settings()
+    user_preference_service.insert_initial_user_preferences()
+    project_service.create_example_projects()
+    model_service.copy_example_models_to_uploads()
     db.session.commit()
 
 
@@ -94,9 +99,13 @@ def reset_db():
     """
     db.drop_all()
     db.create_all()
+    material_category_service.insert_initial_material_categories()
     material_service.insert_initial_materials()
     auralization_service.insert_initial_audios_examples()
     setting_service.insert_initial_settings()
+    user_preference_service.insert_initial_user_preferences()
+    project_service.create_example_projects()
+    model_service.copy_example_models_to_uploads()
     db.session.commit()
 
 

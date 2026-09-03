@@ -1,21 +1,32 @@
 import json
 import logging
 import os
+import traceback
 from datetime import datetime
 from pathlib import Path
 
-import gmsh
 from celery import shared_task  # , current_task
+from config import CustomExportParametersConfig
 from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
+import pyfar as pf
+import numpy as np
+
 from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
-from app.models import Export, File, Simulation, SimulationRun, Task
-from app.services import file_service, material_service, mesh_service, model_service
-from app.services.auralization_service import auralization_calculation, auralization_calculation_DG
+from app.models import Export, Simulation, SimulationRun, Task
+from app.services import file_service, material_service, model_service
+from app.services.auralization_service import auralization_calculation
+from app.services.discovery_service import (
+    discover_container_image,
+    discover_entry_file,
+    discover_method_names,
+)
+from app.services.executors.factory import executor_factory
 from app.types import Status, TaskType
-from config import CustomExportParametersConfig
+
+simulation_methods = discover_method_names()
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
@@ -24,7 +35,16 @@ debug_celery = False
 
 
 def create_new_simulation(simulation_data):
+
     new_simulation = Simulation(**simulation_data)
+    if (
+        new_simulation.simulationMethod not in simulation_methods
+        and new_simulation.simulationMethod is not None
+    ):
+        logger.error(
+            f"Simulation method {new_simulation.simulationMethod} is not available!"
+        )
+        abort(400, message="Invalid simulation method")
 
     try:
         db.session.add(new_simulation)
@@ -41,17 +61,23 @@ def create_new_simulation(simulation_data):
 def update_simulation_by_id(simulation_data, simulation_id):
     simulation = get_simulation_by_id(simulation_id)
 
-    try:
-        for key, value in simulation_data.items():
-            setattr(simulation, key, value)
+    for key, value in simulation_data.items():
+        if key == "simulationMethod" and value not in simulation_methods:
+            logger.error(
+                f"Simulation method {value} is not available!"
+            )
+            abort(400, message="Invalid simulation method")
+        setattr(simulation, key, value)
 
-        simulation.updatedAt = datetime.now()
+    simulation.updatedAt = datetime.now()
+
+    try:
         db.session.commit()
 
     except Exception as ex:
         db.session.rollback()
         logger.error(f"Can not update the simulation: {ex}")
-        abort(400, message=f"Can not update the simulation: {ex}")
+        abort(500, message=f"Can not update the simulation: {ex}")
 
     return simulation
 
@@ -113,6 +139,7 @@ def delete_simulation_run(simulation_run_id):
 
 
 def get_simulation_by_id(simulation_id):
+    db.session.expire_all()
     simulation = Simulation.query.filter_by(id=simulation_id).first()
     if not simulation:
         logger.error("Simulation with id " + str(simulation_id) + " does not exist!")
@@ -120,9 +147,9 @@ def get_simulation_by_id(simulation_id):
     return simulation
 
 
-def create_source_task(task_type, source_id):
+def create_source_task(source_id):
     try:
-        task = Task(taskType=task_type, status=Status.Created)
+        task = Task(taskType=TaskType.SimulationMethod, status=Status.Created)
         db.session.add(task)
         db.session.commit()
 
@@ -141,7 +168,7 @@ def create_source_task(task_type, source_id):
     }
 
 
-def create_result_source_object(source, receivers, result_type):
+def create_result_source_object(source, receivers, simulation_method):
     responses_obj = []
 
     for receiver in receivers:
@@ -174,7 +201,7 @@ def create_result_source_object(source, receivers, result_type):
         "sourceX": source["x"],
         "sourceY": source["y"],
         "sourceZ": source["z"],
-        "resultType": result_type,
+        "resultType": simulation_method,
         "frequencies": [125, 250, 500, 1000, 2000],
         "responses": responses_obj,
     }
@@ -190,6 +217,7 @@ def start_solver_task(simulation_id):
     json_path = file_service.get_file_related_path(
         model.outputFileId, simulation_id, extension="json"
     )
+    print("the json_path is ", json_path)
     msh_path = file_service.get_file_related_path(
         model.outputFileId, simulation_id, extension="msh"
     )
@@ -200,31 +228,12 @@ def start_solver_task(simulation_id):
     results_container = []
 
     for source in simulation.sources:
-        task_statuses = []
-        if simulation.taskType.value in (TaskType.DE.value, TaskType.BOTH.value):
-            task_statuses.append(create_source_task(TaskType.DE.value, source["id"]))
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.DE.value
-                )
+        task_statuses = [create_source_task(source["id"])]
+        results_container.append(
+            create_result_source_object(
+                source, simulation.receivers, simulation.simulationMethod
             )
-        if simulation.taskType.value in (TaskType.DG.value, TaskType.BOTH.value):
-            task_statuses.append(create_source_task(TaskType.DG.value, source["id"]))
-            # TODO: Create custom DG JSON results_container
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.DG.value
-                )
-            )
-        if simulation.taskType.value == TaskType.MyNewMethod.value:
-            task_statuses.append(
-                create_source_task(TaskType.MyNewMethod.value, source["id"])
-            )
-            results_container.append(
-                create_result_source_object(
-                    source, simulation.receivers, TaskType.MyNewMethod.value
-                )
-            )
+        )
 
         sources_tasks.append(
             {
@@ -236,10 +245,16 @@ def start_solver_task(simulation_id):
             }
         )
 
+    if simulation.simulationMethod not in simulation_methods:
+        logger.error(
+            f"Simulation method {simulation.simulationMethod} for the simulation id {str(simulation_id)} is not available!"
+        )
+        abort(400, message="Invalid simulation method")
+
     new_simulation_run = SimulationRun(
         sources=sources_tasks,
         receivers=simulation.receivers,
-        taskType=simulation.taskType,
+        simulationMethod=simulation.simulationMethod,
         settingsPreset=simulation.settingsPreset,
         layerIdByMaterialId=simulation.layerIdByMaterialId,
         solverSettings=simulation.solverSettings,
@@ -249,6 +264,7 @@ def start_solver_task(simulation_id):
     try:
         simulation.completedAt = ""
         simulation.status = Status.Created
+        simulation.errorMessage = None
 
         db.session.add(new_simulation_run)
         db.session.commit()
@@ -278,7 +294,6 @@ def start_solver_task(simulation_id):
                     "msh_path": msh_path,
                     "geo_path": geo_path,
                     "results": results_container,
-                    "should_cancel": False,
                     "task_id": -1,
                 },
                 indent=4,
@@ -320,9 +335,6 @@ def start_solver_task(simulation_id):
 
 @shared_task
 def run_solver(simulation_run_id: int, json_path: str):
-    from simulation_backend.DGinterface import dg_method
-    from simulation_backend.DEinterface import de_method
-    from simulation_backend.MyNewMethodInterface import mynewmethod_method
 
     from app.db import db
     from app.models import SimulationRun
@@ -369,101 +381,220 @@ def run_solver(simulation_run_id: int, json_path: str):
                 with open(json_path, "r") as json_file:
                     result_container = json.load(json_file)
 
-            taskType = TaskType(result_container["results"][0]["resultType"])
-            logger.info(f"{taskType}")
-
             # save the simulation solver settings
             try:
                 solverSettings = simulation.solverSettings
-                with open(json_path, "r", encoding="utf-8") as file:
-                    data = json.load(file)
-                data["simulationSettings"] = solverSettings["simulationSettings"]
-                data["settingsPreset"] = simulation.settingsPreset.value
+                result_container["simulationSettings"] = solverSettings["simulationSettings"]
+                result_container["settingsPreset"] = simulation.settingsPreset.value
 
                 with open(json_path, "w", encoding="utf-8") as file:
-                    json.dump(data, file, indent=4)
+                    json.dump(result_container, file, indent=4)
+
             except Exception as ex:
                 logger.error(f"Error saving the simulation solver settings: {ex}")
                 raise Exception(f"Error saving the simulation solver settings {ex}")
 
-            match taskType:
-                case TaskType.DE:
-                    logger.info("DE method")
-                    de_method(json_file_path=json_path)
+            sim_config = {
+                "env": {
+                    "JSON_PATH": json_path,  # e.g. /app/uploads/MeasurementRoom_....json
+                },
+            }
 
-                case TaskType.DG:
-                    # DG METHOD
-                    dg_method(json_file_path=json_path)
-                    logger.info("DG method")
+            resource_type = simulation.resourceType
+            simulation_method = result_container["results"][0]["resultType"]
+            logger.info(f"{simulation_method}")
+            container_image = discover_container_image(simulation_method)
 
-                case TaskType.MyNewMethod:
-                    # MyNewMethod METHOD
-                    mynewmethod_method(json_file_path=json_path)
-                    logger.info("MyNewMethod")
+            print(f"Resource type: {resource_type.value}")
 
+            entry_file = discover_entry_file(simulation_method)
+            executor = executor_factory(resource_type, entry_file)
+
+            # Relevant method container is started dynamically based on the container_image
+            method_config = {
+                "container_image": container_image,
+                "simulation_method": simulation_method.lower(),
+                "simulation_id": str(simulation.id),
+                "task_id": result_container["task_id"],
+            }
+
+            logger.info(
+                f"{simulation_method} Simulation_service:...container is spinning up."
+            )
+            container = executor.execute(method_config, sim_config)
+            container_result = container.wait()
+
+            cancel_flag_path = (
+                Path(json_path).parent / f"{result_container['task_id']}.cancel"
+            )
+
+            exit_code = container_result["StatusCode"]
+            cancelled = exit_code == 137 and os.path.exists(cancel_flag_path)
+
+            if exit_code != 0 and not cancelled:
+                # Try to read a structured error written by the simulation container
+                # (or moved into place by the cloud executor on remote failure).
+                # If the container exits without writing {"error": {"message": ...}}
+                # to the JSON, the generic fallback is used instead.
+                post_msg = "Please check the container logs or terminal output for more details."
+                logger.error(f"Docker container exited with code {exit_code}")
+                if exit_code == 1:
+                    fallback_msg = post_msg
+                    try:
+                        with open(json_path, "r") as f:
+                            error_msg = json.load(f).get("error", {}).get("message")
+                        if error_msg is None or error_msg.strip() == "":
+                            error_msg = fallback_msg
+                    except Exception:
+                        error_msg = fallback_msg
+                elif exit_code in (126, 127):
+                    error_msg = (
+                        "Docker container failed to execute. "
+                        "This may be due to a missing or misconfigured simulation "
+                        "method interface in the container image. "
+                        + post_msg
+                    )
+                elif exit_code == 137:
+                    error_msg = (
+                        "Docker container was killed. "
+                        "This may be due to insufficient resources (e.g., memory). "
+                        + post_msg
+                    )
+                else:
+                    error_msg = (
+                        f"Docker container exited with code {exit_code}. "
+                        + post_msg
+                    )
+
+                raise RuntimeError(error_msg)
+
+            logger.info(
+                f"{simulation_method} Simulation_service:...container has finished."
+            )
+
+            # auralization: generate impulse response wav file
+            # TODO: move the auralization calculation to DE and write that
+            # to the JSON so that everything can be handled by the current
+            # default case and we can get rid of the match case.
+            match simulation_method:
+                case "DE":
+                    # TODO: This function is not a general auralization function and should be renamed
+                    imp_tot, fs = auralization_calculation(
+                        None,
+                        json_path.replace(".json", "_pressure.csv"),
+                        json_path.replace(".json", ".wav"),
+                    )
+                    rir = pf.Signal(imp_tot, fs)
+
+                # this should be the only thing getting executed
                 case _:
-                    raise Exception("The selected tasktype is not valid!")
+                    with open(json_path, "r") as json_file:
+                        result_container = json.load(json_file)
 
-            if json_path is not None:
-                with open(json_path, "r") as json_file_to_check:
-                    data = json.load(json_file_to_check)
+                    receiverResults = result_container["results"][0]["responses"][0]["receiverResults"]
 
-                # Update the specified field value
-                if "should_cancel" in data:
-                    if data["should_cancel"] == True:
-                        logger.info("Cancelled: do not save to xlsx")
-                    else:
-                        logger.info("Saving to xlsx...")
-
-                        # save the simulation result json to xlsx
-                        if not ExportHelper.parse_json_file_to_xlsx_file(
-                            json_path, json_path.replace(".json", ".xlsx")
-                        ):
-                            logger.error("Error saving the result to xlsx")
-                            raise "Error saving the result to xlsx"
-
-                        # db - save the xlsx file path
-                        export = Export(
-                            name=Path(json_path).name.replace(".json", ".xlsx"),
-                            simulationId=simulation.id,
-                        )
-                        session.add(export)
-
-                        # auralization: generate impulse response wav file
-                        match taskType:
-                            case TaskType.DE:
-                                imp_tot, fs = auralization_calculation(
-                                    None,
-                                    json_path.replace(".json", "_pressure.csv"),
-                                    json_path.replace(".json", ".wav"),
-                                )
-                            case TaskType.DG:
-                                imp_tot, fs = auralization_calculation_DG(
-                                    None,
-                                    json_path.replace(".json", "_pressure.csv"),
-                                    json_path.replace(".json", ".wav"),
-                                )
-
-                        # auralization: save the impulse response to xlsx
-                        if not ExportHelper.write_data_to_xlsx_file(
-                            json_path.replace(".json", ".xlsx"),
-                            CustomExportParametersConfig.impulse_response,
-                            {f"{fs}Hz": imp_tot},
-                        ):
-                            logger.error(
-                                "Error saving the impulse response to xlsx"
+                    with open(json_path, "r") as json_file:
+                        input_data = json.load(json_file)
+                        if "sampling_rate" in input_data["simulationSettings"]:
+                            fs = input_data["simulationSettings"]["sampling_rate"]
+                        else:
+                            from config import AuralizationParametersConfig
+                            fs = AuralizationParametersConfig.visualization_fs
+                            logger.warning(
+                                f"The sampling rate of the impulse response was not provided. Assuming {fs} as fallback."
                             )
-                            raise "Error saving the impulse response to xlsx"
-                                
 
-                        
+                    rir_wav_file_name = json_path.replace(".json", ".wav")
+
+                    if receiverResults is None or len(receiverResults) == 0:
+                        post_msg = "Please check the container logs or terminal output for more details."
+                        raise RuntimeError("Impulse response data is empty or missing. " + post_msg)
+                    else:
+                        imp_tot = np.array(receiverResults, dtype=float)
+                        rir = pf.Signal(imp_tot, fs)
+                        # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
+                        norm_rir = pf.dsp.normalize(rir)
+
+                    pf.io.write_audio(norm_rir, rir_wav_file_name)
+                    logger.info(f"Impulse response shape: {imp_tot.shape}, sampling rate: {fs}")
+
+            # logs = container.logs().decode("utf-8")
+            # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
+
+            # ------------------------
+            # Room acoustic parameters
+            # ------------------------
+
+            if not cancelled:
+                logger.info(f"Calculating room acoustic parameters for simulation_run_id: {simulation_run_id}")
+                from app.utils.room_acoustic_parameters import calculate_room_acoustic_parameters
+
+                bands = pf.constants.fractional_octave_frequencies_nominal(
+                    num_fractions=1, frequency_range=(125, np.min([rir.sampling_rate/2, 2e3])),
+                ).astype(int)
+
+                room_acoustic_parameters = calculate_room_acoustic_parameters(
+                    rir,
+                    bands=bands,
+                )
+
+                with open(json_path, "r") as json_file:
+                    result_container = json.load(json_file)
+
+                parameter_container = result_container["results"][0]["responses"][0]["parameters"]
+
+                for key, value in room_acoustic_parameters.items():
+                    if not parameter_container.get(key):
+                        parameter_container[key] = value
+                    else:
+                        logger.warning(f"Skipping existing room acoustic parameter '{key}'.")
+
+                with open(json_path, "w") as json_file:
+                    json.dump(result_container, json_file)
+
+                logger.info(f"Room acoustic parameters exported to JSON for simulation_run_id: {simulation_run_id}")
+
+            if os.path.exists(cancel_flag_path):
+                logger.info("Cancelled: Not saving to xlsx")
+            else:
+                try:
+                    logger.info("Saving to xlsx...")
+
+                    # save the simulation result json to xlsx
+                    if not ExportHelper.parse_json_file_to_xlsx_file(
+                        json_path, json_path.replace(".json", ".xlsx")
+                    ):
+                        logger.error("Error saving the result to xlsx")
+                        raise RuntimeError("Error saving the result to xlsx")
+
+                    # db - save the xlsx file path
+                    export = Export(
+                        name=Path(json_path).name.replace(".json", ".xlsx"),
+                        simulationId=simulation.id,
+                    )
+                    session.add(export)
+
+                    # auralization: save the impulse response to xlsx
+                    if not ExportHelper.write_data_to_xlsx_file(
+                        json_path.replace(".json", ".xlsx"),
+                        CustomExportParametersConfig.impulse_response,
+                        {f"{fs}Hz": imp_tot},
+                    ):
+                        logger.error(
+                            "Error saving the impulse response to xlsx"
+                        )
+                        raise RuntimeError("Error saving the impulse response to xlsx")
+                except Exception as ex:
+                    logger.error(f"Error during saving results: {ex}")
+                    raise RuntimeError(f"Error during saving results: {ex}")
+
             result_container = {}
             if json_path is not None:
                 with open(json_path, "r") as json_file:
                     result_container = json.load(json_file)
 
             if simulation_run:
-                if result_container["should_cancel"]:
+                if os.path.exists(cancel_flag_path):
                     simulation_run.status = Status.Cancelled
                     simulation_run.completedAt = ""
                     simulation.status = Status.Cancelled
@@ -479,15 +610,36 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             session.commit()
             logger.info(f"SimulationRun status updated to {simulation_run.status}")
-        except Exception as ex:
+
+        except RuntimeError as ex:
+            session.rollback()
+            # These are errors explicitly raised in the simulation-method
+            # including a meaningful error message.
+            # Propagate error messages to the database (frontend).
+            error_msg = str(ex)
+            logger.error(f"Simulation error: {error_msg}")
             simulation_run.status = Status.Error
+            simulation_run.errorMessage = error_msg
             simulation.status = Status.Error
+            simulation.errorMessage = error_msg
             session.commit()
-            logger.error(f"Cannot run the method because: {ex}")
+        except Exception as ex:
+            session.rollback()
+            # Unexpected errors - log full details but show generic message
+            error_details = traceback.format_exc()
+            logger.error(f"Unexpected simulation error:\n{error_details}")
+
+            error_msg = f"An unexpected error occurred: {str(ex)}"
+            simulation_run.status = Status.Error
+            simulation_run.errorMessage = error_msg
+            simulation.status = Status.Error
+            simulation.errorMessage = error_msg
+            session.commit()
 
     except Exception as ex:
         session.rollback()
-        logger.error(f"Cannot update simulation run: {ex}")
+        error_msg = f"Failed to initialize simulation: {str(ex)}"
+        logger.error(error_msg)
 
     finally:
         session.close()  # Ensure the session is closed after use
@@ -504,28 +656,102 @@ def get_simulation_result_by_id(simulation_id):
     try:
         with open(json_path, "r") as json_file:
             result_container = json.load(json_file)
-    except Exception as ex:
-        logger.warning(msg=f"No result available")
-        abort(400, message=f"No result available")
+    except Exception:
+        logger.warning(msg="No result available")
+        abort(400, message="No result available")
 
     return result_container["results"]
 
 
 def update_simulation_run_status(simulation_run, simulation):
-    # TODO: update source percentage later
     model = model_service.get_model(simulation.modelId)
     json_path = file_service.get_file_related_path(
         model.outputFileId, simulation.id, extension="json"
     )
-    with open(json_path, "r") as json_file:
+
+    # Cloud jobs: JSON is only written after first poll cycle completes.
+    # Return early with a 0% progress placeholder until it arrives.
+    if not json_path or not os.path.exists(json_path):
+        logger.info(
+            f"[Status] JSON not yet available for simulation {simulation.id} "
+            f"— simulation is still starting up."
+        )
+        simulation_run.percentage = 0
         try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        return
+
+    try:
+        with open(json_path, "r") as json_file:
             result_container = json.load(json_file)
             simulation_run.percentage = result_container["results"][0]["percentage"]
             db.session.commit()
-        except Exception as ex:
-            db.session.rollback()
-            logger.warning(msg=f"Can not update percentage of the simulation run: {ex}")
-            abort(400, message=f"Can not update percentage of the simulation run: {ex}")
+    except json.JSONDecodeError:
+        # File exists but is mid-write (race condition during cloud polling)
+        logger.warning(f"[Status] JSON for simulation {simulation.id} is mid-write, skipping.")
+        db.session.rollback()
+    except Exception as ex:
+        db.session.rollback()
+        logger.warning(f"Can not update percentage of the simulation run: {ex}")
+        abort(400, message=f"Can not update percentage of the simulation run: {ex}")
+
+
+def cancel_solver_task(simulation_id: int) -> dict:
+    """Cancel a running job by its ID."""
+    simulation = get_simulation_by_id(simulation_id)
+
+    if not simulation:
+        logger.error(
+            f"Simulation for the simulation id {str(simulation_id)} does not exist!"
+        )
+        abort(400, message="Simulation doesn't exist!")
+
+    # package info needed for canceling
+    simulation_method = simulation.simulationMethod
+    container_image = discover_container_image(simulation_method)
+
+    model = model_service.get_model(simulation.modelId)
+    json_path = file_service.get_file_related_path(
+        model.outputFileId, simulation_id, extension="json"
+    )
+    if json_path is not None:
+        with open(json_path, "r") as json_file:
+            result_container = json.load(json_file)
+    else:
+        logger.error(f"JSON file not found for simulation {simulation_id}")
+        abort(400, message="Simulation data file doesn't exist!")
+
+    taskID = result_container["task_id"]
+
+    cancelation_info = {
+        "simulation_id": str(simulation.id),
+        "simulation_method": simulation_method.lower(),
+        "container_image": container_image,
+        "task_id": taskID,
+    }
+
+    cancel_flag_path = Path(json_path).parent / f"{taskID}.cancel"
+
+    Path(cancel_flag_path).touch()
+
+    print(f"Canceling Celery task: {taskID}")
+
+    # Use current_app for better connection handling
+    from celery import current_app
+
+    try:
+        # This is more reliable for revoking tasks in Flask
+        current_app.control.revoke(taskID, terminate=True, signal="SIGKILL")
+        logger.info(f"Successfully sent revoke command for task {taskID}")
+    except Exception as e:
+        logger.error(f"Error revoking task {taskID}: {str(e)}")
+
+    executor = executor_factory(simulation.resourceType)
+    executor.cancel(cancelation_info)
+
+    return {"message": f"Cancellation request sent for task {taskID}"}
 
 
 def get_simulation_run_status_by_id(simulation_run_id):
@@ -543,53 +769,3 @@ def get_simulation_run_status_by_id(simulation_run_id):
     update_simulation_run_status(simulation_run, simulation)
 
     return simulation_run
-
-
-def cancel_solver_task(simulation_id):
-    simulation = get_simulation_by_id(simulation_id)
-
-    if not simulation:
-        logger.error(
-            f"Simulation for the simulation id {str(simulation_id)} does not exist!"
-        )
-        abort(400, message="Simulation doesn't exist!")
-
-    model = model_service.get_model(simulation.modelId)
-    json_path = file_service.get_file_related_path(
-        model.outputFileId, simulation_id, extension="json"
-    )
-
-    if json_path is not None:
-        with open(json_path, "r") as json_file:
-            data = json.load(json_file)
-    else:
-        logger.error(f"JSON file not found for simulation {simulation_id}")
-        abort(400, message="Simulation data file doesn't exist!")
-
-    taskID = data["task_id"]
-    print(f"Canceling task: {taskID}")
-
-    # Use current_app for better connection handling
-    from celery import current_app
-
-    try:
-        # This is more reliable for revoking tasks in Flask
-        current_app.control.revoke(taskID, terminate=True, signal="SIGKILL")
-        logger.info(f"Successfully sent revoke command for task {taskID}")
-    except Exception as e:
-        logger.error(f"Error revoking task {taskID}: {str(e)}")
-        # Continue execution to at least update the flag
-
-    # Update the specified field value
-    if "should_cancel" in data:
-        data["should_cancel"] = True
-    else:
-        data["should_cancel"] = True  # Create the field if it doesn't exist
-
-    print("should_cancel = " + str(data["should_cancel"]))
-    print("json path: " + json_path)
-
-    with open(json_path, "w") as json_result_file:
-        json_result_file.write(json.dumps(data))
-
-    return {"message": f"Cancellation request sent for task {taskID}"}

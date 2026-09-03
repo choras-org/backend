@@ -4,13 +4,14 @@ from app.services import file_service
 
 
 class ModelSchema(Schema):
-    id = fields.Number()
+    id = fields.Integer()
     name = fields.Str(required=True)
     sourceFileId = fields.Integer()
     outputFileId = fields.Integer()
     hasGeo = fields.Boolean()
 
     projectId = fields.Integer()
+    imagePath = fields.String()
 
     createdAt = fields.Str()
     updatedAt = fields.Str()
@@ -40,7 +41,20 @@ class ModelCreateSchema(Schema):
     name = fields.Str(required=True)
     projectId = fields.Integer(required=True)
     sourceFileId = fields.Integer(required=True)
+    imagePath = fields.String(required=False)
 
 
 class ModelUpdateSchema(Schema):
     name = fields.Str(required=True)
+
+class ModelUploadImageResponseSchema(Schema):
+    imagePath = fields.Str(required=True)
+
+class ModelExampleSchema(Schema):
+    id = fields.Str(required=True)
+    name = fields.Str(required=True)
+    description = fields.Str(required=True)
+    thumbnailUrl = fields.Str(required=True)
+    fileName = fields.Str(required=True)
+    filePath = fields.Str(required=True)
+    modelUrl = fields.Str(required=True)

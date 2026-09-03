@@ -231,3 +231,7 @@ results_on_the_run.mat
 MeasurementRoomTmp.json
 results*.json
 *MeasurementRoomTmp_pressure.csv
+
+# Used to completely reset environment in Docker, for e.g. 
+# database schema modifications 
+rebuild.sh

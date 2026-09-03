@@ -15,11 +15,26 @@ class AudioFileSchema(Schema):
     updatedAt = fields.String()
 
 
+class AudioFileUpdateSchema(Schema):
+    """Schema for updating an audio file's metadata.
+
+    Attributes
+    ----------
+    name : str, optional
+        The new name of the audio file. If not provided, the existing name is kept.
+    description : str, optional
+        The new description of the audio file. If not provided, the existing description is kept.
+    """
+
+    name = fields.String(load_default=None)
+    description = fields.String(load_default=None)
+
+
 class AuralizationSchema(Schema):
     id = fields.Integer()
     simulationId = fields.Integer()
     audioFileId = fields.Integer()
-    status = fields.Enum(Status, default=Status.Uncreated)
+    status = fields.Enum(Status, dump_default=Status.Uncreated)
     createdAt = fields.String()
     updatedAt = fields.String()
 

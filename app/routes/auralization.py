@@ -4,7 +4,7 @@ from flask import request, send_file, send_from_directory
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
-from app.schemas.auralization_schema import AudioFileSchema, AuralizationResponsePlotSchema, AuralizationSchema
+from app.schemas.auralization_schema import AudioFileSchema, AudioFileUpdateSchema, AuralizationResponsePlotSchema, AuralizationSchema
 from app.services import auralization_service
 
 blp = Blueprint("Auralization", __name__, description="Auralization API")
@@ -24,6 +24,38 @@ class AudioFileBySimulationIdList(MethodView):
     def get(self, simulation_id):
         audio_files = auralization_service.get_audio_files_by_simulation_id(simulation_id)
         return audio_files
+
+
+@blp.route("/auralizations/audiofiles/<int:audio_file_id>")
+class AudioFileByAudioFileIdDelete(MethodView):
+    @blp.arguments(AudioFileUpdateSchema)
+    @blp.response(200, AudioFileSchema)
+    def put(self, body_data, audio_file_id):
+        """Update the name and/or description of an audio file.
+
+        Parameters
+        ----------
+        body_data : dict
+            Request body containing the fields to update. Accepted keys:
+
+            - ``name`` : str, optional
+                New name for the audio file.
+            - ``description`` : str, optional
+                New description for the audio file.
+        audio_file_id : int
+            The ID of the audio file to update.
+
+        Returns
+        -------
+        AudioFile
+            The updated audio file object.
+        """
+        return auralization_service.update_audio_file(audio_file_id, body_data)
+
+    @blp.response(200)
+    def delete(self, audio_file_id):
+        auralization_service.delete_audio_file(audio_file_id)
+        return {"message": "Audio file deleted successfully!"}
 
 
 @blp.route("/auralizations")
@@ -73,3 +105,10 @@ class AuralizationUploadAudioFile(MethodView):
     @blp.response(200, AudioFileSchema)
     def post(self):
         return auralization_service.upload_audio_file(request.form, request.files)
+
+@blp.route("/auralizations/audiofiles/<int:audio_file_id>/wav")
+class AuralizationWav(MethodView):
+    @blp.response(200)
+    def get(self, audio_file_id):
+        wav_path = auralization_service.get_audio_file_wav_path(audio_file_id)
+        return send_from_directory(wav_path.parent, wav_path.name, as_attachment=True, mimetype="audio/wav")
