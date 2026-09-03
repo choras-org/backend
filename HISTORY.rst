@@ -8,6 +8,7 @@ Unreleased
 Features
 ~~~~~~~~
 
+- Add endpoint to update audio file metadata (name and description) (#119)
 - Add room acoustic parameter calculation as a fallback step in the simulation task, for methods that don't return the parameters themselves (#140)
 - Propagate error messages from simulation methods to the database, distinguishing method-raised, unexpected and container-level errors (#107)
 - Add general auralization: generalized ``*.wav`` export and a simplified mono-aural auralization based on convolution with the RIR (#90)
@@ -43,6 +44,9 @@ Bug Fixes
 Maintenance
 ~~~~~~~~~~~
 
+- Introduce semantic versioning and changelog using ``bump-my-version`` (#144)
+- Simplify README to reference documentation pages instead of inline instructions (#145)
+- Remove broken and outdated DockerHub publishing workflow (#146)
 - Reduce Gmsh log verbosity to errors & warnings (#111)
 - Clean up executors and simulation service code style (#109)
 - Remove broken example geometry files (#108) and the obsolete ``load_test.py`` (#134)
