@@ -76,9 +76,8 @@ class DefaultConfig:
 
     #METHODS_CONFIG_PATH = "/app/simulation-backend/methods-config.json"
     METHODS_CONFIG_PATH = os.environ.get(
-    "METHODS_CONFIG_PATH",
-    "/app/simulation-backend/methods-config.json"
-)
+        "METHODS_CONFIG_PATH", "/app/simulation-backend/methods-config.json"
+    )
 
     
     USER_MODEL_IMAGE_FOLDER_NAME = os.path.join(UPLOAD_FOLDER_NAME, "model_images")

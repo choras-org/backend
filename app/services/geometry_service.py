@@ -1,8 +1,6 @@
 import logging
-import math
 import os
 import zipfile
-import math
 
 import rhino3dm
 from flask_smorest import abort
@@ -78,7 +76,7 @@ def map_to_3dm_and_geo(geometry_id):
     obj_path = os.path.join(directory, file.fileName)
     rhino3dm_path = os.path.join(directory, f"{file_name}.3dm")
     zip_file_path = os.path.join(directory, f"{file_name}.zip")
-    geo_path = os.path.join(directory, f"{file_name}.geo")
+    # geo_path = os.path.join(directory, f"{file_name}.geo")
 
     try:
         task.status = Status.InProgress
@@ -116,20 +114,21 @@ def map_to_3dm_and_geo(geometry_id):
         logger.error(f"Can not create a rhino file: {ex}")
         return False
 
-    if config.FeatureToggle.is_enabled("enable_geo_conversion"):
-        try:
-            if not obj_to_gmsh_geo_precise(obj_path, geo_path, rhino3dm_path):
-                logger.error("Can not generate a geo file")
-                return False
+    # Skip geo conversion, geo creation will be triggered after model creation
+    # if config.FeatureToggle.is_enabled("enable_geo_conversion"):
+    #     try:
+    #         # if not obj_to_gmsh_geo_precise(obj_path, geo_path, rhino3dm_path):
+    #         #     logger.error("Can not generate a geo file")
+    #         #     return False
+            
+    #         file_geo = File(fileName=f"{file_name}.geo")
+    #         db.session.add(file_geo)
+    #         db.session.commit()
 
-            file_geo = File(fileName=f"{file_name}.geo")
-            db.session.add(file_geo)
-            db.session.commit()
-
-        except Exception as ex:
-            db.session.rollback()
-            logger.error(f"Can not attach a geo file: {ex}")
-            return False
+    #     except Exception as ex:
+    #         db.session.rollback()
+    #         logger.error(f"Can not attach a geo file: {ex}")
+    #         return False
 
     return True
 
@@ -698,3 +697,64 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
 
     print(f"Wrote {geo_file}: {len(unique_vertices)} points, {next_line_id-1} lines, {len(face_line_loops)} surfaces.")
     return True
+
+
+def run_geometry_pipeline(
+    obj_dir: str,
+    output_dir: str,
+    volume_name: str,
+    on_checkpoint=None,
+) -> tuple[bool, int]:
+    """Run the merged inspect+repair pipeline in a single pass.
+
+    Emits the inspect checkpoint (``<stem>.geo`` + ``<stem>_inspect_issue.json``)
+    and the repaired bundle in one run — the shared prefix (dedup/orient/
+    T-junction fix) is computed once instead of twice. The initial
+    ``<stem>.3dm``/``.zip`` is produced separately by ``map_to_3dm_and_geo``.
+
+    ``on_checkpoint`` (if given) is invoked when the inspect checkpoint fires,
+    with a dict ``{"stage", "issue_report", "issue_count"}`` describing the
+    initial (AfterUpload) issues, so the caller can persist them and report
+    progress before the repair finishes.
+
+    Returns ``(success, remaining_issue_count)``; the remaining count is the
+    number of issues still present after repair (the pipeline's final issues).
+    On failure the count is ``0``.
+    """
+    from pathlib import Path as _Path
+
+    # Imported lazily (not at module load) so that importing ``app.services``
+    # does not require ``geometry_pipeline`` to be installed. The package is
+    # only present in the Docker image; native/CI environments that never call
+    # this function can still import the service layer. Mirrors how
+    # simulation-backend is decoupled (config + out-of-process) rather than
+    # imported directly.
+    from geometry_pipeline import process_geometry
+
+    out_dir = _Path(output_dir)
+
+    try:
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Starting merged geometry pipeline for {obj_dir}, output to {output_dir} "
+            f"with volume name '{volume_name}'"
+        )
+        result = process_geometry(
+            obj_dir,
+            out_dir,
+            volume_name=volume_name,
+            detect_cavities=True,
+            on_checkpoint=on_checkpoint,
+        )
+    except Exception as exc:
+        logger = logging.getLogger(__name__)
+        logger.exception("merged geometry pipeline failed: %s", exc)
+        return False, 0
+
+    # `report["post"]` is the kind_dict of the final (post-repair) issues.
+    post_issues = (result.report or {}).get("post", {}) if result else {}
+    remaining_count = sum(
+        len(entries) for entries in post_issues.values() if isinstance(entries, list)
+    )
+
+    return True, remaining_count
