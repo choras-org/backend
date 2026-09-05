@@ -8,6 +8,7 @@ from app.routes.material import blp as material_blueprint
 from app.routes.mesh import blp as mesh_blueprint
 from app.routes.model import blp as model_blueprint
 from app.routes.project import blp as project_blueprint
+from app.routes.result_visualization import blp as result_visualization_blueprint
 from app.routes.setting import blp as setting_blueprint
 from app.routes.simulation import blp as simulation_blueprint
 from app.routes.receive import blp as receive_blueprint
@@ -31,3 +32,4 @@ def register_routing(app):
     api.register_blueprint(receive_blueprint)
     api.register_blueprint(user_preference_blueprint)
     api.register_blueprint(material_category_blueprint)
+    api.register_blueprint(result_visualization_blueprint)
