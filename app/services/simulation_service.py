@@ -13,6 +13,7 @@ from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
 import pyfar as pf
+import numpy as np
 
 from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
@@ -489,8 +490,6 @@ def run_solver(simulation_run_id: int, json_path: str):
 
                 # this should be the only thing getting executed
                 case _:
-                    import numpy as np
-
                     with open(json_path, "r") as json_file:
                         result_container = json.load(json_file)
 
@@ -544,13 +543,17 @@ def run_solver(simulation_run_id: int, json_path: str):
                 from app.utils.room_acoustic_parameters import calculate_room_acoustic_parameters
 
                 bands = pf.constants.fractional_octave_frequencies_nominal(
-                    num_fractions=1, frequency_range=(125, rir.sampling_rate/2),
+                    num_fractions=1, frequency_range=(125, np.min([rir.sampling_rate/2, 2e3])),
                 ).astype(int)
 
                 room_acoustic_parameters = calculate_room_acoustic_parameters(
                     rir,
                     bands=bands,
                 )
+
+                with open(json_path, "r") as json_file:
+                    result_container = json.load(json_file)
+
                 parameter_container = result_container["results"][0]["responses"][0]["parameters"]
 
                 for key, value in room_acoustic_parameters.items():

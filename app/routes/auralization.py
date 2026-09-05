@@ -4,7 +4,7 @@ from flask import request, send_file, send_from_directory
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
-from app.schemas.auralization_schema import AudioFileSchema, AuralizationResponsePlotSchema, AuralizationSchema
+from app.schemas.auralization_schema import AudioFileSchema, AudioFileUpdateSchema, AuralizationResponsePlotSchema, AuralizationSchema
 from app.services import auralization_service
 
 blp = Blueprint("Auralization", __name__, description="Auralization API")
@@ -28,6 +28,30 @@ class AudioFileBySimulationIdList(MethodView):
 
 @blp.route("/auralizations/audiofiles/<int:audio_file_id>")
 class AudioFileByAudioFileIdDelete(MethodView):
+    @blp.arguments(AudioFileUpdateSchema)
+    @blp.response(200, AudioFileSchema)
+    def put(self, body_data, audio_file_id):
+        """Update the name and/or description of an audio file.
+
+        Parameters
+        ----------
+        body_data : dict
+            Request body containing the fields to update. Accepted keys:
+
+            - ``name`` : str, optional
+                New name for the audio file.
+            - ``description`` : str, optional
+                New description for the audio file.
+        audio_file_id : int
+            The ID of the audio file to update.
+
+        Returns
+        -------
+        AudioFile
+            The updated audio file object.
+        """
+        return auralization_service.update_audio_file(audio_file_id, body_data)
+
     @blp.response(200)
     def delete(self, audio_file_id):
         auralization_service.delete_audio_file(audio_file_id)
