@@ -40,7 +40,7 @@ def create_app(settings_module=None):
     if local_app.config["APP_ENV"] == "local":
         print("Using PostgreSQL")
         local_app.config["SQLALCHEMY_DATABASE_URI"] = (
-            f"postgresql://{db_user}:{db_password}@{db_host}:5432/{db_name}"
+            f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:5432/{db_name}"
         )
 
     db.init_app(local_app)
