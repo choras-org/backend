@@ -5,6 +5,11 @@ History
 Unreleased
 ----------
 
+Bug Fixes
+~~~~~~~~~
+
+- Fix a bug that erroneously flipped the orientation of faces when converting from OBJ to Geo (#150)
+
 0.2.0 (2026-09-03)
 ------------------
 
