@@ -458,7 +458,8 @@ def convert_3dm_to_geo(
 
 def _orient_faces_outward(faces, vertices):
     """
-    Turn faces around where needed so that every normal points into the room.
+    Turn faces around where needed so that every normal points out of the room's
+    volume (the space that gets meshed).
 
     Parameters
     ----------
