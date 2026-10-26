@@ -76,9 +76,8 @@ class DefaultConfig:
 
     #METHODS_CONFIG_PATH = "/app/simulation-backend/methods-config.json"
     METHODS_CONFIG_PATH = os.environ.get(
-    "METHODS_CONFIG_PATH",
-    "/app/simulation-backend/methods-config.json"
-)
+        "METHODS_CONFIG_PATH", "/app/simulation-backend/methods-config.json"
+    )
 
     
     USER_MODEL_IMAGE_FOLDER_NAME = os.path.join(UPLOAD_FOLDER_NAME, "model_images")
@@ -186,6 +185,8 @@ class CustomExportParametersConfig(DefaultConfig):
 class FeatureToggle(DefaultConfig):
     # Uncomment this line to enable geo conversion from input geometry
     enable_geo_conversion = True
+    # Toggle native CGAL volume/cavity detection in the geometry pipeline
+    enable_volume_detection = True
 
     @classmethod
     def is_enabled(cls, feature_name: str) -> bool:

@@ -36,6 +36,7 @@ dependencies = [
     'openpyxl', # explicitly required by pandas Excel file writer (although not explicitly imported)
     'pandas',
     'passlib>=1.7.4', # explicitly imported
+    'psycopg[binary]>=3.1', # psycopg v3: default postgresql driver for SQLAlchemy >=2.1
     'psycopg2-binary>=2.9.6',
     'python-dotenv>=1.0.0', # explicitly imported
     'pytz>=2023.3', # explicitly imported (dependency)

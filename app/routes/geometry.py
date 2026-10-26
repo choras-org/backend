@@ -6,8 +6,10 @@ from app.schemas.geometry_schema import (
     GeometryResultQuerySchema,
     GeometrySchema,
     GeometryStartQuerySchema,
+    SimulationCompatibilitySchema,
 )
 from app.services import geometry_service
+from app.services import geometry_compatibility_service
 
 blp = Blueprint("Geometry", __name__, description="Geometry API")
 
@@ -34,3 +36,15 @@ class Geometry(MethodView):
     def get(self, query_data):
         result = geometry_service.get_geometry_result(query_data["taskId"])
         return result
+
+
+@blp.route("/geometry/simulation-compatibility")
+class GeometrySimulationCompatibility(MethodView):
+    @blp.response(200, SimulationCompatibilitySchema)
+    def get(self):
+        """Return per-method geometry-issue compatibility.
+
+        Loads the simulation backend's baseline compatibility and merges each
+        method's override (which only overrides the fields that differ) on top.
+        """
+        return geometry_compatibility_service.get_simulation_compatibility()

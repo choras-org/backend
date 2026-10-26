@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.db import db
+from app.types import RepairStatus, GeometryProcessingStatus
 
 
 class Model(db.Model):
@@ -19,6 +20,13 @@ class Model(db.Model):
 
     simulations = db.relationship("Simulation", backref="model", cascade="all, delete")
     hasGeo = db.Column(db.Boolean, nullable=False, default=False)
+
+    repairStatus = db.Column(db.Enum(RepairStatus), nullable=True, default=None)
+
+    geometryStatus = db.Column(
+        db.Enum(GeometryProcessingStatus), nullable=True, default=None
+    )
+    geometryProgress = db.Column(db.Integer, nullable=True, default=None)
 
     imagePath = db.Column(db.String, nullable=True)
 
