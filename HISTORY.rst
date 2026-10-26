@@ -9,6 +9,7 @@ Bug Fixes
 ~~~~~~~~~
 
 - Explicitly set psycopg2 dialect. SQLAlchemy 2.1 uses the psycopg v3 by default now (#147)
+- Fix a bug that erroneously flipped the orientation of faces when converting from OBJ to Geo (#150)
 
 0.2.0 (2026-09-03)
 ------------------

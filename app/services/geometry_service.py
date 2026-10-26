@@ -2,8 +2,8 @@ import logging
 import math
 import os
 import zipfile
-import math
 
+import numpy as np
 import rhino3dm
 from flask_smorest import abort
 
@@ -455,6 +455,178 @@ def convert_3dm_to_geo(
     print(f"Converted {rhino_file_path} to {geo_file_path}")
     return os.path.exists(geo_file_path)
 
+
+def _orient_faces_outward(faces, vertices):
+    """
+    Turn faces around where needed so that every normal points out of the room's
+    volume (the space that gets meshed).
+
+    Parameters
+    ----------
+    faces : list of list of int
+        Each face is a list of 1-based indices into `vertices`. Faces that
+        point the wrong way are reversed in place.
+    vertices : sequence of (float, float, float)
+        The vertex coordinates.
+
+    Notes
+    -----
+    This works in two steps:
+
+    1. Make neighbouring faces agree. Two faces that share an edge must walk
+       along it in opposite directions. Starting from one face, we visit its
+       neighbours and reverse any that disagree. Faces that are connected this
+       way form a "piece" (e.g. the room, or a column standing in it).
+    2. Decide which way each piece should face, and reverse the whole piece
+       if needed:
+       - The biggest closed piece is the room. Its normals should point out
+         of the room.
+       - A closed piece inside the room is an obstacle. Its normals should
+         point into the obstacle.
+       - Any other closed piece gets normals pointing out of it.
+       - A piece with holes in it has no inside or outside, so we flip it if
+         most of its area faces the room centre.
+    """
+    P = np.asarray(vertices, dtype=float)
+    # Move the origin to the middle of the model, so the volume sums below
+    # don't lose precision on models far from the origin.
+    P = P - P.mean(axis=0)
+
+    def edges(f):
+        return [(a, b) for a, b in zip(f, f[1:] + f[:1]) if a != b]
+
+    def tris(fi):
+        # Split the face into triangles that all share its first corner. This
+        # gives the right area and volume even for faces that aren't convex.
+        p = P[np.asarray(faces[fi]) - 1]
+        return p[0], p[1:-1], p[2:]
+
+    edge_faces = {}
+    for fi, f in enumerate(faces):
+        for a, b in edges(f):
+            edge_faces.setdefault(frozenset((a, b)), []).append(fi)
+
+    # Step 1: walk from face to face and make neighbours agree. We only cross
+    # edges shared by exactly two faces. An edge with only one face is a hole,
+    # and an edge with three or more faces has no clear neighbour.
+    # Each face is only looked at once. If the model is broken and two
+    # neighbours want different directions, whichever came first wins.
+    piece = [-1] * len(faces)
+    pieces = []
+    for start in range(len(faces)):
+        if piece[start] >= 0:
+            continue
+        piece[start] = len(pieces)
+        members, stack = [start], [start]
+        while stack:
+            fi = stack.pop()
+            for a, b in edges(faces[fi]):
+                nbrs = edge_faces[frozenset((a, b))]
+                if len(nbrs) != 2:
+                    continue
+                nj = nbrs[1] if nbrs[0] == fi else nbrs[0]
+                if piece[nj] >= 0:
+                    continue
+                if (a, b) in edges(faces[nj]):
+                    faces[nj].reverse()
+                piece[nj] = piece[fi]
+                members.append(nj)
+                stack.append(nj)
+        pieces.append(members)
+
+    def flip(members):
+        for fi in members:
+            faces[fi].reverse()
+
+    # The volume is positive if the normals point outward and negative if they
+    # point inward. The centroid is the centre of mass of the enclosed space.
+    def volume_and_centroid(members):
+        vol, moment = 0.0, np.zeros(3)
+        for a, b, c in map(tris, members):
+            t = np.cross(b, c) @ a / 6
+            vol += t.sum()
+            moment += (t[:, None] * (a + b + c)).sum(axis=0) / 4
+        return vol, (moment / vol if vol else moment)
+
+    # Is point q inside the closed piece? Add up how much of the view from q
+    # each triangle covers (its solid angle). Seen from inside, the triangles
+    # cover the full sphere and the result is 1. From outside, they cancel to 0.
+    def winding_number(q, members):
+        w = 0.0
+        for a, b, c in map(tris, members):
+            a, b, c = a - q, b - q, c - q
+            la, lb, lc = (
+                np.linalg.norm(a),
+                np.linalg.norm(b, axis=1),
+                np.linalg.norm(c, axis=1),
+            )
+            num = np.cross(b, c) @ a
+            den = (
+                la * lb * lc
+                + (b @ a) * lc
+                + (c @ a) * lb
+                + np.einsum("ij,ij->i", b, c) * la
+            )
+            w += 2 * np.arctan2(num, den).sum()
+        return w / (4 * np.pi)
+
+    # Step 2: decide which way each piece faces. A piece is closed when every
+    # one of its edges is shared by exactly two faces.
+    closed = [
+        all(len(edge_faces[frozenset(e)]) == 2 for fi in m for e in edges(faces[fi]))
+        for m in pieces
+    ]
+    volumes = [
+        volume_and_centroid(m) if c else (0.0, None) for m, c in zip(pieces, closed)
+    ]
+    room = max(
+        (i for i, c in enumerate(closed) if c),
+        key=lambda i: abs(volumes[i][0]),
+        default=None,
+    )
+    # Without a closed room, use the average of all vertices as the centre
+    # (that's the origin, since we moved it there above).
+    center = np.zeros(3)
+    if room is not None:
+        if volumes[room][0] < 0:
+            flip(pieces[room])
+        # Flipping the room doesn't move its centroid, so this is still valid.
+        center = volumes[room][1]
+
+    for i, members in enumerate(pieces):
+        if i == room:
+            continue
+        if closed[i]:
+            # An obstacle should end up with a negative volume (normals point
+            # into it), anything outside the room with a positive one.
+            # We check every vertex and keep the highest result. A vertex
+            # touching a wall or the floor can give any result, but an obstacle
+            # inside the room always has at least one vertex clear of them.
+            # (The average of the vertices isn't enough: for a U-shaped
+            # obstacle it can lie outside a U-shaped room.)
+            idx = np.unique([v for fi in members for v in faces[fi]]) - 1
+            inside = (
+                room is not None
+                and max(winding_number(q, pieces[room]) for q in P[idx]) > 0.5
+            )
+            if (volumes[i][0] > 0) == inside:
+                flip(members)
+        else:
+            # simplification: a piece with holes has no inside, so we let its faces
+            # vote. Each face votes with its area for "my normal points toward
+            # the room centre", and if those votes win, the piece is flipped.
+            # This can get it wrong for a piece that wraps around the centre,
+            # like a U-shaped shell with an open top. A better fix would be to
+            # cast rays from each face and see which side is facing inside.
+            toward = 0.0
+            for fi in members:
+                a, b, c = tris(fi)
+                area = np.cross(b - a, c - a).sum(axis=0) / 2
+                toward += area @ (center - P[np.asarray(faces[fi]) - 1].mean(axis=0))
+            if toward > 0:
+                flip(members)
+
+
 def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="RoomVolume", tol=1e-8):
     """
     Parse OBJ preserving groups, deduplicate vertices,
@@ -553,51 +725,8 @@ def obj_to_gmsh_geo_precise(obj_file, geo_file, rhino3dm_path, volume_name="Room
     tag_to_surfaces = {}
     for sid, tag in enumerate(merged_groups, start=1):
         tag_to_surfaces.setdefault(tag, []).append(sid)
- 
-    # # --- Orientation normalization (ensure CCW) --- 
-    # def is_ccw(face): 
-    #     pts = [unique_vertices[i - 1] for i in face] 
-    #     v1, v2, v3 = pts[:3] 
-    #     nx = (v2[1]-v1[1])*(v3[2]-v1[2]) - (v2[2]-v1[2])*(v3[1]-v1[1]) 
-    #     ny = (v2[2]-v1[2])*(v3[0]-v1[0]) - (v2[0]-v1[0])*(v3[2]-v1[2]) 
-    #     nz = (v2[0]-v1[0])*(v3[1]-v1[1]) - (v2[1]-v1[1])*(v3[0]-v1[0]) 
-    #     return nz >= 0 
-    
-    # for face in merged_faces: 
-    #     if not is_ccw(face): 
-    #         face.reverse()
-    
-    room_center = tuple(
-        sum(v[i] for v in unique_vertices) / len(unique_vertices)
-        for i in range(3)
-    )
 
-    
-    def is_outward_facing(face):
-        pts = [unique_vertices[i - 1] for i in face]
-        v1, v2, v3 = pts[:3]
-        # Face normal
-        nx = (v2[1]-v1[1])*(v3[2]-v1[2]) - (v2[2]-v1[2])*(v3[1]-v1[1])
-        ny = (v2[2]-v1[2])*(v3[0]-v1[0]) - (v2[0]-v1[0])*(v3[2]-v1[2])
-        nz = (v2[0]-v1[0])*(v3[1]-v1[1]) - (v2[1]-v1[1])*(v3[0]-v1[0])
-        normal = (nx, ny, nz)
-        # Face centroid
-        cx, cy, cz = tuple(sum(p[i] for p in pts) / len(pts) for i in range(3))
-        # Vector from centroid to room center
-        to_center = (
-            room_center[0] - cx,
-            room_center[1] - cy,
-            room_center[2] - cz
-        )
-        # Dot product: if negative, normal points outward
-        dot = sum(normal[i] * to_center[i] for i in range(3))
-        return dot < 0
-    
-    for face in merged_faces:
-        if not is_outward_facing(face):
-            face.reverse()
-
-
+    _orient_faces_outward(merged_faces, unique_vertices)
 
     # --- Build unique edges (lines) with stable orientation ---
     edge_to_line = {}       # key = (min,max) -> line_id
