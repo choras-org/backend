@@ -599,10 +599,15 @@ def _orient_faces_outward(faces, vertices):
         if closed[i]:
             # An obstacle should end up with a negative volume (normals point
             # into it), anything outside the room with a positive one.
+            # We check every vertex and keep the highest result. A vertex
+            # touching a wall or the floor can give any result, but an obstacle
+            # inside the room always has at least one vertex clear of them.
+            # (The average of the vertices isn't enough: for a U-shaped
+            # obstacle it can lie outside a U-shaped room.)
             idx = np.unique([v for fi in members for v in faces[fi]]) - 1
             inside = (
                 room is not None
-                and winding_number(P[idx].mean(axis=0), pieces[room]) > 0.5
+                and max(winding_number(q, pieces[room]) for q in P[idx]) > 0.5
             )
             if (volumes[i][0] > 0) == inside:
                 flip(members)

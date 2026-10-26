@@ -109,6 +109,31 @@ def test_l_room_with_obstacle():
         assert got @ want > 0, f"face {k} points the wrong way"
 
 
+def test_u_obstacle_in_u_room():
+    # A U-shaped room with a U-shaped obstacle that wraps around the end of the
+    # gap between the room's arms. The average of the obstacle's vertices lies
+    # in that gap, which is outside the room.
+    u_room = [(0, 0), (3, 0), (3, 3), (2, 3), (2, 1), (1, 1), (1, 3), (0, 3)]
+    u_obstacle = [
+        (0.5, 0.5),
+        (2.5, 0.5),
+        (2.5, 2.5),
+        (2.2, 2.5),
+        (2.2, 0.8),
+        (0.8, 0.8),
+        (0.8, 2.5),
+        (0.5, 2.5),
+    ]
+    room = prism(u_room, 0, 3)
+    obstacle = prism(u_obstacle, 1, 2)
+    expected = [area_vector(f) for f in room] + [-area_vector(f) for f in obstacle]
+
+    result = run(room + obstacle, scrambled={0, len(room)})
+
+    for k, (got, want) in enumerate(zip(result, expected)):
+        assert got @ want > 0, f"face {k} points the wrong way"
+
+
 def test_open_l_room_wound_inward():
     room = prism(L_PLAN, 0, 3, top=False)
     expected = [area_vector(f) for f in room]
