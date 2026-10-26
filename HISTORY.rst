@@ -5,6 +5,11 @@ History
 Unreleased
 ----------
 
+Bug Fixes
+~~~~~~~~~
+
+- Explicitly set psycopg2 dialect. SQLAlchemy 2.1 uses the psycopg v3 by default now (#147)
+
 0.2.0 (2026-09-03)
 ------------------
 
