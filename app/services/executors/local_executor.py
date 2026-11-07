@@ -1,10 +1,12 @@
+import logging
 import os
 import threading
-import docker
-import logging
-from typing import Any, Dict
-from .simulation_executor_interface import SimulationExecutor
 from pathlib import Path
+from typing import Any
+
+import docker
+
+from .simulation_executor_interface import SimulationExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +59,7 @@ class LocalExecutor(SimulationExecutor):
             work_dir = os.getenv("DOCKER_WORK_DIR", "/app")
         self.work_dir = work_dir
 
-    def _get_container_name(self, method_config: Dict[str, Any]) -> str:
+    def _get_container_name(self, method_config: dict[str, Any]) -> str:
         """
         Constructs a unique container name based on the simulation method and simulation ID.
 
@@ -81,7 +83,54 @@ class LocalExecutor(SimulationExecutor):
             return f"choras-{instance_name}-{simulation_method}-simulation-{simulation_id}"
         return f"choras-{simulation_method}-simulation-{simulation_id}"
 
-    def execute(self, method_config: Dict[str, Any], sim_config: Dict[str, Any]) -> tuple:
+    def _get_resource_limits(self) -> dict[str, Any]:
+        """Get the CPU and memory limits for simulation containers.
+
+        By default, a simulation container can use all CPUs and all memory of the
+        host. If several people share one host, a single large simulation can slow
+        down everyone else. To prevent this, set one or both of these environment
+        variables:
+
+        - ``CHORAS_SIM_CPUS``: how many CPUs one simulation may use, e.g. ``"2"``
+          or ``"1.5"``.
+        - ``CHORAS_SIM_MEM_LIMIT``: how much memory one simulation may use, in
+          Docker's notation, e.g. ``"4g"`` for 4 GB. A simulation that needs more
+          is stopped by Docker.
+
+        If a variable is not set, there is no limit for it.
+
+        Returns
+        -------
+        limits : dict
+            The limits as keyword arguments for ``docker.containers.run``.
+            The dictionary is empty if no limits are set.
+
+        Raises
+        ------
+        ValueError
+            If ``CHORAS_SIM_CPUS`` is not a number.
+
+        Notes
+        -----
+        Docker expects the CPU limit in "nano CPUs", which are billionths of a CPU.
+        For example, ``CHORAS_SIM_CPUS="1.5"`` becomes ``nano_cpus=1_500_000_000``.
+        This is the same as ``docker run --cpus=1.5``.
+
+        The limit does not pin the simulation to specific cores. It limits the total
+        computing time the simulation gets: with 1.5, it can use at most one and a
+        half cores' worth of time, spread over any cores. It is a maximum, not a
+        guarantee: if the host is busy, the simulation may get less.
+        """
+        limits = {}
+        cpus = os.getenv("CHORAS_SIM_CPUS")
+        if cpus:
+            limits["nano_cpus"] = int(float(cpus) * 1e9)
+        mem_limit = os.getenv("CHORAS_SIM_MEM_LIMIT")
+        if mem_limit:
+            limits["mem_limit"] = mem_limit
+        return limits
+
+    def execute(self, method_config: dict[str, Any], sim_config: dict[str, Any]) -> tuple:
         """
         Executes a simulation by running a Docker container with the specified configuration.
 
@@ -127,6 +176,7 @@ class LocalExecutor(SimulationExecutor):
                 name=container_name,
                 # name=f"simjob_{job_id[:8]}",
                 remove = True,
+                **self._get_resource_limits(),
             )
 
             # Get simulation method for logging
@@ -160,7 +210,7 @@ class LocalExecutor(SimulationExecutor):
             logger.error(f"Failed to start Docker container: {e}")
             raise
 
-    def cancel(self, cancelation_info: Dict[str, Any]):
+    def cancel(self, cancelation_info: dict[str, Any]):
         """
         Cancels a running Docker container by its container name.
 
