@@ -61,6 +61,12 @@ class LocalExecutor(SimulationExecutor):
         """
         Constructs a unique container name based on the simulation method and simulation ID.
 
+        Simulation IDs start at 1 in every CHORAS database, so two CHORAS instances on the
+        same Docker host would try to create containers with the same name. To avoid this,
+        give each instance its own name in the CHORAS_INSTANCE_NAME environment variable.
+        It then becomes part of the container name, e.g. 'choras-user01-de-simulation-1'.
+        Without the variable, the name stays 'choras-de-simulation-1'.
+
         Args:
             method_config (Dict[str, Any]): Configuration dictionary containing 'simulation_method' and 'simulation_id'.
 
@@ -70,6 +76,9 @@ class LocalExecutor(SimulationExecutor):
 
         simulation_method = method_config["simulation_method"]
         simulation_id = method_config["simulation_id"]
+        instance_name = os.getenv("CHORAS_INSTANCE_NAME")
+        if instance_name:
+            return f"choras-{instance_name}-{simulation_method}-simulation-{simulation_id}"
         return f"choras-{simulation_method}-simulation-{simulation_id}"
 
     def execute(self, method_config: Dict[str, Any], sim_config: Dict[str, Any]) -> tuple:
