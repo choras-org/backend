@@ -50,6 +50,13 @@ def sim_config():
     }
 
 
+@pytest.fixture(autouse=True)
+def clear_executor_env(monkeypatch):
+    """Ensures the optional executor env vars are unset unless a test sets them."""
+    for name in ("CHORAS_INSTANCE_NAME", "CHORAS_SIM_CPUS", "CHORAS_SIM_MEM_LIMIT"):
+        monkeypatch.delenv(name, raising=False)
+
+
 
 
 # =============================================================================
@@ -287,3 +294,76 @@ class TestLocalExecutorExecute:
             calls = mock_logger.info.call_args_list
             assert "Line 1" in calls[0][0][0]
             assert "Line 2" in calls[1][0][0]
+
+
+# =============================================================================
+# Tests: optional instance name and resource limits
+# =============================================================================
+
+class TestLocalExecutorInstanceName:
+
+    def test_name_without_instance_name(self, method_config):
+        """Without CHORAS_INSTANCE_NAME the container name is unchanged."""
+        assert LocalExecutor()._get_container_name(method_config) == "choras-MySim-simulation-123"
+
+    def test_name_with_instance_name(self, monkeypatch, method_config):
+        """CHORAS_INSTANCE_NAME is added to the container name."""
+        monkeypatch.setenv("CHORAS_INSTANCE_NAME", "user01")
+        assert LocalExecutor()._get_container_name(method_config) == "choras-user01-MySim-simulation-123"
+
+    def test_cancel_uses_instance_name(self, monkeypatch, mock_docker_client):
+        """cancel() looks up the container including CHORAS_INSTANCE_NAME."""
+        monkeypatch.setenv("CHORAS_INSTANCE_NAME", "user01")
+        LocalExecutor().cancel({"simulation_method": "MySim", "simulation_id": 123})
+        mock_docker_client.containers.get.assert_called_once_with("choras-user01-MySim-simulation-123")
+
+
+class TestLocalExecutorResourceLimits:
+
+    def test_no_limits_by_default(self):
+        """Without the env vars no limits are set."""
+        assert LocalExecutor()._get_resource_limits() == {}
+
+    def test_cpu_limit(self, monkeypatch):
+        """CHORAS_SIM_CPUS is converted to nano CPUs."""
+        monkeypatch.setenv("CHORAS_SIM_CPUS", "1.5")
+        assert LocalExecutor()._get_resource_limits() == {"nano_cpus": 1_500_000_000}
+
+    def test_memory_limit(self, monkeypatch):
+        """CHORAS_SIM_MEM_LIMIT is passed on as is."""
+        monkeypatch.setenv("CHORAS_SIM_MEM_LIMIT", "4g")
+        assert LocalExecutor()._get_resource_limits() == {"mem_limit": "4g"}
+
+    def test_invalid_cpu_limit_raises(self, monkeypatch):
+        """A non-numeric CHORAS_SIM_CPUS raises a ValueError."""
+        monkeypatch.setenv("CHORAS_SIM_CPUS", "two")
+        with pytest.raises(ValueError):
+            LocalExecutor()._get_resource_limits()
+
+    @patch("app.services.executors.local_executor.get_host_path_for_container_path")
+    def test_execute_passes_limits(
+        self, mock_resolve, monkeypatch, mock_docker_client, method_config, sim_config
+    ):
+        """execute() passes configured limits to containers.run()."""
+        monkeypatch.setenv("CHORAS_SIM_CPUS", "2")
+        monkeypatch.setenv("CHORAS_SIM_MEM_LIMIT", "4g")
+        mock_resolve.return_value = "/host/uploads"
+
+        LocalExecutor().execute(method_config, sim_config)
+
+        call_kwargs = mock_docker_client.containers.run.call_args.kwargs
+        assert call_kwargs["nano_cpus"] == 2_000_000_000
+        assert call_kwargs["mem_limit"] == "4g"
+
+    @patch("app.services.executors.local_executor.get_host_path_for_container_path")
+    def test_execute_without_limits(
+        self, mock_resolve, mock_docker_client, method_config, sim_config
+    ):
+        """execute() passes no limit arguments when none are configured."""
+        mock_resolve.return_value = "/host/uploads"
+
+        LocalExecutor().execute(method_config, sim_config)
+
+        call_kwargs = mock_docker_client.containers.run.call_args.kwargs
+        assert "nano_cpus" not in call_kwargs
+        assert "mem_limit" not in call_kwargs
