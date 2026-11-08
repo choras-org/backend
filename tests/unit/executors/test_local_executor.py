@@ -340,6 +340,17 @@ class TestLocalExecutorResourceLimits:
         with pytest.raises(ValueError):
             LocalExecutor()._get_resource_limits()
 
+    @pytest.mark.parametrize("cpus", ["0", "-1", "0.0000000005"])
+    def test_non_positive_cpu_limit_raises(self, monkeypatch, cpus):
+        """A CPU limit that ends up as 0 or less nano CPUs raises a ValueError.
+
+        Docker treats 0 nano CPUs as "no limit", so a tiny value like
+        "0.0000000005" would otherwise remove the limit without any warning.
+        """
+        monkeypatch.setenv("CHORAS_SIM_CPUS", cpus)
+        with pytest.raises(ValueError, match="CHORAS_SIM_CPUS"):
+            LocalExecutor()._get_resource_limits()
+
     @patch("app.services.executors.local_executor.get_host_path_for_container_path")
     def test_execute_passes_limits(
         self, mock_resolve, monkeypatch, mock_docker_client, method_config, sim_config
