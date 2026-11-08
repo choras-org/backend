@@ -49,6 +49,7 @@ dependencies = [
     'ezdxf', # explicitly imported (for DXF file handling, Mesh handling)
     'docker',
     'paramiko',
+    "pydantic", # explicitly imported (visualization service)
     'pyfar',
     'pyrato>=1.1.0',
     'shapely==2.1.2', # exact pin maybe not required
