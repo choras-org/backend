@@ -124,7 +124,10 @@ class LocalExecutor(SimulationExecutor):
         limits = {}
         cpus = os.getenv("CHORAS_SIM_CPUS")
         if cpus:
-            limits["nano_cpus"] = int(float(cpus) * 1e9)
+            nano_cpus = int(float(cpus) * 1e9)
+            if nano_cpus <= 0:
+                raise ValueError("CHORAS_SIM_CPUS must produce a positive nano_cpus limit")
+            limits["nano_cpus"] = nano_cpus
         mem_limit = os.getenv("CHORAS_SIM_MEM_LIMIT")
         if mem_limit:
             limits["mem_limit"] = mem_limit
