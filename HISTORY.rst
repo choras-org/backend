@@ -10,6 +10,10 @@ Features
 
 - Add the optional ``CHORAS_INSTANCE_NAME`` to simulation container names, so several CHORAS instances can share one Docker host (#153)
 - Add optional CPU and memory limits for simulation containers via ``CHORAS_SIM_CPUS`` and ``CHORAS_SIM_MEM_LIMIT`` (#153)
+- Remove no longer supported black formatter from dependencies (#154)
+
+0.2.1 (2026-11-03)
+------------------
 
 Bug Fixes
 ~~~~~~~~~
