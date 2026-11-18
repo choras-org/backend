@@ -5,22 +5,23 @@ import config
 import shutil
 import json
 
+from celery import shared_task
 from flask_smorest import abort
+from sqlalchemy.orm import scoped_session, sessionmaker
 from werkzeug.utils import secure_filename
 
 from app.db import db
-from app.models import Model
+from app.models import Model, File, ModelIssue
+from app.types import DetectionStage, RepairStatus, GeometryProcessingStatus
 from config import FeatureToggle, DefaultConfig
 from config import app_dir
 from datetime import datetime
-
 from app.services import file_service
-
 # Create logger for this module
 logger = logging.getLogger(__name__)
 
-
 def create_new_model(model_data):
+    logger.warning(f"Creating new model with data: {model_data}")
     new_model = Model(
         name=model_data["name"],
         projectId=model_data["projectId"],
@@ -29,20 +30,188 @@ def create_new_model(model_data):
         imagePath=model_data["imagePath"] if "imagePath" in model_data else None,
     )
 
-    if FeatureToggle.is_enabled("enable_geo_conversion"):
-        new_model.hasGeo = True
-
+    db.session.add(new_model)
     try:
-        db.session.add(new_model)
-        db.session.commit()
+        db.session.flush()
 
+        dispatch_geometry = False
+        if FeatureToggle.is_enabled("enable_geo_conversion"):
+            file = File.query.filter_by(id=model_data["sourceFileId"]).first()
+            if file:
+                file_name, _ = os.path.splitext(os.path.basename(file.fileName))
+
+                # Create the .geo File row up front so it persists even if the
+                # background pipeline crashes; the actual .geo content is
+                # produced by the repair task.
+                file_geo = File(fileName=f"{file_name}.geo")
+                new_model.hasGeo = True
+                db.session.add(file_geo)
+
+                # Mark the model as queued for background geometry processing.
+                new_model.geometryStatus = GeometryProcessingStatus.Pending
+                new_model.geometryProgress = 0
+                dispatch_geometry = True
+
+        # Commit the model (and the .geo File) immediately so a slow or failing
+        # pipeline can never roll back the model creation.
+        db.session.commit()
     except Exception as ex:
         db.session.rollback()
         logger.error(f"Can not create a new model: {ex}")
         abort(400, f"Can not create a new model: {ex}")
 
+    # Dispatch the heavy inspect + repair pipeline to a background Celery task
+    # so the HTTP request returns immediately (avoids the gunicorn worker
+    # timeout). The task updates geometryStatus/geometryProgress as it runs.
+    if dispatch_geometry:
+        process_model_geometry.delay(new_model.id)
+
     return new_model
 
+
+def reprocess_model_geometry(model_id):
+    """Re-run the background geometry pipeline for a model.
+
+    Intended for models whose pipeline previously failed. Clears any stale
+    ModelIssue rows and the repair decision, resets the status to ``Pending``
+    and dispatches the task again.
+    """
+    model = get_model(model_id)
+
+    if not model.hasGeo:
+        logger.error(f"Model {model_id} has no geometry to process")
+        abort(400, message="This model has no geometry to process")
+
+    if model.geometryStatus == GeometryProcessingStatus.Processing:
+        logger.warning(f"Model {model_id} is already processing")
+        abort(409, message="Geometry processing is already running for this model")
+
+    try:
+        # Idempotency: drop any partial results from a previous run so the task
+        # does not create duplicate ModelIssue rows.
+        ModelIssue.query.filter_by(modelId=model.id).delete()
+        model.repairStatus = None
+        model.geometryStatus = GeometryProcessingStatus.Pending
+        model.geometryProgress = 0
+        model.updatedAt = datetime.now()
+        db.session.commit()
+    except Exception as ex:
+        db.session.rollback()
+        logger.error(f"Can not reset model {model_id} for reprocessing: {ex}")
+        abort(400, message=f"Can not reprocess geometry: {ex}")
+
+    process_model_geometry.delay(model.id)
+    return model
+
+
+@shared_task
+def process_model_geometry(model_id: int):
+    from app.services.geometry_service import run_geometry_pipeline
+
+    """Run the inspect + repair geometry pipeline for a model in the background.
+
+    Mirrors the ``run_solver`` task pattern: a fresh scoped session, all errors
+    caught, and ``geometryStatus``/``geometryProgress`` updated as the pipeline
+    advances. Writes the ``AfterUpload`` and ``AfterRepair`` ``ModelIssue`` rows
+    and sets ``repairStatus = Pending`` when a repaired geometry is available.
+    """
+    logger.info(f"Running geometry pipeline task for model_id: {model_id}")
+
+    session = scoped_session(sessionmaker(bind=db.engine))()
+
+    def _set_progress(model, pct):
+        model.geometryProgress = pct
+        session.commit()
+
+    try:
+        model = session.query(Model).get(model_id)
+        if model is None:
+            logger.error(f"Model with id {model_id} not found")
+            return
+
+        source_file = session.query(File).get(model.sourceFileId)
+        if source_file is None:
+            logger.error(f"Source file {model.sourceFileId} not found for model {model_id}")
+            model.geometryStatus = GeometryProcessingStatus.Failed
+            session.commit()
+            return
+
+        file_name, _ = os.path.splitext(os.path.basename(source_file.fileName))
+        directory = DefaultConfig.UPLOAD_FOLDER
+        base_url = file_service.upload_dir()
+
+        model.geometryStatus = GeometryProcessingStatus.Processing
+        _set_progress(model, 5)
+
+        # Idempotency: remove any issue rows from a previous (failed/retried)
+        # run so this task never produces duplicates.
+        session.query(ModelIssue).filter_by(modelId=model.id).delete()
+        session.commit()
+
+        obj_path = os.path.join(directory, f"{file_name}.obj")
+
+        inital_issue_path = os.path.join(directory, f"{file_name}_inspect_issue.json")
+        initial_issue_url = f"{base_url}/{os.path.basename(inital_issue_path)}"
+        initial_model_path = os.path.join(directory, f"{file_name}.zip")
+        initial_model_url = f"{base_url}/{os.path.basename(initial_model_path)}"
+
+        def _on_checkpoint(payload):
+            # AfterUpload: initial issues, persisted mid-pipeline.
+            session.add(
+                ModelIssue(
+                    modelId=model.id,
+                    fileUrl=initial_issue_url,
+                    issueCount=payload.get("issue_count", 0),
+                    detectionStage=DetectionStage.AfterUpload,
+                    modelFileUrl=initial_model_url,
+                    geometryPath=obj_path,
+                )
+            )
+            session.commit()
+            _set_progress(model, 35)
+
+        _, remaining_issue_count = run_geometry_pipeline(
+            obj_path,
+            directory,
+            "RoomVolume",
+            on_checkpoint=_on_checkpoint,
+        )
+
+        issue_path = os.path.join(directory, f"{file_name}_remaining_issue.json")
+        issue_url = f"{base_url}/{os.path.basename(issue_path)}"
+        repaired_model_path = os.path.join(directory, f"{file_name}_repaired.zip")
+        repaired_model_url = f"{base_url}/{os.path.basename(repaired_model_path)}"
+        repaired_obj_path = os.path.join(directory, f"{file_name}_repaired.obj")
+        session.add(
+            ModelIssue(
+                modelId=model.id,
+                fileUrl=issue_url,
+                issueCount=remaining_issue_count,
+                detectionStage=DetectionStage.AfterRepair,
+                modelFileUrl=repaired_model_url,
+                geometryPath=repaired_obj_path,
+            )
+        )
+        _set_progress(model, 90)
+
+        # A repaired geometry is available but the user has not yet accepted or
+        # rejected it.
+        model.repairStatus = RepairStatus.Pending
+        model.geometryStatus = GeometryProcessingStatus.Completed
+        _set_progress(model, 100)
+        logger.info(f"Geometry pipeline completed for model {model_id}")
+    except Exception as ex:
+        session.rollback()
+        logger.exception(f"Geometry pipeline failed for model {model_id}: {ex}")
+        try:
+            model = session.query(Model).get(model_id)
+            if model is not None:
+                model.geometryStatus = GeometryProcessingStatus.Failed
+                session.commit()
+        except Exception:
+            session.rollback()
+    finally:
+        session.close()
 
 def get_model(model_id):
     model = Model.query.filter_by(id=model_id).first()
@@ -50,6 +219,90 @@ def get_model(model_id):
         logger.error("Model with id " + str(model_id) + "does not exists!")
         abort(404, "Model does not exist")
     return model
+
+
+def set_repair_decision(model_id, accept):
+    """Accept or reject the repaired geometry for a model.
+
+    When accepted, the model's ``outputFileId`` is switched to a File row
+    representing the repaired 3DM so that both the viewer URL and the
+    simulation geometry (.geo/.msh) resolve to the repaired files. When
+    rejected, ``outputFileId`` is reset to the original ``sourceFileId``.
+    """
+    model = get_model(model_id)
+
+    if model.repairStatus is None:
+        logger.error(f"Model {model_id} has no repaired geometry to decide on")
+        abort(400, message="No repaired geometry is available for this model")
+
+    if accept:
+        source_file = file_service.get_file_by_id(model.sourceFileId)
+        stem, _ = os.path.splitext(os.path.basename(source_file.fileName))
+
+        directory = DefaultConfig.UPLOAD_FOLDER
+        repaired_geo = os.path.join(directory, f"{stem}_repaired.geo")
+        repaired_zip = os.path.join(directory, f"{stem}_repaired.zip")
+        if not os.path.exists(repaired_geo) or not os.path.exists(repaired_zip):
+            logger.error(
+                f"Repaired geometry files missing for model {model_id}: "
+                f"{repaired_geo} / {repaired_zip}"
+            )
+            abort(400, message="Repaired geometry files are not available")
+
+        repaired_file_name = f"{stem}_repaired.3dm"
+        repaired_file = File.query.filter_by(fileName=repaired_file_name).first()
+        if not repaired_file:
+            repaired_file = File(fileName=repaired_file_name)
+            db.session.add(repaired_file)
+            db.session.flush()
+
+        model.outputFileId = repaired_file.id
+        model.repairStatus = RepairStatus.Accepted
+    else:
+        model.outputFileId = model.sourceFileId
+        model.repairStatus = RepairStatus.Rejected
+
+    model.updatedAt = datetime.now()
+
+    try:
+        db.session.commit()
+    except Exception as ex:
+        db.session.rollback()
+        logger.error(f"Can not update the repair decision: {ex}")
+        abort(400, message=f"Can not update the repair decision: {ex}")
+
+    return model
+
+
+def get_obj_download(model_id, variant=None):
+    """Resolve the ``.obj`` geometry to download for a model.
+
+    Returns ``(directory, filename)`` for the requested geometry. ``variant``
+    (``"repaired"`` | ``"initial"``) forces a specific version; when omitted the
+    repaired OBJ is used if the repair was accepted, otherwise the original
+    (non-repaired) OBJ. Aborts when the resolved file is missing.
+    """
+    model = get_model(model_id)
+
+    source_file = file_service.get_file_by_id(model.sourceFileId)
+    stem, _ = os.path.splitext(os.path.basename(source_file.fileName))
+
+    if variant == "repaired":
+        use_repaired = True
+    elif variant == "initial":
+        use_repaired = False
+    else:
+        use_repaired = model.repairStatus == RepairStatus.Accepted
+
+    directory = DefaultConfig.UPLOAD_FOLDER
+    filename = f"{stem}_repaired.obj" if use_repaired else f"{stem}.obj"
+
+    obj_path = os.path.join(directory, filename)
+    if not os.path.exists(obj_path):
+        logger.error(f"OBJ missing for model {model_id}: {obj_path}")
+        abort(404, message="Geometry file is not available")
+
+    return directory, filename
 
 
 def update_model(model_id, model_data):

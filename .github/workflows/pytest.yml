@@ -12,8 +12,12 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
+      # build-essential, libcgal-dev, libeigen3-dev: uv sync compiles
+      # geometry_pipeline's native CGAL detector (skipped silently without CGAL)
       - name: Install system dependencies
-        run: sudo apt install -y libglu1-mesa libsndfile1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa libsndfile1 build-essential libcgal-dev libeigen3-dev
       - uses: actions/checkout@v5
         with:
           submodules: recursive

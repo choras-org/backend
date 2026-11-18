@@ -41,13 +41,18 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      # build-essential, libcgal-dev, libeigen3-dev: uv sync compiles
+      # geometry_pipeline's native CGAL detector (skipped silently without CGAL)
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libglu1-mesa \
             libgl1 \
-            mesa-utils
+            mesa-utils \
+            build-essential \
+            libcgal-dev \
+            libeigen3-dev
           uv sync --group tests
       # Fails if a model was changed without a matching migration in migrations/versions/.
       # Downgrading afterwards leaves the database empty for the tests.
