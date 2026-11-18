@@ -723,12 +723,9 @@ def run_geometry_pipeline(
     """
     from pathlib import Path as _Path
 
-    # Imported lazily (not at module load) so that importing ``app.services``
-    # does not require ``geometry_pipeline`` to be installed. The package is
-    # only present in the Docker image; native/CI environments that never call
-    # this function can still import the service layer. Mirrors how
-    # simulation-backend is decoupled (config + out-of-process) rather than
-    # imported directly.
+    # Imported lazily so importing ``app.services`` does not pull in the
+    # pipeline's heavy geometry stack (gmsh, trimesh, ...) for callers that
+    # never run it.
     from geometry_pipeline import process_geometry
 
     out_dir = _Path(output_dir)

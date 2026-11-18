@@ -54,6 +54,9 @@ dependencies = [
     'pyrato>=1.1.0',
     'shapely==2.1.2', # exact pin maybe not required
     'acousticDE==0.1.0',
+    # explicitly imported (geometry repair pipeline); builds its native detector when CGAL is installed
+    # shortcut: pinned to an unreleased commit, switch to the v0.1.0 tag once geometry_pipeline is released
+    'geometry_pipeline @ git+https://github.com/choras-org/geometry_pipeline@924dab1ea3994deaee2121be1644209103fc8936',
 ]
 
 [dependency-groups]
