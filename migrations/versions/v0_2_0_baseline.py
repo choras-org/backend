@@ -1,7 +1,7 @@
 """v0.2.0 baseline
 
 Full schema of the v0.2.0 release (unchanged in v0.2.1). Databases created
-before Alembic was introduced are stamped at this revision: flask db stamp v0_2_0
+before Alembic was introduced are stamped at this revision by `flask stamp-legacy-db`.
 
 Revision ID: v0_2_0
 Revises: 

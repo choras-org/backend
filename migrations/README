@@ -39,15 +39,16 @@ APP_SETTINGS_MODULE=config.DevelopConfig flask db upgrade
 ## First-time deployment on a pre-existing database
 
 Databases created before Alembic was introduced (CHORAS v0.2.0 and v0.2.1, via
-`flask create-db`) have no `alembic_version` table. Running `flask db upgrade` on them
-fails with `relation ... already exists`. Mark them once as being at the baseline,
-then upgrade as usual:
+`flask create-db`) have no `alembic_version` table, so `flask db upgrade` alone would
+fail with `relation ... already exists`. `entrypoint.sh` therefore runs
+`flask stamp-legacy-db` first: it marks such databases as being at the `v0_2_0`
+baseline and does nothing for new databases or ones already using migrations.
+
+Outside Docker, run the same two commands:
 ```sh
-flask db stamp v0_2_0
+flask stamp-legacy-db
 flask db upgrade
 ```
-
-Subsequent deploys just need `flask db upgrade` (already in `entrypoint.sh`).
 
 ## Adding a new migration
 
