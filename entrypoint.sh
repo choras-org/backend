@@ -20,7 +20,7 @@ echo "Environment:" $APP_ENV
 # Fresh databases: the full migration chain creates the schema from scratch.
 # Existing databases: only pending migrations are applied.
 # NOTE: First-time deployment on a database created before Alembic was introduced
-# requires a one-time manual stamp: flask db stamp aa014146bd5b
+# (CHORAS <= v0.2.1) requires a one-time manual stamp: flask db stamp v0_2_0
 echo "Applying database migrations..."
 flask db upgrade || exit 1
 echo "Done applying database migrations"

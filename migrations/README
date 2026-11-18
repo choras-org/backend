@@ -32,27 +32,19 @@ APP_SETTINGS_MODULE=config.DevelopConfig flask db upgrade
 
 ## Migration history
 
-| Revision       | Description                                      |
-|----------------|--------------------------------------------------|
-| `aa014146bd5b` | Baseline: full initial schema (pre-errorMessage) |
-| `9b846e1fdacb` | Add `errorMessage` to `simulations` and `simulationRuns` |
+| Revision | Description                                                  |
+|----------|--------------------------------------------------------------|
+| `v0_2_0` | Baseline: full schema of the v0.2.0 release (same in v0.2.1) |
 
 ## First-time deployment on a pre-existing database
 
-Databases created before Alembic was introduced have no `alembic_version` table.
-The correct stamp revision depends on whether `errorMessage` columns are already present:
-
-**Database created with the old code (no `errorMessage` columns):** stamp at the baseline,
-then upgrade to add the columns.
+Databases created before Alembic was introduced (CHORAS v0.2.0 and v0.2.1, via
+`flask create-db`) have no `alembic_version` table. Running `flask db upgrade` on them
+fails with `relation ... already exists`. Mark them once as being at the baseline,
+then upgrade as usual:
 ```sh
-flask db stamp aa014146bd5b
+flask db stamp v0_2_0
 flask db upgrade
-```
-
-**Database created with the current code via `flask create-db` (has `errorMessage` columns):**
-stamp directly at head — no upgrade needed.
-```sh
-flask db stamp 9b846e1fdacb
 ```
 
 Subsequent deploys just need `flask db upgrade` (already in `entrypoint.sh`).
