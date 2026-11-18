@@ -54,6 +54,17 @@ jobs:
             libcgal-dev \
             libeigen3-dev
           uv sync --group tests
+      # Fails if a model was changed without a matching migration in migrations/versions/.
+      # Downgrading afterwards leaves the database empty for the tests.
+      - name: Check database migrations
+        env:
+          DATABASE_URL: postgresql+psycopg2://test_user:test_password@localhost:5432/test_db
+          FLASK_APP: app:app
+          APP_SETTINGS_MODULE: config.TestingConfigs
+        run: |
+          uv run flask db upgrade
+          uv run flask db check
+          uv run flask db downgrade base
       - name: Run tests
         env:
           DATABASE_URL: postgresql+psycopg2://test_user:test_password@localhost:5432/test_db
