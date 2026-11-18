@@ -10,6 +10,9 @@ from config import CustomExportParametersConfig
 from flask_smorest import abort
 from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
 
+import pyfar as pf
+import numpy as np
+
 from app.db import db
 from app.factory.export_factory.ExportHelper import ExportHelper
 from app.models import Export, Simulation, SimulationRun, Task
@@ -481,15 +484,14 @@ def run_solver(simulation_run_id: int, json_path: str):
                         json_path.replace(".json", "_pressure.csv"),
                         json_path.replace(".json", ".wav"),
                     )
+                    rir = pf.Signal(imp_tot, fs)
 
                 # this should be the only thing getting executed
                 case _:
-                    import numpy as np
-
                     with open(json_path, "r") as json_file:
                         result_container = json.load(json_file)
 
-                    imp_tot = np.array(result_container["results"][0]["responses"][0]["receiverResults"])
+                    receiverResults = result_container["results"][0]["responses"][0]["receiverResults"]
 
                     with open(json_path, "r") as json_file:
                         input_data = json.load(json_file)
@@ -504,13 +506,11 @@ def run_solver(simulation_run_id: int, json_path: str):
 
                     rir_wav_file_name = json_path.replace(".json", ".wav")
 
-                    import pyfar as pf
-
-                    if imp_tot is None or len(imp_tot) == 0:
-                        logger.warning("Impulse response data is empty or missing")
-                        imp_tot = np.zeros(44100)  # 1 second of silence at 44.1 kHz
-                        norm_rir = pf.Signal(imp_tot, fs) # don't use the pf.dsp.normalize function on an empty signal, as it returns NaN values.
+                    if receiverResults is None or len(receiverResults) == 0:
+                        post_msg = "Please check the container logs or terminal output for more details."
+                        raise RuntimeError("Impulse response data is empty or missing. " + post_msg)
                     else:
+                        imp_tot = np.array(receiverResults, dtype=float)
                         rir = pf.Signal(imp_tot, fs)
                         # Normalise the rir. Some methods return pressure values that are too high, which causes issues when writing to wav.
                         norm_rir = pf.dsp.normalize(rir)
@@ -520,6 +520,39 @@ def run_solver(simulation_run_id: int, json_path: str):
 
             # logs = container.logs().decode("utf-8")
             # logger.info(f"{simulation_method} container FULL logs:\n{logs}")
+
+            # ------------------------
+            # Room acoustic parameters
+            # ------------------------
+
+            if not cancelled:
+                logger.info(f"Calculating room acoustic parameters for simulation_run_id: {simulation_run_id}")
+                from app.utils.room_acoustic_parameters import calculate_room_acoustic_parameters
+
+                bands = pf.constants.fractional_octave_frequencies_nominal(
+                    num_fractions=1, frequency_range=(125, np.min([rir.sampling_rate/2, 2e3])),
+                ).astype(int)
+
+                room_acoustic_parameters = calculate_room_acoustic_parameters(
+                    rir,
+                    bands=bands,
+                )
+
+                with open(json_path, "r") as json_file:
+                    result_container = json.load(json_file)
+
+                parameter_container = result_container["results"][0]["responses"][0]["parameters"]
+
+                for key, value in room_acoustic_parameters.items():
+                    if not parameter_container.get(key):
+                        parameter_container[key] = value
+                    else:
+                        logger.warning(f"Skipping existing room acoustic parameter '{key}'.")
+
+                with open(json_path, "w") as json_file:
+                    json.dump(result_container, json_file)
+
+                logger.info(f"Room acoustic parameters exported to JSON for simulation_run_id: {simulation_run_id}")
 
             if os.path.exists(cancel_flag_path):
                 logger.info("Cancelled: Not saving to xlsx")

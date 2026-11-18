@@ -381,7 +381,7 @@ The CI pipeline runs automatically on every push and pull request to
 protected branches (`main`, `dev`, `feature/*`, `bugfix/*`, `testing/*`).
 
 **CI environment:**
-- GitHub Actions · Ubuntu Latest · Python 3.10
+- GitHub Actions · Ubuntu Latest · Python 3.11+
 - PostgreSQL 15 service container (replaces SQLite for test database)
 - Mock `methods-config.json` and settings files created at runtime since
   `simulation-backend` is not present as a submodule in CI

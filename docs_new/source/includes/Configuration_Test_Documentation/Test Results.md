@@ -6,7 +6,7 @@
 **Date:** 2026-03-17
 **Related Documents:** `Testing Strategy.md`, `Test Design v6.md`
 **Maintained by:** Test Manager
-**CI Environment:** GitHub Actions · Ubuntu Latest · Python 3.10.20 · pytest 9.0.2
+**CI Environment:** GitHub Actions · Ubuntu Latest · Python 3.11+ · pytest 9.0.2
 **Database:** PostgreSQL 15 (CI) · PostgreSQL (Local Docker)
 
 ---

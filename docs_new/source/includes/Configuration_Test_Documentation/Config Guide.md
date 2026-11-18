@@ -35,7 +35,7 @@ CHORAS/
 ### Required Software
 - **Docker Desktop** (latest stable) - [Download](https://www.docker.com/products/docker-desktop/)
 - **Git** (2.x or higher) - [Download](https://git-scm.com/)
-- **Python 3.10+** (for local backend development) - Optional
+- **Python 3.11+** (for local backend development) - Optional
 - **Node.js 18+** (for local frontend development) - Optional
 
 ### Verify Installation
