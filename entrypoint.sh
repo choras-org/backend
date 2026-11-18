@@ -16,7 +16,17 @@ fi
 
 echo "Environment:" $APP_ENV
 
-# If in local environment, set up the database and admin user
+# Apply any pending database migrations (safe to run on every startup).
+# Fresh databases: the full migration chain creates the schema from scratch.
+# Existing databases: only pending migrations are applied.
+# Databases created before migrations existed (CHORAS <= v0.2.1) are stamped at the
+# v0.2.0 baseline first; stamp-legacy-db does nothing for all other databases.
+echo "Applying database migrations..."
+flask stamp-legacy-db || exit 1
+flask db upgrade || exit 1
+echo "Done applying database migrations"
+
+# If in local environment, seed initial data
 if [ "$APP_ENV" = "local" ]; then
     echo "Start creating the database"
     flask create-db
