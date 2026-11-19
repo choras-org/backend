@@ -358,6 +358,53 @@ class RunSolverUnitTests(BaseTestCase):
             "❌ Malformed solverSettings → Simulation status should be Error")
         print("✅ Malformed solverSettings → Error status set correctly")
 
+    @patch('app.utils.room_acoustic_parameters.calculate_room_acoustic_parameters')
+    @patch('app.services.simulation_service.auralization_calculation')
+    @patch('app.services.simulation_service.ExportHelper')
+    @patch('app.services.simulation_service.executor_factory')
+    @patch('app.services.simulation_service.discover_entry_file')
+    @patch('app.services.simulation_service.discover_container_image')
+    @patch('app.services.simulation_service.scoped_session')
+    @patch('app.services.simulation_service.sessionmaker')
+    def test_success_sets_completed_and_percentage_100(
+        self, mock_sessionmaker, mock_scoped, mock_discover_image,
+        mock_discover_entry, mock_executor_factory, mock_export_helper,
+        mock_auralization, mock_rap
+    ):
+        """
+        Successful run → Completed with percentage 100, because the frontend stops
+        polling only at Completed with 100 % and get_simulation_run skips such runs.
+        """
+        test_json = {
+            **self.test_json,
+            "results": [{"resultType": "DE", "responses": [{"receiverResults": [], "parameters": {}}]}],
+        }
+        with open(self.json_path, "w") as f:
+            json.dump(test_json, f)
+
+        mock_simrun = self._make_mock_simrun()
+        mock_simrun.percentage = 37
+        mock_simulation = self._make_mock_simulation()
+        mock_session = self._make_mock_session(mock_simrun, mock_simulation)
+        mock_scoped.return_value.return_value = mock_session
+
+        mock_discover_image.return_value = "de_image:latest"
+        mock_discover_entry.return_value = "DEInterface.py"
+        mock_executor_factory.return_value.execute.return_value.wait.return_value = {"StatusCode": 0}
+        mock_export_helper.parse_json_file_to_xlsx_file.return_value = True
+        mock_export_helper.write_data_to_xlsx_file.return_value = True
+        mock_auralization.return_value = ([0.1, 0.2], 44100)
+        mock_rap.return_value = {}
+
+        with patch.dict('sys.modules', {'pyfar': MagicMock()}):
+            simulation_service.run_solver(self.simulation_run_id, self.json_path)
+
+        self.assertEqual(mock_simrun.status, Status.Completed,
+            "❌ Successful run → SimulationRun status should be Completed")
+        self.assertEqual(mock_simrun.percentage, 100,
+            "❌ Successful run → SimulationRun percentage should be 100")
+        print("✅ Successful run → Completed with percentage 100")
+
 
 class RunSolverErrorMessageTests(BaseTestCase):
     """Verify errorMessage is written to both SimulationRun and Simulation on failure."""

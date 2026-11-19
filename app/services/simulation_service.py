@@ -98,6 +98,11 @@ def get_simulation_run():
     )
 
     for simulation_run in result:
+        # Finished runs can't change anymore; re-reading their results JSON on every poll is expensive.
+        if simulation_run.status in (Status.Error, Status.Cancelled):
+            continue
+        if simulation_run.status == Status.Completed and simulation_run.percentage == 100:
+            continue
         update_simulation_run_status(simulation_run, simulation_run.simulation)
 
     return result
@@ -601,6 +606,8 @@ def run_solver(simulation_run_id: int, json_path: str):
                     simulation.completedAt = ""
                 else:
                     simulation_run.status = Status.Completed
+                    # The frontend stops polling only at Completed with 100 %.
+                    simulation_run.percentage = 100
                     simulation_run.completedAt = datetime.now()
                     simulation.status = Status.Completed
                     simulation.completedAt = datetime.now()
