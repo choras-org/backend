@@ -14,6 +14,11 @@ Features
 - Add database migrations, applied automatically on startup. Existing databases from v0.2.0 or v0.2.1 are detected and upgraded without manual steps (#137)
 - Add geometry inspection and repair: uploaded models are checked for issues and repaired in the background, users can accept or reject the repaired geometry, and simulation compatibility is reported per method for the original and repaired geometry (#143)
 
+Bug Fixes
+~~~~~~~~~
+
+- Stop re-reading the results of finished simulation runs every time the run list is polled; completed runs are now stored with 100 % (#158)
+
 0.2.1 (2026-11-03)
 ------------------
 
