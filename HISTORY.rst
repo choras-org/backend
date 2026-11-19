@@ -17,7 +17,7 @@ Features
 Bug Fixes
 ~~~~~~~~~
 
-- Stop re-reading the results of finished simulation runs every time the run list is polled; completed runs are now stored with 100 % (#158)
+- Stop re-reading the results of finished simulation runs every time the run list is polled; completed runs are now stored with 100 % (#159)
 
 0.2.1 (2026-11-03)
 ------------------
