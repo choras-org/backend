@@ -533,11 +533,17 @@ def run_solver(simulation_run_id: int, json_path: str):
             # -------------------------
 
             if not cancelled:
-
-                visualization_service.generate_visualization_data(
-                    rir,
-                    json_path,
-                )
+                # Plots are optional, a failure here must not fail the run
+                try:
+                    visualization_service.generate_visualization_data(
+                        rir,
+                        json_path,
+                    )
+                except Exception:
+                    logger.warning(
+                        f"Could not generate visualization data for simulation_run_id: "
+                        f"{simulation_run_id}\n{traceback.format_exc()}"
+                    )
 
             # ------------------------
             # Room acoustic parameters
