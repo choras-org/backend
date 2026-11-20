@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 import pyfar as pf
@@ -205,7 +205,7 @@ def generate_visualization_data(room_impulse_response: pf.Signal, json_path: str
             f.write(plot_data.model_dump_json())
 
 
-def get_visualization_data(simulation_id: int, visualization_type: str) -> Optional[dict]:
+def get_visualization_data(simulation_id: int, visualization_type: str) -> dict:
     """
     Load previously generated visualization plot data for a completed simulation.
 
@@ -218,13 +218,11 @@ def get_visualization_data(simulation_id: int, visualization_type: str) -> Optio
     """
     if visualization_type not in VISUALIZATION_TYPES:
         abort(400, message=f"Unknown visualization type '{visualization_type}'.")
-        return None
 
     simulation = check_if_simulation_completed(simulation_id)
 
     if simulation.export is None:
         abort(404, message=f"No result export found for simulation with ID {simulation_id}.")
-        return None
 
     file_path = os.path.join(
         DefaultConfig.UPLOAD_FOLDER_NAME,
@@ -242,7 +240,6 @@ def get_visualization_data(simulation_id: int, visualization_type: str) -> Optio
                 f"with ID {simulation_id}."
             ),
         )
-        return None
 
 
 def check_if_simulation_completed(simulation_id: int):
