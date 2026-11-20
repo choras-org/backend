@@ -60,6 +60,36 @@ class VisualizationServiceUnitTests(BaseTestCase):
                 self.assertTrue(all(math.isfinite(limit) for limit in plot_data["y_limits"]))
                 self.assertTrue(all(math.isfinite(limit) for limit in plot_data["x_limits"]))
 
+    def test_reduce_keeps_peaks(self):
+        """Reducing to 0.5 ms bins keeps the largest and smallest value."""
+        fs = 44100
+        times = np.arange(fs) / fs
+        y = np.zeros((1, fs))
+        y[0, 1000] = 1.0
+        y[0, 2000] = -0.5
+
+        x_reduced, y_reduced = visualization_service._reduce(
+            times, y, visualization_service._time_bin_edges(times), dB=False, x_decimals=6,
+        )
+
+        # 22 samples per bin, 2005 bins, two points per bin
+        self.assertEqual(len(x_reduced), 4010)
+        self.assertEqual(len(y_reduced[0]), 4010)
+        self.assertEqual(max(y_reduced[0]), 1.0)
+        self.assertEqual(min(y_reduced[0]), -0.5)
+
+    def test_reduce_keeps_falling_order(self):
+        """A monotonically falling curve, like an EDC, stays monotonic."""
+        fs = 44100
+        times = np.arange(fs) / fs
+        y = np.linspace(0, -60, fs)[np.newaxis, :]
+
+        _, y_reduced = visualization_service._reduce(
+            times, y, visualization_service._time_bin_edges(times), dB=True, x_decimals=6,
+        )
+
+        self.assertTrue(np.all(np.diff(y_reduced[0]) <= 0))
+
     def test_get_visualization_data_invalid_type(self):
         with self.app.app_context():
             self.assertRaises(
