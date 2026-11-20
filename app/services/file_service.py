@@ -21,6 +21,13 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in config.DefaultConfig.ALLOWED_EXTENSIONS
 
 
+def _api_base_url():
+    public_url = os.getenv("PUBLIC_API_URL")
+    if public_url:
+        return public_url.rstrip("/")
+    return f"http://{os.getenv('FLASK_RUN_HOST')}:{os.getenv('FLASK_RUN_PORT')}"
+
+
 def get_slot():
     try:
         file = File()
@@ -29,7 +36,7 @@ def get_slot():
         db.session.commit()
         return {
             "id": file.slot,
-            "uploadUrl": f"http://{os.getenv('FLASK_RUN_HOST')}:{os.getenv('FLASK_RUN_PORT')}/files?slot={file.slot}",
+            "uploadUrl": f"{_api_base_url()}/files?slot={file.slot}",
         }
     except Exception as ex:
         db.session.rollback()
@@ -94,7 +101,7 @@ def get_file_by_id(file_id):
 
 
 def upload_dir():
-    return f"http://{os.getenv('FLASK_RUN_HOST')}:{os.getenv('FLASK_RUN_PORT')}/uploads"
+    return f"{_api_base_url()}/uploads"
 
 
 def get_file_related_path(file_id, simulation_id, extension):

@@ -1,6 +1,6 @@
 [project]
 name = "choras-backend"
-version = "0.2.0"
+version = "0.2.1"
 description = "Backend for CHORAS"
 authors = [
     { name = "The CHORAS developers"},
@@ -54,6 +54,8 @@ dependencies = [
     'pyrato>=1.1.0',
     'shapely==2.1.2', # exact pin maybe not required
     'acousticDE==0.1.0',
+    # explicitly imported (geometry repair pipeline); builds its native detector when CGAL is installed
+    'geometry_pipeline @ git+https://github.com/choras-org/geometry_pipeline@v0.1.2',
 ]
 
 [dependency-groups]
@@ -73,7 +75,6 @@ tests = [
     'debugpy>=1.6.4',
     'pre-commit>=3.8.0',
     'coverage>=7.2.7',
-    'black==25.1.0',
     'isort==5.12.0',
     'flake8==6.1.0',
     'pycodestyle==2.11.1',
@@ -91,7 +92,7 @@ dev = [
 name = "app"
 
 [tool.bumpversion]
-current_version = "0.2.0"
+current_version = "0.2.1"
 commit = true
 tag = true
 

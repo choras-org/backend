@@ -149,11 +149,29 @@ def update_setting():
     setting_service.update_settings()
 
 
+def stamp_legacy_db():
+    """
+    Stamp a database created before migrations existed (CHORAS <= v0.2.1) at the v0.2.0 baseline.
+    Run before `flask db upgrade`; does nothing for new databases or ones already using migrations.
+    """
+    from alembic.migration import MigrationContext
+    from flask_migrate import stamp
+    from sqlalchemy import inspect
+
+    with db.engine.connect() as connection:
+        revision = MigrationContext.configure(connection).get_current_revision()
+        has_tables = "models" in inspect(connection).get_table_names()
+    if revision is None and has_tables:
+        print("Database predates migrations, stamping it at the v0.2.0 baseline")
+        stamp(revision="v0_2_0")
+
+
 def init_app(app):
     if app.config["APP_ENV"] == "production":
-        commands = [create_db, reset_db, drop_db, clean_cache, update_audio, update_setting]
+        commands = [create_db, reset_db, drop_db, clean_cache, update_audio, update_setting, stamp_legacy_db]
     else:
         commands = [
+            stamp_legacy_db,
             create_db,
             reset_db,
             drop_db,
