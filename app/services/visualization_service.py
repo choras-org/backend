@@ -42,7 +42,7 @@ def _process_y(
     db_margin: float,
     unit: str,
     quantity: str,
-) -> tuple[list[list[float]], tuple[float, float], str]:
+) -> tuple[np.ndarray, tuple[float, float], str]:
     y = np.squeeze(raw).astype(float)
     if dB:
         y = log_prefix * np.log10(np.abs(y))
@@ -51,7 +51,52 @@ def _process_y(
     else:
         y_limits = (float(np.min(y)), float(np.max(y)))
         ylabel = f"{quantity} ({unit})"
-    return y.reshape(-1, y.shape[-1]).tolist(), y_limits, ylabel
+    return y.reshape(-1, y.shape[-1]), y_limits, ylabel
+
+
+# Resolution of the reduced plot data, see `_reduce`
+TIME_BIN_WIDTH = 0.5e-3  # s
+FREQUENCY_BINS_PER_OCTAVE = 300
+
+
+def _time_bin_edges(times: np.ndarray) -> np.ndarray:
+    step = max(1, round(TIME_BIN_WIDTH / (times[1] - times[0])))
+    return np.append(np.arange(0, len(times), step), len(times))
+
+
+def _frequency_bin_edges(frequencies: np.ndarray) -> np.ndarray:
+    n_bins = int(FREQUENCY_BINS_PER_OCTAVE * np.log2(frequencies[-1] / 20)) + 1
+    log_edges = np.searchsorted(frequencies, np.geomspace(20, frequencies[-1], n_bins))
+    return np.unique(np.concatenate(([0], log_edges, [len(frequencies)])))
+
+
+def _reduce(
+    x: np.ndarray, y: np.ndarray, edges: np.ndarray, dB: bool, x_decimals: int,
+) -> tuple[list[float], list[list[float]]]:
+    """
+    Reduce each bin between `edges` to its minimum and maximum, so peaks are
+    kept while the plot data shrinks, and round the values for a compact JSON.
+    """
+    starts, ends = edges[:-1], edges[1:] - 1
+    lo = np.minimum.reduceat(y, starts, axis=-1)
+    hi = np.maximum.reduceat(y, starts, axis=-1)
+    # shortcut: the order of min and max within a bin is taken from the bin's
+    # first and last value, exact for monotonic data like the EDC, invisible
+    # for oscillating data at this resolution
+    falling = y[:, starts] > y[:, ends]
+    first = np.where(falling, hi, lo)
+    second = np.where(falling, lo, hi)
+    y_reduced = np.stack((first, second), axis=-1).reshape(y.shape[0], -1)
+    x_reduced = np.stack((x[starts], x[ends]), axis=-1).ravel()
+
+    if dB:
+        y_reduced = np.round(y_reduced, 2)
+    else:
+        # 5 significant digits relative to the peak
+        peak = np.max(np.abs(y_reduced[np.isfinite(y_reduced)]), initial=0)
+        if peak > 0:
+            y_reduced = np.round(y_reduced, 4 - int(np.floor(np.log10(peak))))
+    return np.round(x_reduced, x_decimals).tolist(), y_reduced.tolist()
 
 
 def export_time_data(
@@ -61,8 +106,8 @@ def export_time_data(
         legend: list[str] | None = None,
         log_prefix: float = 20,
     ) -> PlotData:
-    x = data.times.tolist()
     y, y_limits, ylabel = _process_y(data.time, dB, log_prefix, 85, unit, "Magnitude")
+    x, y = _reduce(data.times, y, _time_bin_edges(data.times), dB, x_decimals=6)
     return PlotData(
         x=x, y=y,
         xlabel="Time (s)", ylabel=ylabel,
@@ -77,8 +122,8 @@ def export_time_data_energy(
         dB: bool = False,
         legend: list[str] | None = None,
     ) -> PlotData:
-    x = data.times.tolist()
     y, y_limits, ylabel = _process_y(data.time, dB, 10, 65, unit, "Energy")
+    x, y = _reduce(data.times, y, _time_bin_edges(data.times), dB, x_decimals=6)
     return PlotData(
         x=x, y=y,
         xlabel="Time (s)", ylabel=ylabel,
@@ -93,8 +138,10 @@ def export_frequency_data(
         dB: bool = False,
         legend: list[str] | None = None,
     ) -> PlotData:
-    x = data.frequencies.tolist()
     y, y_limits, ylabel = _process_y(np.abs(data.freq), dB, 20, 80, unit, "Magnitude")
+    x, y = _reduce(
+        data.frequencies, y, _frequency_bin_edges(data.frequencies), dB, x_decimals=2,
+    )
     return PlotData(
         x=x, y=y,
         xlabel="Frequency (Hz)", ylabel=ylabel,
