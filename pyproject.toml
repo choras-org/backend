@@ -49,7 +49,8 @@ dependencies = [
     'ezdxf', # explicitly imported (for DXF file handling, Mesh handling)
     'docker',
     'paramiko',
-    'pyfar',
+    "pydantic", # explicitly imported (visualization service)
+    'pyfar>=0.8.0,<0.10', # 0.10 removes fractional_octave_frequencies (visualization service)
     'pyrato>=1.1.0',
     'shapely==2.1.2', # exact pin maybe not required
     'acousticDE==0.1.0',

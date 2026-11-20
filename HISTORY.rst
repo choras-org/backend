@@ -13,6 +13,7 @@ Features
 - Remove no longer supported black formatter from dependencies (#154)
 - Add database migrations, applied automatically on startup. Existing databases from v0.2.0 or v0.2.1 are detected and upgraded without manual steps (#137)
 - Add geometry inspection and repair: uploaded models are checked for issues and repaired in the background, users can accept or reject the repaired geometry, and simulation compatibility is reported per method for the original and repaired geometry (#143)
+- Add result visualization data and endpoint (#138)
 
 Bug Fixes
 ~~~~~~~~~
