@@ -47,7 +47,7 @@ def _process_y(
     if dB:
         y = log_prefix * np.log10(np.abs(y))
         y_limits = (float(np.max(y) - db_margin), float(np.max(y) + 5))
-        ylabel = f"{quantity} (dB re 1 {unit})"
+        ylabel = f"{quantity} (dB)" if unit == "-" else f"{quantity} (dB re 1 {unit})"
     else:
         y_limits = (float(np.min(y)), float(np.max(y)))
         ylabel = f"{quantity} ({unit})"
