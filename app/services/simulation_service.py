@@ -232,16 +232,21 @@ def start_solver_task(simulation_id):
 
     # Run the background task asynchronously
     absorption_coefficients = {}
+    absorption_coefficients_all_bands = {}
     for layer, material_id in simulation.layerIdByMaterialId.items():
         material = material_service.get_material_by_id(material_id)
         # Ignore the lower frequencies in [63, 125, 250, 500, 1000, 2000, 4000]
         absorption_coefficients[layer] = ", ".join(map(str, material.absorptionCoefficients[1:-1]))
+        # Full set of bands (63 Hz - 4 kHz), used by the DG method
+        absorption_coefficients_all_bands[layer] = [float(a) for a in material.absorptionCoefficients]
 
     with open(json_path, "w") as json_result_file:
         json_result_file.write(
             json.dumps(
                 {
                     "absorption_coefficients": absorption_coefficients,
+                    "absorption_coefficients_all_bands": absorption_coefficients_all_bands,
+                    "absorption_frequencies_all_bands": [63, 125, 250, 500, 1000, 2000, 4000],
                     "msh_path": msh_path,
                     "geo_path": geo_path,
                     "results": results_container,
