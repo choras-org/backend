@@ -19,6 +19,48 @@ print(edg_acoustics.__file__)
 
 # endregion
 
+def diffuse_alpha_of_impedance(z):
+    """Random-incidence (Paris) absorption of a locally reacting surface with real normalised impedance z = Z/(rho0*c0)."""
+    return 8.0 / z * (1.0 + 1.0 / (1.0 + z) - 2.0 / z * np.log(1.0 + z))
+
+
+# Maximum random-incidence absorption reachable with a real impedance (at z ~ 1.567)
+_Z_AT_MAX_ALPHA = 1.5671
+ALPHA_DIFFUSE_MAX = diffuse_alpha_of_impedance(_Z_AT_MAX_ALPHA)  # ~0.951
+
+
+def reflection_coefficient_from_diffuse_alpha(alpha_diffuse):
+    """Convert a diffuse-field (random-incidence) absorption coefficient into the frequency-independent,
+    normal-incidence reflection coefficient R used by edg-acoustics (in = R * out).
+
+    edg-acoustics models walls as locally reacting with a real impedance Z = rho0*c0*(1+R)/(1-R).
+    Using R = sqrt(1 - alpha) treats alpha as normal-incidence absorption, which overestimates the
+    diffuse-field absorption (e.g. alpha = 0.1 would behave like ~0.18). Here we solve for the impedance whose
+    random-incidence absorption equals alpha_diffuse (high-impedance branch, z >= 1.567) and return its R.
+    """
+    alpha = float(alpha_diffuse)
+    if alpha <= 0.0:
+        return 1.0
+    if alpha >= ALPHA_DIFFUSE_MAX:
+        print(f"Warning: diffuse absorption {alpha:.3f} exceeds the maximum {ALPHA_DIFFUSE_MAX:.3f} reachable "
+              f"with a real impedance in DG; using {ALPHA_DIFFUSE_MAX:.3f}.")
+        z = _Z_AT_MAX_ALPHA
+    else:
+        from scipy.optimize import brentq
+        z = brentq(lambda zz: diffuse_alpha_of_impedance(zz) - alpha, _Z_AT_MAX_ALPHA, 1e12, xtol=1e-12)
+    return (z - 1.0) / (z + 1.0)
+
+
+def bands_up_to_frequency(band_freqs, freq_upper_limit):
+    """Number of octave bands (from the lowest) up to and including the band that contains freq_upper_limit.
+
+    A band with centre frequency fc spans fc/sqrt(2) .. fc*sqrt(2); it is included when its lower edge lies
+    below freq_upper_limit. At least one band is always used.
+    """
+    n = sum(1 for fc in band_freqs if fc / np.sqrt(2) < freq_upper_limit)
+    return max(1, min(n, len(band_freqs)))
+
+
 # Absorption term for boundary conditions
 def abs_term(th, c0, abscoeff_list):
     Absx_array = np.array([])
@@ -129,12 +171,40 @@ def dg_method(json_file_path=None):
         materialNames, absorption_coefficient, surface_absorption, triangle_face_absorption = surface_materials(result_container, c0)
         BC_labels = {}
         RIvals = {}
+
+        # Octave bands of the CHORAS absorption coefficients. Prefer the full set (63 Hz - 4 kHz); older input
+        # files only contain 125 Hz - 2 kHz in 'absorption_coefficients'.
+        all_bands = result_container.get('absorption_coefficients_all_bands')
+        if all_bands:
+            band_freqs = list(result_container.get('absorption_frequencies_all_bands',
+                                                   [63, 125, 250, 500, 1000, 2000, 4000]))
+        else:
+            try:
+                band_freqs = list(result_container['results'][0]['frequencies'])
+            except (KeyError, IndexError, TypeError):
+                band_freqs = [125, 250, 500, 1000, 2000]
+        n_bands_used = bands_up_to_frequency(band_freqs, freq_upper_limit)
+        print(f"DG: averaging absorption over bands {band_freqs[:n_bands_used]} Hz "
+              f"(freq_upper_limit = {freq_upper_limit} Hz)")
         i = 0
         for ac in absorption_coefficient:
             BC_labels[materialNames[i]] = ac
 
-            # r = sqrt(1-a)
-            RIvals[materialNames[i]] = sqrt (1 - sum(absorption_coefficient[ac])/len(absorption_coefficient[ac]))
+            if simulation_settings.get('dg_absorption_override') == 'yes':
+                # User explicitly prescribed the DG reflection coefficient: use it as-is
+                RIvals[materialNames[i]] = simulation_settings['dg_R']
+            else:
+                # CHORAS absorption values are diffuse-field values. The DG boundary condition is frequency
+                # independent, so average them over the bands up to the one containing freq_upper_limit,
+                # then convert to the normal-incidence reflection coefficient of an equivalent locally
+                # reacting wall.
+                if all_bands and materialNames[i] in all_bands:
+                    alphas = [float(a) for a in all_bands[materialNames[i]]][:n_bands_used]
+                else:
+                    alphas = absorption_coefficient[ac][:n_bands_used]
+                alpha_mean = sum(alphas) / len(alphas)
+                RIvals[materialNames[i]] = reflection_coefficient_from_diffuse_alpha(alpha_mean)
+                print(f"DG material {materialNames[i]}: diffuse alpha {alpha_mean:.3f} -> R = {RIvals[materialNames[i]]:.4f}")
 
             i += 1
 
