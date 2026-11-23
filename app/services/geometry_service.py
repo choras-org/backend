@@ -717,6 +717,9 @@ def run_geometry_pipeline(
     initial (AfterUpload) issues, so the caller can persist them and report
     progress before the repair finishes.
 
+    If the run with cavity detection fails (e.g. a detector timeout), it is
+    retried once without cavity detection, so the ``.geo`` gets a single volume.
+
     Returns ``(success, remaining_issue_count)``; the remaining count is the
     number of issues still present after repair (the pipeline's final issues).
     On failure the count is ``0``.
@@ -729,24 +732,47 @@ def run_geometry_pipeline(
     from geometry_pipeline import process_geometry
 
     out_dir = _Path(output_dir)
+    logger = logging.getLogger(__name__)
+    detect_cavities = config.FeatureToggle.is_enabled("enable_volume_detection")
+    checkpoint_fired = False
 
+    def _checkpoint_once(payload):
+        # The retry passes the checkpoint again; persist the AfterUpload issues only once.
+        nonlocal checkpoint_fired
+        if on_checkpoint is not None and not checkpoint_fired:
+            checkpoint_fired = True
+            on_checkpoint(payload)
+
+    logger.warning(
+        f"Starting merged geometry pipeline for {obj_dir}, output to {output_dir} "
+        f"with volume name '{volume_name}'"
+    )
     try:
-        logger = logging.getLogger(__name__)
-        logger.warning(
-            f"Starting merged geometry pipeline for {obj_dir}, output to {output_dir} "
-            f"with volume name '{volume_name}'"
-        )
         result = process_geometry(
             obj_dir,
             out_dir,
             volume_name=volume_name,
-            detect_cavities=config.FeatureToggle.is_enabled("enable_volume_detection"),
-            on_checkpoint=on_checkpoint,
+            detect_cavities=detect_cavities,
+            on_checkpoint=_checkpoint_once,
         )
     except Exception as exc:
-        logger = logging.getLogger(__name__)
         logger.exception("merged geometry pipeline failed: %s", exc)
-        return False, 0
+        if not detect_cavities:
+            return False, 0
+        # shortcut: retries on any failure, not only cavity detection ones, so other
+        # failures cost a second run; narrow it if that becomes a problem.
+        logger.warning("Retrying the geometry pipeline without cavity detection")
+        try:
+            result = process_geometry(
+                obj_dir,
+                out_dir,
+                volume_name=volume_name,
+                detect_cavities=False,
+                on_checkpoint=_checkpoint_once,
+            )
+        except Exception as exc:
+            logger.exception("geometry pipeline retry without cavity detection failed: %s", exc)
+            return False, 0
 
     # `report["post"]` is the kind_dict of the final (post-repair) issues.
     post_issues = (result.report or {}).get("post", {}) if result else {}
