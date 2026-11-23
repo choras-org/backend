@@ -171,6 +171,13 @@ def generate_visualization_data(room_impulse_response: pf.Signal, json_path: str
         Path to the simulation result JSON file. Used as the base name for
         the generated sidecar files.
     """
+
+    room_impulse_response = pf.dsp.normalize(
+        room_impulse_response,
+        reference_method='energy',
+        domain='time',
+    )
+
     rirs_bandpassed = pf.dsp.filter.fractional_octave_bands(
         room_impulse_response, num_fractions=1, frequency_range=(125, 2e3),
     )
