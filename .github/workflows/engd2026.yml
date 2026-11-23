@@ -71,7 +71,8 @@ jobs:
           APP_TEST_SETTINGS_MODULE: config.TestingConfigs
           TESTING: "true"
         run: |
-            uv run pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/services/test_run_solver.py
+            uv run pytest tests/integration tests/unit/services/test_discovery_service.py tests/unit/services/test_run_solver.py \
+              tests/geometry_pipeline_integration/test_model_flow.py::ModelCreateFlowTests::test_post_models_pipeline_failure_marks_model_failed
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4
