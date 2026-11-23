@@ -170,12 +170,18 @@ def process_model_geometry(model_id: int):
             session.commit()
             _set_progress(model, 35)
 
-        _, remaining_issue_count = run_geometry_pipeline(
+        success, remaining_issue_count = run_geometry_pipeline(
             obj_path,
             directory,
             "RoomVolume",
             on_checkpoint=_on_checkpoint,
         )
+        if not success:
+            # No repaired files were written, so don't point an AfterRepair issue at them.
+            logger.error(f"Geometry pipeline failed for model {model_id}")
+            model.geometryStatus = GeometryProcessingStatus.Failed
+            session.commit()
+            return
 
         issue_path = os.path.join(directory, f"{file_name}_remaining_issue.json")
         issue_url = f"{base_url}/{os.path.basename(issue_path)}"
