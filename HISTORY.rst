@@ -20,6 +20,7 @@ Bug Fixes
 
 - Stop re-reading the results of finished simulation runs every time the run list is polled; completed runs are now stored with 100 % (#159)
 - Retry the geometry pipeline without cavity detection when it fails, so models whose detection times out can still be used with a single volume (#164)
+- Mark a model's geometry as failed when the geometry pipeline fails, instead of offering a repaired geometry that was never written (#163)
 
 0.2.1 (2026-11-03)
 ------------------

@@ -137,6 +137,23 @@ class ModelCreateFlowTests(IntegrationBaseTestCase):
         self.assertIn(DetectionStage.AfterUpload, stages)
         self.assertIn(DetectionStage.AfterRepair, stages)
 
+    def test_post_models_pipeline_failure_marks_model_failed(self):
+        """A failed pipeline sets geometryStatus Failed and writes no AfterRepair issue."""
+        with patch("app.services.geometry_service.run_geometry_pipeline", return_value=(False, 0)):
+            r = self._create_model_via_api(name="failing_pipeline")
+        self.assertEqual(r.status_code, 201)
+        model_id = r.json["id"]
+
+        self.refresh_session()
+
+        model = Model.query.get(model_id)
+        self.assertEqual(model.geometryStatus, GeometryProcessingStatus.Failed)
+        self.assertIsNone(model.repairStatus)
+        after_repair = ModelIssue.query.filter_by(
+            modelId=model_id, detectionStage=DetectionStage.AfterRepair
+        ).count()
+        self.assertEqual(after_repair, 0)
+
     def test_post_models_response_structure(self):
         """Validate all expected keys in POST /models response (ModelSchema)."""
         r = self._create_model_via_api()
