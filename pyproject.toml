@@ -1,6 +1,6 @@
 [project]
 name = "choras-backend"
-version = "0.2.1"
+version = "0.3.0"
 description = "Backend for CHORAS"
 authors = [
     { name = "The CHORAS developers"},
@@ -92,7 +92,7 @@ dev = [
 name = "app"
 
 [tool.bumpversion]
-current_version = "0.2.1"
+current_version = "0.3.0"
 commit = true
 tag = true
 
@@ -100,6 +100,11 @@ tag = true
 filename = "pyproject.toml"
 search = "version = \"{current_version}\""
 replace = "version = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "docs/source/conf.py"
+search = "release = \"{current_version}\""
+replace = "release = \"{new_version}\""
 
 [tool.pytest.ini_options]
 pythonpath = "."

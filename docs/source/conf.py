@@ -9,7 +9,7 @@
 project = "CHORAS backend"
 copyright = "2025, Building Acoustics Group TU/e"
 author = "Building Acoustics Group TU/e"
-release = "1.8"
+release = "0.3.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

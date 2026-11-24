@@ -5,22 +5,28 @@ History
 Unreleased
 ----------
 
+0.3.0 (2026-11-24)
+------------------
+
 Features
 ~~~~~~~~
 
 - Add the optional ``CHORAS_INSTANCE_NAME`` to simulation container names, so several CHORAS instances can share one Docker host (#153)
 - Add optional CPU and memory limits for simulation containers via ``CHORAS_SIM_CPUS`` and ``CHORAS_SIM_MEM_LIMIT`` (#153)
-- Remove no longer supported black formatter from dependencies (#154)
 - Add database migrations, applied automatically on startup. Existing databases from v0.2.0 or v0.2.1 are detected and upgraded without manual steps (#137)
-- Add geometry inspection and repair: uploaded models are checked for issues and repaired in the background, users can accept or reject the repaired geometry, and simulation compatibility is reported per method for the original and repaired geometry (#143)
+- Add geometry inspection and repair: uploaded models are checked for issues and repaired in the background, users can accept or reject the repaired geometry, and simulation compatibility is reported per method for the original and repaired geometry (#143, #156, #160, #164, #166)
 - Add result visualization data and endpoint (#138)
 
 Bug Fixes
 ~~~~~~~~~
 
 - Stop re-reading the results of finished simulation runs every time the run list is polled; completed runs are now stored with 100 % (#159)
-- Retry the geometry pipeline without cavity detection when it fails, so models whose detection times out can still be used with a single volume (#164)
 - Normalize the room impulse response to unit energy before generating the result plots (#165)
+
+Maintenance
+~~~~~~~~~~~
+
+- Remove no longer supported black formatter from dependencies (#154)
 
 0.2.1 (2026-11-03)
 ------------------
